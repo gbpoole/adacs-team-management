@@ -7,6 +7,7 @@ from .views import LeaveView
 from .views import ObserversView
 from .views import PhaseCreateView
 from .views import PhaseDeleteView
+from .views import PhaseUpdateView
 from .views import PlanningView
 from .views import ProjectsView
 from .views import ScheduleView
@@ -24,4 +25,5 @@ urlpatterns = [
     path("schedule/", ScheduleView.as_view(), name="schedule"),
     path("phase/add/", PhaseCreateView.as_view(), name="phase_add"),
     path("phase/<int:pk>/delete/", PhaseDeleteView.as_view(), name="phase_delete"),
+    path("phase/<int:pk>/update/", PhaseUpdateView.as_view(), name="phase_update"),
 ]

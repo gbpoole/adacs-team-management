@@ -516,6 +516,19 @@ class PhaseDeleteView(RoleRequiredMixin, View):
         return redirect(next_url)
 
 
+class PhaseUpdateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        phase = get_object_or_404(Phase, pk=pk)
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        phase.start_date = datetime.date.fromisoformat(start_date)
+        phase.end_date = datetime.date.fromisoformat(end_date)
+        phase.save(update_fields=["start_date", "end_date"])
+        return HttpResponse(status=204)
+
+
 # ---------------------------------------------------------------------------
 # Schedule page  (FR-17)
 # ---------------------------------------------------------------------------
