@@ -4,11 +4,13 @@ Management command to populate the database with realistic test data:
   - 27 projects
   - 2 observers
   - 2 semesters (2026A, 2026B) with allocations
+  - leave periods and phases
 
 Usage:
     python manage.py seed_test_data
     python manage.py seed_test_data --clear  # wipe planning data first
 """
+import datetime
 import random
 
 from django.contrib.auth import get_user_model
@@ -17,7 +19,9 @@ from django.db import transaction
 
 from apps.planning.models import AllocationType
 from apps.planning.models import DeveloperProfile
+from apps.planning.models import Leave
 from apps.planning.models import ObserverProfile
+from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
@@ -111,6 +115,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options["clear"]:
             self.stdout.write("Clearing existing planning data...")
+            Phase.objects.all().delete()
+            Leave.objects.all().delete()
             SemesterDeveloper.objects.all().delete()
             ProjectAllocation.objects.all().delete()
             ProjectSemesterName.objects.all().delete()
@@ -215,10 +221,47 @@ class Command(BaseCommand):
             # Give each observer access to a random subset of projects
             obs.project_access.set(random.sample(projects, k=random.randint(3, 8)))
 
+        self.stdout.write("Creating leave periods...")
+        leave_count = 0
+        for profile in random.sample(dev_profiles, k=min(6, len(dev_profiles))):
+            start = datetime.date(2026, random.randint(1, 10), random.choice([1, 8, 15, 22]))
+            end = start + datetime.timedelta(days=random.choice([4, 7, 9, 14]))
+            Leave.objects.get_or_create(
+                developer=profile,
+                start_date=start,
+                defaults={"end_date": end},
+            )
+            leave_count += 1
+
+        self.stdout.write("Creating phases...")
+        phase_count = 0
+        sem_project_pairs = []
+        for sem in [sem_a, sem_b]:
+            for project in random.sample(projects, k=min(10, len(projects))):
+                sem_project_pairs.append((sem, project))
+
+        for profile in dev_profiles:
+            pairs = random.sample(sem_project_pairs, k=random.randint(2, 5))
+            for sem, project in pairs:
+                offset_weeks = random.randint(0, 10)
+                duration_weeks = random.randint(3, 10)
+                start = sem.start_date + datetime.timedelta(weeks=offset_weeks)
+                end = start + datetime.timedelta(weeks=duration_weeks) - datetime.timedelta(days=1)
+                end = min(end, sem.end_date)
+                multiplier = random.choice([0.5, 1.0, 1.0, 1.0])
+                Phase.objects.get_or_create(
+                    developer=profile,
+                    project=project,
+                    semester=sem,
+                    start_date=start,
+                    defaults={"end_date": end, "effort_multiplier": multiplier},
+                )
+                phase_count += 1
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Done: {len(dev_profiles)} developers, {len(projects)} projects, "
-                f"2 observers, 2 semesters.",
+                f"2 observers, 2 semesters, {leave_count} leave periods, {phase_count} phases.",
             ),
         )
 

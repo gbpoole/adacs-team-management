@@ -28,6 +28,13 @@
             {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
             <li><a href="{% url 'planning:observers' %}">{% translate "Observers" %}</a></li>
             {% endif %}
+            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
+            <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
+            {% endif %}
+            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
+            <li><a href="{% url 'planning:planning' %}">{% translate "Planning" %}</a></li>
+            <li><a href="{% url 'planning:schedule' %}">{% translate "Schedule" %}</a></li>
+            {% endif %}
             <li>
               <a href="{% url 'users:detail' request.user.pk %}">My Profile</a>
             </li>
@@ -63,6 +70,13 @@
           <li><a href="{% url 'planning:projects' %}">{% translate "Projects" %}</a></li>
           {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
           <li><a href="{% url 'planning:observers' %}">{% translate "Observers" %}</a></li>
+          {% endif %}
+          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
+          <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
+          {% endif %}
+          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
+          <li><a href="{% url 'planning:planning' %}">{% translate "Planning" %}</a></li>
+          <li><a href="{% url 'planning:schedule' %}">{% translate "Schedule" %}</a></li>
           {% endif %}
         {% endif %}
       </ul>

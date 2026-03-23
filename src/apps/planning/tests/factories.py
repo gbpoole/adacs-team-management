@@ -1,8 +1,12 @@
+import datetime
+
 import factory
 from factory.django import DjangoModelFactory
 
 from apps.planning.models import DeveloperProfile
+from apps.planning.models import Leave
 from apps.planning.models import ObserverProfile
+from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
@@ -115,3 +119,24 @@ class SemesterDeveloperFactory(DjangoModelFactory):
     developer = factory.SubFactory(DeveloperProfileFactory)
     semester = factory.SubFactory(SemesterFactory)
     effort_available = 26
+
+
+class LeaveFactory(DjangoModelFactory):
+    class Meta:
+        model = Leave
+
+    developer = factory.SubFactory(DeveloperProfileFactory)
+    start_date = datetime.date(2026, 3, 1)
+    end_date = datetime.date(2026, 3, 7)
+
+
+class PhaseFactory(DjangoModelFactory):
+    class Meta:
+        model = Phase
+
+    developer = factory.SubFactory(DeveloperProfileFactory)
+    project = factory.SubFactory(ProjectFactory)
+    semester = factory.SubFactory(SemesterFactory)
+    start_date = datetime.date(2026, 1, 5)
+    end_date = datetime.date(2026, 2, 2)
+    effort_multiplier = 1.0

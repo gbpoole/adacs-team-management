@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Planning" %}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold">{% trans "Planning" %}</h1>
+      <p class="text-sm text-neutral-500">{{ semester }}</p>
+    </div>
+  </div>
+
+  {# Controls #}
+  <form method="get" class="flex flex-wrap gap-3 items-end mb-4">
+    <div class="form-control">
+      <label class="label label-text text-xs">{% trans "From" %}</label>
+      <input type="date" name="start" value="{{ range_start }}" class="input input-bordered input-sm">
+    </div>
+    <div class="form-control">
+      <label class="label label-text text-xs">{% trans "To" %}</label>
+      <input type="date" name="end" value="{{ range_end }}" class="input input-bordered input-sm">
+    </div>
+    <div class="form-control">
+      <label class="label label-text text-xs">{% trans "Tags" %}</label>
+      <select name="tags" multiple class="select select-bordered select-sm">
+        {% for tag in all_tags %}
+        <option value="{{ tag.name }}" {% if tag.name in selected_tags %}selected{% endif %}>{{ tag.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-sm btn-primary">{% trans "Apply" %}</button>
+    <a href="{% url 'planning:planning' %}" class="btn btn-sm btn-ghost">{% trans "Reset" %}</a>
+  </form>
+
+  {# Timeline table #}
+  {% if weeks %}
+  <div class="overflow-x-auto border border-base-300 rounded-lg">
+    <table class="border-collapse" style="min-width: max-content;">
+      <thead>
+        <tr class="bg-base-100 sticky top-0 z-20">
+          <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-40">{% trans "Developer" %}</th>
+          {% for week in weeks %}
+          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16">{{ week|date:"d M" }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in developer_rows %}
+          {% for cells in row.layers %}
+          <tr class="{% if forloop.last %}border-b border-base-200{% endif %}">
+            {% if forloop.first %}
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.layer_count }}">
+              <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
+                    style="background-color: {{ row.developer.colour }};"></span>
+              {{ row.developer.user.name|default:row.developer.user.email }}
+            </td>
+            {% endif %}
+            {% for cell in cells %}
+              {% if cell.type == "phase" %}
+              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8">
+                <div class="tooltip w-full h-full"
+                     data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
+                  <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap cursor-default"
+                       style="background-color: {{ cell.phase.project.colour }};">
+                    <span class="truncate">{{ cell.phase.display_name }}</span>
+                    {% if can_edit %}
+                    <form method="post" action="{% url 'planning:phase_delete' cell.phase.pk %}" class="ml-auto shrink-0">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                      <button type="submit" class="text-white/70 hover:text-white leading-none px-1"
+                              onclick="return confirm('Delete this phase?')" title="Delete">×</button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              {% elif cell.type == "leave" %}
+              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8">
+                <div class="h-full bg-base-300 flex items-center justify-center" title="{% trans 'Leave' %}">
+                  <span class="text-xs text-neutral-400">✈</span>
+                </div>
+              </td>
+              {% else %}
+              <td colspan="{{ cell.colspan }}"
+                  class="p-0 border-l border-base-200 h-8 {% if can_edit %}timeline-cell hover:bg-primary/10 cursor-pointer{% endif %}"
+                  data-developer="{{ row.developer.pk }}"
+                  data-col-start="{{ cell.col_start }}"
+                  data-col-end="{{ cell.col_end }}"></td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        {% empty %}
+        <tr>
+          <td colspan="{{ weeks|length|add:1 }}" class="text-center text-neutral-500 p-4">{% trans "No developers found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-neutral-500">{% trans "No weeks in selected range." %}</p>
+  {% endif %}
+</div>
+
+{# Phase create modal #}
+{% if can_edit %}
+<dialog id="phase-create-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Add Phase" %}</h3>
+    <form method="post" action="{% url 'planning:phase_add' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Developer" %}</label>
+        <select id="phase-developer" name="developer" class="select select-bordered" required>
+          {% for dev in developers %}
+          <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Project" %}</label>
+        <select name="project" class="select select-bordered" required>
+          {% for project in projects %}
+          <option value="{{ project.pk }}">{{ project.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Start Date" %}</label>
+          <input id="phase-start-date" type="date" name="start_date" class="input input-bordered" required>
+        </div>
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "End Date" %}</label>
+          <input id="phase-end-date" type="date" name="end_date" class="input input-bordered" required>
+        </div>
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Effort Multiplier" %} <span class="label-text-alt">(0–1)</span></label>
+        <input type="number" name="effort_multiplier" value="1.0" min="0" max="1" step="0.1" class="input input-bordered">
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('phase-create-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add Phase" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+<script>
+(function () {
+  const weeks = JSON.parse('{{ weeks_json|escapejs }}');
+
+  function isoToDate(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function addDays(iso, days) {
+    const d = isoToDate(iso);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+
+  let dragging = false;
+  let startCell = null;
+  let highlighted = [];
+
+  function clearHighlight() {
+    highlighted.forEach(c => c.classList.remove('bg-primary/30'));
+    highlighted = [];
+  }
+
+  function cellsInRowBetween(row, a, b) {
+    const cells = Array.from(row.querySelectorAll('.timeline-cell'));
+    const ai = cells.indexOf(a), bi = cells.indexOf(b);
+    if (ai < 0 || bi < 0) return [a];
+    const lo = Math.min(ai, bi), hi = Math.max(ai, bi);
+    return cells.slice(lo, hi + 1);
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    const cell = e.target.closest('.timeline-cell');
+    if (!cell) return;
+    e.preventDefault();
+    dragging = true;
+    startCell = cell;
+    cell.classList.add('bg-primary/30');
+    highlighted = [cell];
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!dragging || !startCell) return;
+    const cell = e.target.closest('.timeline-cell');
+    if (!cell) return;
+    clearHighlight();
+    const row = startCell.closest('tr');
+    if (cell.closest('tr') !== row) {
+      startCell.classList.add('bg-primary/30');
+      highlighted = [startCell];
+      return;
+    }
+    highlighted = cellsInRowBetween(row, startCell, cell);
+    highlighted.forEach(c => c.classList.add('bg-primary/30'));
+  });
+
+  document.addEventListener('mouseup', function (e) {
+    if (!dragging) return;
+    dragging = false;
+    const endCell = e.target.closest('.timeline-cell') || startCell;
+
+    let selection = highlighted.length ? highlighted : [startCell];
+    clearHighlight();
+
+    const first = selection[0];
+    const last = selection[selection.length - 1];
+    const devId = first.dataset.developer;
+    const startColStart = parseInt(first.dataset.colStart, 10);
+    const endColEnd = parseInt(last.dataset.colEnd, 10);
+
+    const startDate = weeks[startColStart] || weeks[0];
+    const endDate = endColEnd < weeks.length ? addDays(weeks[endColEnd], 6) : addDays(weeks[weeks.length - 1], 6);
+
+    document.getElementById('phase-developer').value = devId;
+    document.getElementById('phase-start-date').value = startDate;
+    document.getElementById('phase-end-date').value = endDate;
+    document.getElementById('phase-create-modal').showModal();
+
+    startCell = null;
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Schedule" %}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold">{% trans "Schedule" %}</h1>
+      <p class="text-sm text-neutral-500">{{ semester }}</p>
+    </div>
+  </div>
+
+  {# Controls #}
+  <form method="get" class="flex flex-wrap gap-3 items-end mb-4">
+    <div class="form-control">
+      <label class="label label-text text-xs">{% trans "From" %}</label>
+      <input type="date" name="start" value="{{ range_start }}" class="input input-bordered input-sm">
+    </div>
+    <div class="form-control">
+      <label class="label label-text text-xs">{% trans "To" %}</label>
+      <input type="date" name="end" value="{{ range_end }}" class="input input-bordered input-sm">
+    </div>
+    <button type="submit" class="btn btn-sm btn-primary">{% trans "Apply" %}</button>
+    <a href="{% url 'planning:schedule' %}" class="btn btn-sm btn-ghost">{% trans "Reset" %}</a>
+  </form>
+
+  {# Timeline table #}
+  {% if weeks %}
+  <div class="overflow-x-auto border border-base-300 rounded-lg">
+    <table class="border-collapse" style="min-width: max-content;">
+      <thead>
+        <tr class="bg-base-100 sticky top-0 z-20">
+          <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-48">{% trans "Project" %}</th>
+          <th class="sticky left-48 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-36">{% trans "Developer" %}</th>
+          {% for week in weeks %}
+          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16">{{ week|date:"d M" }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in project_rows %}
+          {% for layer in row.layers %}
+          <tr class="{% if forloop.last %}border-b border-base-200{% endif %}">
+            {% if forloop.first %}
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.layer_count }}">
+              <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
+                    style="background-color: {{ row.project.colour }};"></span>
+              {{ row.project.display_name }}
+            </td>
+            {% endif %}
+            <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1 text-sm whitespace-nowrap">
+              <span class="inline-block w-2 h-2 rounded-full mr-1 align-middle"
+                    style="background-color: {{ layer.developer.colour }};"></span>
+              {{ layer.developer.user.name|default:layer.developer.user.email }}
+            </td>
+            {% for cell in layer.cells %}
+              {% if cell.type == "phase" %}
+              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8">
+                <div class="tooltip w-full h-full"
+                     data-tip="{{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
+                  <div class="h-full rounded text-xs text-white flex items-center px-2 overflow-hidden whitespace-nowrap cursor-default"
+                       style="background-color: {{ cell.phase.project.colour }};">
+                    {{ cell.phase.effort_display }} wks
+                  </div>
+                </div>
+              </td>
+              {% else %}
+              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8"></td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% empty %}
+          <tr class="border-b border-base-200">
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap">
+              <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
+                    style="background-color: {{ row.project.colour }};"></span>
+              {{ row.project.display_name }}
+            </td>
+            <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1 text-sm text-neutral-400">—</td>
+            <td colspan="{{ weeks|length }}" class="border-l border-base-200 h-8"></td>
+          </tr>
+          {% endfor %}
+        {% empty %}
+        <tr>
+          <td colspan="{{ weeks|length|add:2 }}" class="text-center text-neutral-500 p-4">{% trans "No phases found in this date range." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-neutral-500">{% trans "No weeks in selected range." %}</p>
+  {% endif %}
+</div>
+{% endblock %}

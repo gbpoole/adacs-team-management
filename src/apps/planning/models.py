@@ -341,3 +341,76 @@ class SemesterDeveloper(models.Model):
 
     def __str__(self):
         return f"{self.developer} - {self.semester} ({self.effort_available} wks)"
+
+
+# ---------------------------------------------------------------------------
+# Leave  (FR-13)
+# ---------------------------------------------------------------------------
+
+
+class Leave(models.Model):
+    developer = models.ForeignKey(
+        DeveloperProfile,
+        on_delete=models.CASCADE,
+        related_name="leave_periods",
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        ordering = ["start_date"]
+
+    def __str__(self):
+        return f"{self.developer} {self.start_date}\u2013{self.end_date}"
+
+
+# ---------------------------------------------------------------------------
+# Phase  (FR-15)
+# ---------------------------------------------------------------------------
+
+
+class Phase(models.Model):
+    developer = models.ForeignKey(
+        DeveloperProfile,
+        on_delete=models.CASCADE,
+        related_name="phases",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="phases",
+    )
+    semester = models.ForeignKey(
+        Semester,
+        on_delete=models.CASCADE,
+        related_name="phases",
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    effort_multiplier = models.FloatField(default=1.0)
+
+    class Meta:
+        ordering = ["start_date"]
+
+    def effort_weeks(self) -> float:
+        """Effort in weeks, excluding developer leave days (5 work days = 1 week)."""
+        work_days = 0
+        day = self.start_date
+        while day <= self.end_date:
+            if day.weekday() < 5:  # Mon-Fri
+                work_days += 1
+            day += datetime.timedelta(days=1)
+        for leave in self.developer.leave_periods.filter(
+            start_date__lte=self.end_date,
+            end_date__gte=self.start_date,
+        ):
+            day = max(leave.start_date, self.start_date)
+            end = min(leave.end_date, self.end_date)
+            while day <= end:
+                if day.weekday() < 5:
+                    work_days -= 1
+                day += datetime.timedelta(days=1)
+        return round(max(0, work_days) / 5 * self.effort_multiplier, 2)
+
+    def __str__(self):
+        return f"{self.developer} on {self.project} ({self.semester})"

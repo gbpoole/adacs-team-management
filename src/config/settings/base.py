@@ -212,6 +212,9 @@ POST_OFFICE = {
     "THREADS_PER_PROCESS": 2,
 }
 
+EMAIL_HOST = config("EMAIL_HOST", default="localhost")
+EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
+
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
 

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Leave" %}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">{% trans "Leave" %}</h1>
+    <div class="flex gap-2">
+      {% if show_past %}
+      <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-sm">{% trans "Hide Past" %}</a>
+      {% else %}
+      <a href="?show_past=1" class="btn btn-outline btn-sm">{% trans "Show Past" %}</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if can_edit or is_developer %}
+  <div class="card bg-base-200 mb-6 p-4">
+    <h2 class="text-sm font-semibold mb-3">{% trans "Add Leave" %}</h2>
+    <form method="post" action="{% url 'planning:leave_add' %}" class="flex flex-wrap gap-3 items-end">
+      {% csrf_token %}
+      {% if can_edit %}
+      <div class="form-control">
+        <label class="label label-text text-xs">{% trans "Developer" %}</label>
+        <select name="developer" class="select select-bordered select-sm" required>
+          {% for dev in developers %}
+          <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% else %}
+      <input type="hidden" name="developer" value="{{ my_developer_id }}">
+      {% endif %}
+      <div class="form-control">
+        <label class="label label-text text-xs">{% trans "Start Date" %}</label>
+        <input type="date" name="start_date" class="input input-bordered input-sm" required>
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">{% trans "End Date" %}</label>
+        <input type="date" name="end_date" class="input input-bordered input-sm" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">{% trans "Add" %}</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          {% if can_edit %}<th>{% trans "Developer" %}</th>{% endif %}
+          <th>{% trans "Start Date" %}</th>
+          <th>{% trans "End Date" %}</th>
+          <th class="text-right">{% trans "Duration (days)" %}</th>
+          {% if can_edit or is_developer %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for leave in leave_periods %}
+        <tr>
+          {% if can_edit %}<td>{{ leave.developer.user.name|default:leave.developer.user.email }}</td>{% endif %}
+          <td>{{ leave.start_date }}</td>
+          <td>{{ leave.end_date }}</td>
+          <td class="text-right">{{ leave.start_date|timeuntil:leave.end_date }}</td>
+          {% if can_edit or is_developer %}
+          <td class="text-right">
+            <form method="post" action="{% url 'planning:leave_delete' leave.pk %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-xs text-error"
+                      onclick="return confirm('{% trans "Delete this leave period?" %}')">
+                {% trans "Delete" %}
+              </button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-neutral-500">{% trans "No leave periods found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

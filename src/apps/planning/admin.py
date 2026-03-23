@@ -1,7 +1,9 @@
 from django.contrib import admin
 
 from .models import DeveloperProfile
+from .models import Leave
 from .models import ObserverProfile
+from .models import Phase
 from .models import Project
 from .models import ProjectAllocation
 from .models import ProjectSemesterName
@@ -66,4 +68,18 @@ class ProjectAdmin(admin.ModelAdmin):
 class SemesterDeveloperAdmin(admin.ModelAdmin):
     list_display = ["developer", "semester", "effort_available"]
     list_filter = ["semester"]
+    search_fields = ["developer__user__email", "developer__user__name"]
+
+
+@admin.register(Leave)
+class LeaveAdmin(admin.ModelAdmin):
+    list_display = ["developer", "start_date", "end_date"]
+    list_filter = ["developer"]
+    search_fields = ["developer__user__email", "developer__user__name"]
+
+
+@admin.register(Phase)
+class PhaseAdmin(admin.ModelAdmin):
+    list_display = ["developer", "project", "semester", "start_date", "end_date", "effort_multiplier"]
+    list_filter = ["semester", "project"]
     search_fields = ["developer__user__email", "developer__user__name"]
