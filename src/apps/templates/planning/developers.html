@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Developers" %}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold">{% trans "Developers" %}</h1>
+      <p class="text-sm text-neutral-500">{{ semester }}</p>
+    </div>
+    {% if can_edit %}
+    <div class="flex gap-2">
+      <button class="btn btn-primary btn-sm" disabled>+ {% trans "Add Developer" %}</button>
+      <button class="btn btn-outline btn-sm" disabled>{% trans "Upload TSV" %}</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>{% trans "Name" %}</th>
+          <th>{% trans "Organisation" %}</th>
+          <th>{% trans "Tags" %}</th>
+          <th class="text-right">{% trans "Effort Available (wks)" %}</th>
+          <th class="text-right">{% trans "Effort Allocated (wks)" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dev in developers %}
+        <tr>
+          <td>
+            <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
+                  style="background-color: {{ dev.colour }};"></span>
+            {% if dev.user.emoji %}{{ dev.user.emoji }} {% endif %}{{ dev.user.name|default:dev.user.email }}
+          </td>
+          <td>{{ dev.user.organisation|default:"—" }}</td>
+          <td>
+            {% for tag in dev.tags.all %}
+            <span class="badge badge-outline badge-sm">{{ tag }}</span>
+            {% empty %}—{% endfor %}
+          </td>
+          <td class="text-right">{{ dev.effort_available|default:"—" }}</td>
+          <td class="text-right{% if dev.effort_available and dev.effort_allocated > dev.effort_available %} text-error font-bold{% endif %}">
+            {{ dev.effort_allocated }}
+            {% if dev.effort_available and dev.effort_allocated > dev.effort_available %}
+            <span class="ml-1 tooltip" data-tip="{% trans 'Over-allocated' %}">⚠</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-neutral-500">{% trans "No developers found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

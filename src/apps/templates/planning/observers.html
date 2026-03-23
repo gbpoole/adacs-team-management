@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Observers" %}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">{% trans "Observers" %}</h1>
+    <div class="flex gap-2">
+      <button class="btn btn-primary btn-sm" disabled>+ {% trans "Add Observer" %}</button>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>{% trans "Name" %}</th>
+          <th>{% trans "Email" %}</th>
+          <th>{% trans "Organisation" %}</th>
+          <th>{% trans "Project Access" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obs in observers %}
+        <tr>
+          <td>{% if obs.user.emoji %}{{ obs.user.emoji }} {% endif %}{{ obs.user.name|default:"—" }}</td>
+          <td>{{ obs.user.email }}</td>
+          <td>{{ obs.user.organisation|default:"—" }}</td>
+          <td>
+            {% for project in obs.project_access.all %}
+            <span class="badge badge-outline badge-sm">{{ project }}</span>
+            {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

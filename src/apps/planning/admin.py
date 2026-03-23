@@ -1,0 +1,69 @@
+from django.contrib import admin
+
+from .models import DeveloperProfile
+from .models import ObserverProfile
+from .models import Project
+from .models import ProjectAllocation
+from .models import ProjectSemesterName
+from .models import Semester
+from .models import SemesterDeveloper
+from .models import Stream
+from .models import Tag
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ["name"]
+    search_fields = ["name"]
+
+
+@admin.register(Stream)
+class StreamAdmin(admin.ModelAdmin):
+    list_display = ["name"]
+    search_fields = ["name"]
+
+
+@admin.register(DeveloperProfile)
+class DeveloperProfileAdmin(admin.ModelAdmin):
+    list_display = ["user", "colour"]
+    filter_horizontal = ["tags"]
+    search_fields = ["user__email", "user__name"]
+
+
+@admin.register(ObserverProfile)
+class ObserverProfileAdmin(admin.ModelAdmin):
+    list_display = ["user"]
+    filter_horizontal = ["project_access"]
+    search_fields = ["user__email", "user__name"]
+
+
+@admin.register(Semester)
+class SemesterAdmin(admin.ModelAdmin):
+    list_display = ["code", "year", "semester_type", "start_date", "end_date"]
+    ordering = ["-year", "-semester_type"]
+
+
+class ProjectSemesterNameInline(admin.TabularInline):
+    model = ProjectSemesterName
+    extra = 1
+
+
+class ProjectAllocationInline(admin.TabularInline):
+    model = ProjectAllocation
+    extra = 1
+
+
+@admin.register(Project)
+class ProjectAdmin(admin.ModelAdmin):
+    list_display = ["__str__", "stream", "colour"]
+    list_filter = ["stream", "tags"]
+    filter_horizontal = ["tags"]
+    inlines = [ProjectSemesterNameInline, ProjectAllocationInline]
+    search_fields = ["semester_names__name"]
+
+
+@admin.register(SemesterDeveloper)
+class SemesterDeveloperAdmin(admin.ModelAdmin):
+    list_display = ["developer", "semester", "effort_available"]
+    list_filter = ["semester"]
+    search_fields = ["developer__user__email", "developer__user__name"]

@@ -38,7 +38,7 @@ STORAGES = {
     },
 }
 
-ALLOWED_HOSTS = ["test-project.org"]
+ALLOWED_HOSTS = [config("DOMAIN_NAME", default="localhost"), "localhost", "127.0.0.1"]
 
 # Use the correct host when building in docker
 DATABASES["default"]["HOST"] = "db"

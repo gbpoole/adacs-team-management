@@ -186,6 +186,17 @@ extend-unsafe-fixes = [
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
+[tool.ruff.lint.per-file-ignores]
+# Tests don't need type annotations or pytest-style assertions (we use unittest/Django TestCase)
+"*/tests/*.py" = ["ANN", "PT009", "PT027", "DTZ011", "PLR2004", "S311"]
+# Management commands follow Django's BaseCommand interface
+"*/management/commands/*.py" = ["ANN", "S311"]
+# App code — ANN annotations are not required (consistent with template baseline)
+"src/apps/**/*.py" = ["ANN"]
+# Pre-existing template code — do not modify
+"src/apps/users/apps.py" = ["PLC0415"]
+"src/apps/users/forms.py" = ["I001"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

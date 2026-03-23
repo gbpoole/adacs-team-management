@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Projects" %}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold">{% trans "Projects" %}</h1>
+      <p class="text-sm text-neutral-500">{{ semester }}</p>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn btn-primary btn-sm" disabled>+ {% trans "Add Project" %}</button>
+      <button class="btn btn-outline btn-sm" disabled>{% trans "Upload TSV" %}</button>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>{% trans "Name" %}</th>
+          <th>{% trans "Stream" %}</th>
+          <th>{% trans "Tags" %}</th>
+          <th>{% trans "Colour" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for project in projects %}
+        <tr>
+          <td>{{ project.display_name }}</td>
+          <td>{{ project.stream|default:"—" }}</td>
+          <td>
+            {% for tag in project.tags.all %}
+            <span class="badge badge-outline badge-sm">{{ tag }}</span>
+            {% empty %}—{% endfor %}
+          </td>
+          <td>
+            <span class="inline-flex items-center gap-2">
+              <span class="inline-block w-4 h-4 rounded" style="background-color: {{ project.colour }};"></span>
+              {{ project.colour }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
