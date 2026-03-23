@@ -1,0 +1,21 @@
+[run]
+omit =
+    # Ignore manage.py files
+    ./*manage.py
+    ./allauth_monkeypatch/*
+    **/tests/**
+    **/__init__.py
+    **/migrations/**
+    config/**
+    **/virtualenvs/**
+    **/.venv/**
+
+parallel = true
+
+concurrency = multiprocessing,thread
+
+[report]
+show_missing=true
+
+
+

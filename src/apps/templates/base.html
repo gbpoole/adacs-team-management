@@ -1,0 +1,33 @@
+{% load static i18n %}
+<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html data-theme="light" class="h-full" lang="{{ LANGUAGE_CODE }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <title>
+      adacs-team-planning
+      {% block title %}
+      {% endblock title %}
+    </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Test Project" />
+    <link rel="icon" href="{% static 'images/adacs_icon.png' %}" />
+    <script src="{% static 'js/htmx.min.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}" />
+  </head>
+  <body class="h-full" hx-boost="true">
+    {% block body %}
+      {% include 'elements/navbar.html' %}
+      {# Display any messages #}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+      {# Main content block #}
+      {% block content %}
+      {% endblock content %}
+    {% endblock body %}
+  </body>
+</html>

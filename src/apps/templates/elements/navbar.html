@@ -1,0 +1,85 @@
+
+{% load static i18n %}
+
+<header>
+  <div class="navbar bg-base-100 text-lg font-semibold">
+    <div class="navbar-start">
+      <div class="dropdown">
+        <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="h-5 w-5"
+               fill="none"
+               viewBox="0 0 24 24"
+               stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+          </svg>
+        </div>
+        <ul tabindex="0"
+            class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+          <li>
+            <a href="{% url 'home' %}">Home</a>
+          </li>
+          <li>
+            <a href="{% url 'about' %}">About</a>
+          </li>
+
+          {% if request.user.is_authenticated %}
+            <li>
+              <a href="{% url 'users:detail' request.user.pk %}">My Profile</a>
+            </li>
+            <li>
+              <a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
+            </li>
+          {% else %}
+            {% if ACCOUNT_ALLOW_REGISTRATION %}
+              <li>
+                <a href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
+              </li>
+            {% endif %}
+          {% endif %}
+
+        </ul>
+      </div>
+      <a class="btn btn-ghost" href="{% url 'home' %}">
+        <span class="sr-only">ADACS</span>
+        <img class="h-7 w-auto mb-2"
+             src="{% static 'images/adacs_logo.svg' %}"
+             alt="ADACS logo" />
+      </a>
+    </div>
+    <div class="navbar-center hidden lg:flex">
+      <ul class="menu menu-horizontal px-1">
+        <li>
+          <a href="{% url 'home' %}">Home</a>
+        </li>
+        <li>
+          <a href="{% url 'about' %}">About</a>
+        </li>
+      </ul>
+    </div>
+    <div class="navbar-end hidden lg:flex">
+      <ul class="menu menu-horizontal">
+
+        {% if request.user.is_authenticated %}
+          {# URLs provided by django-allauth/account/urls.py #}
+          <li>
+            <a href="{% url 'users:detail' request.user.pk %}">My Profile</a>
+          </li>
+          <li>
+            <a href="{% url 'account_logout' %}">Sign Out</a>
+          </li>
+        {% else %}
+          {% if ACCOUNT_ALLOW_REGISTRATION %}
+            <li>
+              <a class="hidden lg:flex" href="{% url 'account_signup' %}">Sign Up</a>
+            </li>
+          {% endif %}
+          <li>
+            <a href="{% url 'account_login' %}">Log in <span aria-hidden="true">&rarr;</span></a>
+          </li>
+        {% endif %}
+
+      </ul>
+    </div>
+  </div>
+</header>

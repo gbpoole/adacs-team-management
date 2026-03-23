@@ -1,0 +1,87 @@
+stages:
+  - build
+  - lint
+  - test
+
+default:
+  image:
+    name: python:3.12
+    entrypoint: ["/usr/bin/env"]
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  POETRY_HOME: "$CI_PROJECT_DIR/.cache/poetry"
+  POETRY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/poetry_cache"
+  POETRY_VERSION: 1.8.4
+  POETRY_VIRTUALENVS_IN_PROJECT: True
+  DJANGO_SETTINGS_MODULE: config.settings.test
+  SAST_EXCLUDED_PATHS: .cache,.venv
+
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Code-Quality.gitlab-ci.yml
+
+poetry-install:
+  stage: build
+  image:
+    name: python:3.12
+    entrypoint: ["/usr/bin/env"]
+  script:
+    - python -m venv $POETRY_HOME
+    - $POETRY_HOME/bin/pip install poetry==$POETRY_VERSION
+    - $POETRY_HOME/bin/poetry --version
+    - $POETRY_HOME/bin/poetry install
+  artifacts:
+    paths:
+      - .venv/
+      - $POETRY_HOME/
+
+
+flake8:
+  stage: lint
+  script:
+    - $POETRY_HOME/bin/poetry run flake8 --exit-zero --format gl-codeclimate --output-file gl-code-quality-report.json src/
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+
+black:
+  stage: lint
+  script:
+    - $POETRY_HOME/bin/poetry run black --check src/
+
+
+djlint:
+  stage: lint
+  script:
+    - $POETRY_HOME/bin/poetry run djlint --check src/
+
+django-check:
+  stage: lint
+  script:
+    - cd src/
+    - $POETRY_HOME/bin/poetry run python manage.py check
+    - $POETRY_HOME/bin/poetry run python manage.py makemigrations --check
+
+django-tests:
+  stage: test
+  needs:
+    - poetry-install
+  script:
+    - export PATH=$PATH:$POETRY_HOME/bin
+    - cd src/
+    - poetry run playwright install-deps
+    - poetry run playwright install
+    - ./run_coverage.sh
+  coverage: '/TOTAL.*\s+(\d.+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: src/coverage.xml
+      junit: src/junit-reports/*.xml

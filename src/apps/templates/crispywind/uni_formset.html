@@ -1,0 +1,6 @@
+{% with formset.management_form as form %}
+  {% include 'crispywind/uni_form.html' %}
+{% endwith %}
+{% for form in formset %}
+  <div class="multiField">{% include 'crispywind/uni_form.html' %}</div>
+{% endfor %}

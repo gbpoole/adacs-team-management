@@ -1,0 +1,200 @@
+[tool.poetry]
+name = "adacs-team-planning"
+description = "Application for planning/scheduling ADACS project delivery"
+version = "0.1.0"
+authors = []
+readme = "README.md"
+# Only use Poetry for dependency management.
+# We're not going to publish this web app to PyPI.
+# https://python-poetry.org/docs/basic-usage/#operating-modes
+package-mode = false
+classifiers = [
+  "Private :: Do not Upload", # Stop project accidentally being uploaded to PyPI
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+# Argon2 provides better password hashing algorithms. See the django docs:
+# https://docs.djangoproject.com/en/4.2/topics/auth/passwords/#using-argon2-with-django
+django = { version = "^5.2.4", extras = ["argon2"] }
+django-health-check = "^3.20.0"
+django-axes = "^8.0.0"
+django-compressor = "^4.5.1"
+django-crispy-forms = "^2.4"
+django-recaptcha = "^4.1.0"
+django-post-office = "^3.10.0"
+
+python-decouple = "^3.8"
+gunicorn = "^23.0.0"
+django-allauth = "^65.10.0"
+fido2 = "^2.0.0"
+qrcode = "^8.2"
+mysqlclient = "^2.2.7"
+
+# Django REST Framework
+djangorestframework = "^3.16.0"  # https://github.com/encode/django-rest-framework
+django-cors-headers = "^4.7.0"  # https://github.com/adamchainz/django-cors-headers
+# DRF-spectacular for API documentation
+drf-spectacular = "^0.28.0"  # https://github.com/tfranzel/drf-spectacular
+
+[tool.poetry.group.dev.dependencies]
+django-debug-toolbar = "^5.2.0"
+django-migration-linter = "^5.2.0"
+django-extra-checks = "^0.16.1"
+django-extensions = "^4.1"
+
+ruff = "^0.12.4"
+nplusone = "^1.0.0"
+djlint = "^1.36.4"
+pytest = "^8.4.1"
+django-browser-reload = "^1.18.0"
+black = "^25.1.0"
+flake8 = "^7.3.0"
+flake8-gl-codeclimate = "^0.2.1"
+django4-jenkins = "^1.0.0"
+coverage = "<5"
+unittest-xml-reporting = "^3.2.0"
+tblib = "^3.1.0"
+factory-boy = "^3.3.3"
+playwright = "^1.54.0"
+adacs-django-playwright = "^1.1.0"
+
+[tool.djlint]
+blank_line_after_tag = "load,extends"
+close_void_tags = true
+format_css = true
+format_js = true
+ignore = "H006,H030,H031,T002"
+include = "H017,H035"
+indent = 2
+max_line_length = 119
+profile = "django"
+
+[tool.djlint.css]
+indent_size = 2
+
+[tool.djlint.js]
+indent_size = 2
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "*/migrations/*.py",
+    "staticfiles/*"
+]
+# Same as Django
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "F",
+  "E",
+  "W",
+  "C90",
+  "I",
+  "N",
+  "UP",
+  "YTT",
+  "ANN",
+  "ASYNC",
+  "S",
+  "BLE",
+  "FBT",
+  "B",
+  "A",
+  "COM",
+  "C4",
+  "DTZ",
+  "T10",
+  "DJ",
+  "EM",
+  "EXE",
+  "FA",
+  'ISC',
+  "ICN",
+  "G",
+  'INP',
+  'PIE',
+  "T20",
+  'PYI',
+  'PT',
+  "Q",
+  "RSE",
+  "RET",
+  "SLF",
+  "SLOT",
+  "SIM",
+  "TID",
+  "TCH",
+  "INT",
+  # "ARG", # Unused function argument (cls, self)
+  "PTH",
+  "ERA",
+  "PD",
+  "PGH",
+  "PL",
+  "TRY",
+  "FLY",
+  # "NPY",
+  # "AIR",
+  "PERF",
+  # "FURB",
+  # "LOG",
+  "RUF"
+]
+ignore = [
+  "S101", # Use of assert detected https://docs.astral.sh/ruff/rules/assert/
+  "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+  "SIM102", # sometimes it's better to nest
+  "UP038" # Checks for uses of isinstance/issubclass that take a tuple
+          # of types for comparison.
+          # Deactivated because it can make the code slow:
+          # https://github.com/astral-sh/ruff/issues/7871
+]
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+# The fixes in extend-unsafe-fixes will require
+# provide the `--unsafe-fixes` flag when fixing.
+extend-unsafe-fixes = [
+    "UP038"
+]
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
