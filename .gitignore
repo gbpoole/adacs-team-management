@@ -219,6 +219,9 @@ media/
 *.sqlite3
 *.db
 
+# MySQL data directory:
+/db/
+
 # Configuration file with private data:
 *.env
 .env
