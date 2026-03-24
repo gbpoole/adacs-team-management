@@ -222,6 +222,12 @@ media/
 # MySQL data directory:
 /db/
 
+# Test reports:
+src/junit-reports/
+
+# Compiled CSS (build artifact):
+src/apps/static/css/dist/
+
 # Configuration file with private data:
 *.env
 .env
