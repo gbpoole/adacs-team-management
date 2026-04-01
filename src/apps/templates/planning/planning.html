@@ -115,12 +115,6 @@
                       {% endif %}
                       <span class="truncate" style="margin: 0 8px;">{{ cell.phase.display_name }}</span>
                       {% if can_edit %}
-                      <form method="post" action="{% url 'planning:phase_delete' cell.phase.pk %}" class="ml-auto shrink-0">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <button type="submit" class="text-white/70 hover:text-white leading-none px-1"
-                                onclick="return confirm('Delete this phase?')" title="Delete">×</button>
-                      </form>
                       <div class="phase-resize-handle phase-resize-right"
                            style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
                       {% endif %}
@@ -158,12 +152,15 @@
   .phase-bar:hover { z-index: 25 !important; }
 </style>
 
-{# Phase create modal #}
+{# Phase / Leave create modal #}
 {% if can_edit %}
 <dialog id="phase-create-modal" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Add Phase" %}</h3>
-    <form method="post" action="{% url 'planning:phase_add' %}">
+    <div class="join mb-4 w-full">
+      <button type="button" id="create-toggle-phase" class="join-item btn btn-sm btn-primary flex-1">{% trans "New Phase" %}</button>
+      <button type="button" id="create-toggle-leave" class="join-item btn btn-sm btn-ghost flex-1">{% trans "New Leave" %}</button>
+    </div>
+    <form id="phase-create-form" method="post" action="{% url 'planning:phase_add' %}">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <div class="form-control mb-3">
@@ -174,7 +171,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="form-control mb-3">
+      <div id="create-project-field" class="form-control mb-3">
         <label class="label label-text">{% trans "Project" %}</label>
         <select name="project" class="select select-bordered" required>
           {% for project in projects %}
@@ -192,13 +189,13 @@
           <input id="phase-end-date" type="date" name="end_date" class="input input-bordered" required>
         </div>
       </div>
-      <div class="form-control mb-4">
+      <div id="create-effort-field" class="form-control mb-4">
         <label class="label label-text">{% trans "Effort Multiplier" %} <span class="label-text-alt">(0–1)</span></label>
         <input type="number" name="effort_multiplier" value="1.0" min="0" max="1" step="0.1" class="input input-bordered">
       </div>
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('phase-create-modal').close()">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Add Phase" %}</button>
+        <button id="phase-create-submit" type="submit" class="btn btn-primary">{% trans "Add Phase" %}</button>
       </div>
     </form>
   </div>
@@ -210,6 +207,7 @@
     <h3 class="font-bold text-lg mb-4">{% trans "Edit Phase" %}</h3>
     <form id="phase-edit-form" method="post" action="">
       {% csrf_token %}
+      <input type="hidden" id="edit-phase-id" name="_phase_id" value="">
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Project" %}</label>
@@ -234,6 +232,7 @@
         <input id="edit-phase-effort" type="number" name="effort_multiplier" min="0" max="1" step="0.1" class="input input-bordered">
       </div>
       <div class="modal-action">
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeletePhase()">{% trans "Delete" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('phase-edit-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
@@ -247,6 +246,7 @@
     <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
     <form id="leave-edit-form" method="post" action="">
       {% csrf_token %}
+      <input type="hidden" id="edit-leave-id" name="_leave_id" value="">
       <div class="flex gap-3 mb-4">
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Start Date" %}</label>
@@ -258,6 +258,7 @@
         </div>
       </div>
       <div class="modal-action">
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteLeave()">{% trans "Delete" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('leave-edit-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
@@ -281,12 +282,38 @@ function addDays(iso, days) {
   return d.toISOString().split('T')[0];
 }
 
+// ── Delete phase / leave ──────────────────────────────────────────────────────
+function confirmDeletePhase() {
+  const phaseId = document.getElementById('edit-phase-id').value;
+  if (!phaseId || !confirm('{% trans "Delete this phase?" %}')) return;
+  document.getElementById('phase-edit-modal').close();
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const body = new FormData();
+  body.append('csrfmiddlewaretoken', csrf);
+  fetch(`/planning/phase/${phaseId}/delete/`, { method: 'POST', body })
+    .then(() => window.location.reload())
+    .catch(() => window.location.reload());
+}
+
+function confirmDeleteLeave() {
+  const leaveId = document.getElementById('edit-leave-id').value;
+  if (!leaveId || !confirm('{% trans "Delete this leave period?" %}')) return;
+  document.getElementById('leave-edit-modal').close();
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const body = new FormData();
+  body.append('csrfmiddlewaretoken', csrf);
+  fetch(`/planning/leave/${leaveId}/delete/`, { method: 'POST', body })
+    .then(() => window.location.reload())
+    .catch(() => window.location.reload());
+}
+
 // ── Double-click leave bar to edit ───────────────────────────────────────────
 document.addEventListener('dblclick', function (e) {
   const leaveBar = e.target.closest('.leave-bar');
   if (!leaveBar) return;
   const form = document.getElementById('leave-edit-form');
   form.action = `/planning/leave/${leaveBar.dataset.leaveId}/update/`;
+  document.getElementById('edit-leave-id').value = leaveBar.dataset.leaveId;
   document.getElementById('leave-edit-start-date').value = leaveBar.dataset.startDate;
   document.getElementById('leave-edit-end-date').value = leaveBar.dataset.endDate;
   document.getElementById('leave-edit-modal').showModal();
@@ -296,6 +323,48 @@ document.getElementById('leave-edit-form').addEventListener('submit', function (
   e.preventDefault();
   const body = new FormData(e.target);
   fetch(e.target.action, { method: 'POST', body })
+    .then(() => window.location.reload())
+    .catch(() => window.location.reload());
+});
+
+// ── Phase/Leave create modal toggle ──────────────────────────────────────────
+const PHASE_CREATE_ACTION = '{% url "planning:phase_add" %}';
+const LEAVE_CREATE_ACTION = '{% url "planning:leave_add" %}';
+let createMode = 'phase';
+
+function setCreateMode(mode) {
+  createMode = mode;
+  const projectField = document.getElementById('create-project-field');
+  const effortField = document.getElementById('create-effort-field');
+  const submitBtn = document.getElementById('phase-create-submit');
+  const togglePhase = document.getElementById('create-toggle-phase');
+  const toggleLeave = document.getElementById('create-toggle-leave');
+  const projectSelect = projectField.querySelector('select');
+  const isLeave = mode === 'leave';
+
+  projectField.style.display = isLeave ? 'none' : '';
+  projectSelect.required = !isLeave;
+  effortField.style.display = isLeave ? 'none' : '';
+  submitBtn.textContent = isLeave ? '{% trans "Add Leave" %}' : '{% trans "Add Phase" %}';
+
+  togglePhase.classList.toggle('btn-primary', !isLeave);
+  togglePhase.classList.toggle('btn-ghost', isLeave);
+  toggleLeave.classList.toggle('btn-primary', isLeave);
+  toggleLeave.classList.toggle('btn-ghost', !isLeave);
+}
+
+document.getElementById('create-toggle-phase').addEventListener('click', () => setCreateMode('phase'));
+document.getElementById('create-toggle-leave').addEventListener('click', () => setCreateMode('leave'));
+
+// Submit handler: leave mode uses fetch+reload to avoid a race where the dialog
+// close event fires before the browser captures form.action, resetting it back
+// to the phase URL.
+document.getElementById('phase-create-form').addEventListener('submit', function (e) {
+  if (createMode !== 'leave') return;          // phase mode — let normal POST proceed
+  e.preventDefault();
+  const body = new FormData(this);
+  document.getElementById('phase-create-modal').close();
+  fetch(LEAVE_CREATE_ACTION, { method: 'POST', body })
     .then(() => window.location.reload())
     .catch(() => window.location.reload());
 });
@@ -450,6 +519,7 @@ document.addEventListener('dblclick', function (e) {
   if (!phaseBar) return;
   const form = document.getElementById('phase-edit-form');
   form.action = `/planning/phase/${phaseBar.dataset.phaseId}/edit/`;
+  document.getElementById('edit-phase-id').value = phaseBar.dataset.phaseId;
   document.getElementById('edit-phase-project').value = phaseBar.dataset.projectId;
   document.getElementById('edit-phase-start-date').value = phaseBar.dataset.startDate;
   document.getElementById('edit-phase-end-date').value = phaseBar.dataset.endDate;
@@ -526,6 +596,7 @@ document.addEventListener('dblclick', function (e) {
     document.getElementById('phase-developer').value = devId;
     document.getElementById('phase-start-date').value = startDate;
     document.getElementById('phase-end-date').value = endDate;
+    setCreateMode('phase');
     document.getElementById('phase-create-modal').showModal();
 
     startCell = null;

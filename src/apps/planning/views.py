@@ -358,7 +358,8 @@ class LeaveCreateView(RoleRequiredMixin, View):
             start_date=start_date,
             end_date=end_date,
         )
-        return redirect("planning:leave")
+        next_url = request.POST.get("next")
+        return redirect(next_url) if next_url else redirect("planning:leave")
 
 
 class LeaveDeleteView(RoleRequiredMixin, View):
