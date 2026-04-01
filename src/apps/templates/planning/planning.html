@@ -51,9 +51,9 @@
       <tbody>
         {% for row in developer_rows %}
           {% for cells in row.layers %}
-          <tr class="{% if forloop.last %}border-b border-base-200{% endif %}">
+          <tr class="{% if forloop.last %}border-b-2 border-base-300{% endif %}">
             {% if forloop.first %}
-            <td class="sticky left-0 bg-base-100 z-20 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap"
+            <td class="sticky left-0 bg-base-100 z-20 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap"
                 rowspan="{{ row.layer_count }}" style="width: 160px;">
               <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
                     style="background-color: {{ row.developer.colour }};"></span>
@@ -461,61 +461,67 @@ document.addEventListener('dblclick', function (e) {
 (function () {
   let dragging = false;
   let startCell = null;
-  let highlighted = [];
+  let startCol = null;
+  let currentCol = null;
+  let ghost = null;
+  let weekRects = [];
 
-  function clearHighlight() {
-    highlighted.forEach(c => c.classList.remove('bg-primary/30'));
-    highlighted = [];
+  function getColFromX(mouseX) {
+    for (let i = weekRects.length - 1; i >= 0; i--) {
+      if (mouseX >= weekRects[i].left) return i;
+    }
+    return 0;
   }
 
-  function cellsInCanvasBetween(canvas, a, b) {
-    const cells = Array.from(canvas.querySelectorAll('.timeline-cell'));
-    const ai = cells.indexOf(a), bi = cells.indexOf(b);
-    if (ai < 0 || bi < 0) return [a];
-    const lo = Math.min(ai, bi), hi = Math.max(ai, bi);
-    return cells.slice(lo, hi + 1);
+  function removeGhost() {
+    if (ghost) { ghost.remove(); ghost = null; }
   }
 
   document.addEventListener('mousedown', function (e) {
     const cell = e.target.closest('.timeline-cell');
     if (!cell) return;
     e.preventDefault();
-    dragging = true;
+
+    const table = cell.closest('table');
+    weekRects = Array.from(table.querySelectorAll('thead th')).slice(1).map(th => th.getBoundingClientRect());
+
     startCell = cell;
-    cell.classList.add('bg-primary/30');
-    highlighted = [cell];
+    startCol = getColFromX(e.clientX);
+    currentCol = startCol;
+    dragging = true;
+
+    ghost = document.createElement('div');
+    ghost.style.cssText = `position:absolute;top:1px;height:30px;
+      left:${startCol * WEEK_WIDTH}px;width:${WEEK_WIDTH}px;
+      z-index:12;pointer-events:none;border-radius:0.25rem;
+      background-color:color-mix(in oklch,var(--color-primary) 45%,transparent);
+      border:2px dashed color-mix(in oklch,var(--color-primary) 70%,transparent);
+      display:flex;align-items:center;padding:0 8px;
+      font-size:0.75rem;color:white;white-space:nowrap;overflow:hidden;`;
+    ghost.textContent = '+ New phase';
+    cell.parentElement.appendChild(ghost);
   });
 
   document.addEventListener('mousemove', function (e) {
-    if (!dragging || !startCell) return;
-    const cell = e.target.closest('.timeline-cell');
-    if (!cell) return;
-    clearHighlight();
-    const canvas = startCell.parentElement;
-    if (cell.parentElement !== canvas) {
-      startCell.classList.add('bg-primary/30');
-      highlighted = [startCell];
-      return;
-    }
-    highlighted = cellsInCanvasBetween(canvas, startCell, cell);
-    highlighted.forEach(c => c.classList.add('bg-primary/30'));
+    if (!dragging || !ghost) return;
+    currentCol = Math.max(0, Math.min(getColFromX(e.clientX), weeks.length - 1));
+    const lo = Math.min(startCol, currentCol);
+    const hi = Math.max(startCol, currentCol);
+    ghost.style.left = lo * WEEK_WIDTH + 'px';
+    ghost.style.width = (hi - lo + 1) * WEEK_WIDTH + 'px';
   });
 
   document.addEventListener('mouseup', function (e) {
     if (!dragging) return;
     dragging = false;
 
-    let selection = highlighted.length ? highlighted : [startCell];
-    clearHighlight();
+    const lo = Math.min(startCol, currentCol);
+    const hi = Math.max(startCol, currentCol);
+    removeGhost();
 
-    const first = selection[0];
-    const last = selection[selection.length - 1];
-    const devId = first.dataset.developer;
-    const startColStart = parseInt(first.dataset.colStart, 10);
-    const endColEnd = parseInt(last.dataset.colEnd, 10);
-
-    const startDate = weeks[startColStart] || weeks[0];
-    const endDate = endColEnd < weeks.length ? addDays(weeks[endColEnd], 6) : addDays(weeks[weeks.length - 1], 6);
+    const devId = startCell.dataset.developer;
+    const startDate = weeks[lo] || weeks[0];
+    const endDate = hi < weeks.length ? addDays(weeks[hi], 6) : addDays(weeks[weeks.length - 1], 6);
 
     document.getElementById('phase-developer').value = devId;
     document.getElementById('phase-start-date').value = startDate;
@@ -523,6 +529,8 @@ document.addEventListener('dblclick', function (e) {
     document.getElementById('phase-create-modal').showModal();
 
     startCell = null;
+    startCol = null;
+    currentCol = null;
   });
 })();
 

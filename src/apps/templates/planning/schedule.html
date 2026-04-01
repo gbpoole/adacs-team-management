@@ -44,9 +44,9 @@
       <tbody>
         {% for row in project_rows %}
           {% for layer in row.layers %}
-          <tr class="{% if forloop.last %}border-b border-base-200{% endif %}">
+          <tr class="{% if forloop.last %}border-b-2 border-base-300{% endif %}">
             {% if forloop.first %}
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.layer_count }}">
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.layer_count }}">
               <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
                     style="background-color: {{ row.project.colour }};"></span>
               {{ row.project.display_name }}
@@ -74,8 +74,8 @@
             {% endfor %}
           </tr>
           {% empty %}
-          <tr class="border-b border-base-200">
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap">
+          <tr class="border-b-2 border-base-300">
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap">
               <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
                     style="background-color: {{ row.project.colour }};"></span>
               {{ row.project.display_name }}
