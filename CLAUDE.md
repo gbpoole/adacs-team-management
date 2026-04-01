@@ -47,6 +47,19 @@ cd src && DJANGO_SETTINGS_MODULE=config.settings.development poetry run python m
 cd src && DJANGO_SETTINGS_MODULE=config.settings.development poetry run python manage.py migrate
 ```
 
+**Docker — running manage.py inside the container:**
+The virtualenv is at `/app/.venv/` inside the container; plain `python` won't find Django. Always use `poetry run`:
+```bash
+docker compose exec django poetry run python manage.py migrate
+docker compose exec django poetry run python manage.py seed_test_data
+```
+
+**Docker — picking up source code changes:**
+Source code is baked into the image at build time (`COPY src /app/src`). There is no live volume mount. After any code change, rebuild before testing in Docker:
+```bash
+docker compose build django && docker compose up -d django
+```
+
 ## Architecture
 
 ### Stack

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n planning_extras %}
 
 {% block title %} — {% trans "Planning" %}{% endblock %}
 
@@ -37,12 +37,12 @@
   {# Timeline table #}
   {% if weeks %}
   <div class="overflow-x-auto border border-base-300 rounded-lg">
-    <table class="border-collapse" style="min-width: max-content;">
+    <table class="border-collapse" style="min-width: max-content; table-layout: fixed;">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-20">
-          <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-40">{% trans "Developer" %}</th>
+          <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left" style="width: 160px; min-width: 160px;">{% trans "Developer" %}</th>
           {% for week in weeks %}
-          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16">{{ week|date:"d M" }}</th>
+          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center" style="width: 64px; min-width: 64px;">{{ week|date:"d M" }}</th>
           {% endfor %}
         </tr>
       </thead>
@@ -51,56 +51,72 @@
           {% for cells in row.layers %}
           <tr class="{% if forloop.last %}border-b border-base-200{% endif %}">
             {% if forloop.first %}
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.layer_count }}">
+            <td class="sticky left-0 bg-base-100 z-20 border-r border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap"
+                rowspan="{{ row.layer_count }}" style="width: 160px;">
               <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
                     style="background-color: {{ row.developer.colour }};"></span>
               {{ row.developer.user.name|default:row.developer.user.email }}
             </td>
             {% endif %}
-            {% for cell in cells %}
-              {% if cell.type == "phase" %}
-              <td colspan="{{ cell.colspan }}"
-                  class="p-0 border-l border-base-200 h-8 phase-cell"
-                  style="position: relative;"
-                  data-phase-id="{{ cell.phase.pk }}"
-                  data-col-start="{{ cell.col_start }}"
-                  data-col-end="{{ cell.col_end }}">
-                <div class="tooltip w-full h-full"
-                     data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
-                  <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap cursor-default"
-                       style="background-color: {{ cell.phase.project.colour }}; position: relative;">
-                    {% if can_edit %}
-                    <div class="phase-resize-handle phase-resize-left"
-                         style="position:absolute;left:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
-                    {% endif %}
-                    <span class="truncate" style="margin: 0 8px;">{{ cell.phase.display_name }}</span>
-                    {% if can_edit %}
-                    <form method="post" action="{% url 'planning:phase_delete' cell.phase.pk %}" class="ml-auto shrink-0">
-                      {% csrf_token %}
-                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                      <button type="submit" class="text-white/70 hover:text-white leading-none px-1"
-                              onclick="return confirm('Delete this phase?')" title="Delete">×</button>
-                    </form>
-                    <div class="phase-resize-handle phase-resize-right"
-                         style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
-                    {% endif %}
+            {# Single canvas cell — phase bars and leave indicators are absolutely positioned inside #}
+            <td colspan="{{ weeks|length }}"
+                class="p-0"
+                style="position: relative; height: 32px; overflow: visible;
+                       background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.15) 63px, rgba(128,128,128,0.15) 64px);
+                       background-size: 64px 100%;">
+              {% for cell in cells %}
+                {% if cell.type == "phase" %}
+                <div class="phase-bar"
+                     style="position: absolute; top: 1px; height: 30px;
+                            left: {{ cell.col_start|multiply:64 }}px;
+                            width: {{ cell.colspan|multiply:64 }}px;
+                            z-index: 10;"
+                     data-phase-id="{{ cell.phase.pk }}"
+                     data-col-start="{{ cell.col_start }}"
+                     data-col-end="{{ cell.col_end }}">
+                  <div class="tooltip w-full h-full"
+                       data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
+                    <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap cursor-default"
+                         style="background-color: {{ cell.phase.project.colour }}; position: relative;">
+                      {% if can_edit %}
+                      <div class="phase-resize-handle phase-resize-left"
+                           style="position:absolute;left:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
+                      {% endif %}
+                      <span class="truncate" style="margin: 0 8px;">{{ cell.phase.display_name }}</span>
+                      {% if can_edit %}
+                      <form method="post" action="{% url 'planning:phase_delete' cell.phase.pk %}" class="ml-auto shrink-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="text-white/70 hover:text-white leading-none px-1"
+                                onclick="return confirm('Delete this phase?')" title="Delete">×</button>
+                      </form>
+                      <div class="phase-resize-handle phase-resize-right"
+                           style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
+                      {% endif %}
+                    </div>
                   </div>
                 </div>
-              </td>
-              {% elif cell.type == "leave" %}
-              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8">
-                <div class="h-full bg-base-300 flex items-center justify-center" title="{% trans 'Leave' %}">
+                {% elif cell.type == "leave" %}
+                <div class="bg-base-300 flex items-center justify-center"
+                     style="position: absolute; top: 1px; height: 30px;
+                            left: {{ cell.col_start|multiply:64 }}px;
+                            width: {{ cell.colspan|multiply:64 }}px;
+                            z-index: 5; pointer-events: none;"
+                     title="{% trans 'Leave' %}">
                   <span class="text-xs text-neutral-400">✈</span>
                 </div>
-              </td>
-              {% else %}
-              <td colspan="{{ cell.colspan }}"
-                  class="p-0 border-l border-base-200 h-8 {% if can_edit %}timeline-cell hover:bg-primary/10 cursor-pointer{% endif %}"
-                  data-developer="{{ row.developer.pk }}"
-                  data-col-start="{{ cell.col_start }}"
-                  data-col-end="{{ cell.col_end }}"></td>
-              {% endif %}
-            {% endfor %}
+                {% else %}
+                <div class="{% if can_edit %}timeline-cell hover:bg-primary/10 cursor-pointer{% endif %}"
+                     style="position: absolute; top: 0; height: 32px;
+                            left: {{ cell.col_start|multiply:64 }}px;
+                            width: {{ cell.colspan|multiply:64 }}px;
+                            z-index: 2;"
+                     data-developer="{{ row.developer.pk }}"
+                     data-col-start="{{ cell.col_start }}"
+                     data-col-end="{{ cell.col_end }}"></div>
+                {% endif %}
+              {% endfor %}
+            </td>
           </tr>
           {% endfor %}
         {% empty %}
@@ -165,6 +181,7 @@
 
 <script>
 const weeks = JSON.parse('{{ weeks_json|escapejs }}');
+const WEEK_WIDTH = 64;
 
 function isoToDate(iso) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -177,6 +194,7 @@ function addDays(iso, days) {
   return d.toISOString().split('T')[0];
 }
 
+// ── Click/drag on empty cells to create a new phase ──────────────────────────
 (function () {
   let dragging = false;
   let startCell = null;
@@ -187,8 +205,8 @@ function addDays(iso, days) {
     highlighted = [];
   }
 
-  function cellsInRowBetween(row, a, b) {
-    const cells = Array.from(row.querySelectorAll('.timeline-cell'));
+  function cellsInCanvasBetween(canvas, a, b) {
+    const cells = Array.from(canvas.querySelectorAll('.timeline-cell'));
     const ai = cells.indexOf(a), bi = cells.indexOf(b);
     if (ai < 0 || bi < 0) return [a];
     const lo = Math.min(ai, bi), hi = Math.max(ai, bi);
@@ -210,20 +228,19 @@ function addDays(iso, days) {
     const cell = e.target.closest('.timeline-cell');
     if (!cell) return;
     clearHighlight();
-    const row = startCell.closest('tr');
-    if (cell.closest('tr') !== row) {
+    const canvas = startCell.parentElement;
+    if (cell.parentElement !== canvas) {
       startCell.classList.add('bg-primary/30');
       highlighted = [startCell];
       return;
     }
-    highlighted = cellsInRowBetween(row, startCell, cell);
+    highlighted = cellsInCanvasBetween(canvas, startCell, cell);
     highlighted.forEach(c => c.classList.add('bg-primary/30'));
   });
 
   document.addEventListener('mouseup', function (e) {
     if (!dragging) return;
     dragging = false;
-    const endCell = e.target.closest('.timeline-cell') || startCell;
 
     let selection = highlighted.length ? highlighted : [startCell];
     clearHighlight();
@@ -246,7 +263,9 @@ function addDays(iso, days) {
   });
 })();
 
-// ── Drag-to-resize phase bars ──────────────────────────────────────────────
+// ── Drag-to-resize phase bars ─────────────────────────────────────────────────
+// Phase bars are absolutely-positioned divs. Drag updates style.left / style.width
+// directly — no table reflow, so leave cells and other bars are unaffected.
 (function () {
   let resizing = null;
   let weekRects = [];
@@ -264,67 +283,46 @@ function addDays(iso, days) {
     e.preventDefault();
     e.stopPropagation();
 
-    const phaseCell = handle.closest('.phase-cell');
+    const phaseBar = handle.closest('.phase-bar');
     const side = handle.classList.contains('phase-resize-right') ? 'right' : 'left';
-    const sibling = side === 'right'
-      ? phaseCell.nextElementSibling
-      : phaseCell.previousElementSibling;
-    const siblingIsEmpty = sibling && sibling.classList.contains('timeline-cell');
 
-    const table = phaseCell.closest('table');
-    // Skip the first sticky "Developer" th
+    const table = phaseBar.closest('table');
     const ths = Array.from(table.querySelectorAll('thead th')).slice(1);
     weekRects = ths.map(th => th.getBoundingClientRect());
 
     resizing = {
-      phaseCell,
+      phaseBar,
       side,
-      sibling: siblingIsEmpty ? sibling : null,
-      origPhaseSpan: parseInt(phaseCell.getAttribute('colspan'), 10) || 1,
-      origSiblingSpan: siblingIsEmpty ? (parseInt(sibling.getAttribute('colspan'), 10) || 1) : null,
-      colStart: parseInt(phaseCell.dataset.colStart, 10),
-      colEnd: parseInt(phaseCell.dataset.colEnd, 10),
+      colStart: parseInt(phaseBar.dataset.colStart, 10),
+      colEnd: parseInt(phaseBar.dataset.colEnd, 10),
     };
   });
 
   document.addEventListener('mousemove', function (e) {
     if (!resizing) return;
-    const { phaseCell, side, sibling, origPhaseSpan, origSiblingSpan, colStart, colEnd } = resizing;
+    const { phaseBar, side, colStart, colEnd } = resizing;
     const col = getColFromX(e.clientX);
 
     if (side === 'right') {
-      const maxCol = colStart + origPhaseSpan + (origSiblingSpan !== null ? origSiblingSpan : 0) - 1;
-      const newColEnd = Math.max(colStart, Math.min(col, maxCol));
-      const newPhaseSpan = newColEnd - colStart + 1;
-      phaseCell.setAttribute('colspan', newPhaseSpan);
-      phaseCell.dataset.colEnd = newColEnd;
-      if (sibling) {
-        const newSiblingSpan = origPhaseSpan + origSiblingSpan - newPhaseSpan;
-        sibling.setAttribute('colspan', Math.max(1, newSiblingSpan));
-        sibling.dataset.colStart = newColEnd + 1;
-      }
+      const newColEnd = Math.max(colStart, Math.min(col, weeks.length - 1));
+      phaseBar.style.width = (newColEnd - colStart + 1) * WEEK_WIDTH + 'px';
+      phaseBar.dataset.colEnd = newColEnd;
     } else {
-      const minCol = colEnd - origPhaseSpan - (origSiblingSpan !== null ? origSiblingSpan : 0) + 1;
-      const newColStart = Math.min(colEnd, Math.max(col, minCol));
-      const newPhaseSpan = colEnd - newColStart + 1;
-      phaseCell.setAttribute('colspan', newPhaseSpan);
-      phaseCell.dataset.colStart = newColStart;
-      if (sibling) {
-        const newSiblingSpan = origPhaseSpan + origSiblingSpan - newPhaseSpan;
-        sibling.setAttribute('colspan', Math.max(1, newSiblingSpan));
-        sibling.dataset.colEnd = newColStart - 1;
-      }
+      const newColStart = Math.min(colEnd, Math.max(col, 0));
+      phaseBar.style.left = newColStart * WEEK_WIDTH + 'px';
+      phaseBar.style.width = (colEnd - newColStart + 1) * WEEK_WIDTH + 'px';
+      phaseBar.dataset.colStart = newColStart;
     }
   });
 
   document.addEventListener('mouseup', function (e) {
     if (!resizing) return;
-    const { phaseCell } = resizing;
+    const { phaseBar } = resizing;
     resizing = null;
 
-    const phaseId = phaseCell.dataset.phaseId;
-    const newColStart = parseInt(phaseCell.dataset.colStart, 10);
-    const newColEnd = parseInt(phaseCell.dataset.colEnd, 10);
+    const phaseId = phaseBar.dataset.phaseId;
+    const newColStart = parseInt(phaseBar.dataset.colStart, 10);
+    const newColEnd = parseInt(phaseBar.dataset.colEnd, 10);
 
     if (newColStart >= weeks.length || newColEnd < 0) return;
     const startDate = weeks[Math.max(0, newColStart)];
@@ -337,7 +335,7 @@ function addDays(iso, days) {
     body.append('end_date', endDate);
 
     fetch(`/planning/phase/${phaseId}/update/`, { method: 'POST', body })
-      .then(r => { if (!r.ok) window.location.reload(); })
+      .then(() => window.location.reload())
       .catch(() => window.location.reload());
   });
 })();

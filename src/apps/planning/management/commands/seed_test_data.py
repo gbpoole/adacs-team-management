@@ -13,6 +13,7 @@ Usage:
 import datetime
 import random
 
+from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -129,6 +130,11 @@ class Command(BaseCommand):
             User.objects.filter(
                 role__in=[Role.DEVELOPER, Role.OBSERVER],
             ).delete()
+
+        self.stdout.write("Creating fixed seed accounts...")
+        self._create_seed_account("admin@adacs.org.au", "Admin User", Role.ADMIN, "admin1234", is_staff=True, is_superuser=True)
+        self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "pm1234")
+        self._create_seed_account("developer@adacs.org.au", "Developer User", Role.DEVELOPER, "developer1234")
 
         self.stdout.write("Creating semesters...")
         sem_a = self._get_or_create_semester(2026, SemesterType.A)
@@ -264,6 +270,28 @@ class Command(BaseCommand):
                 f"2 observers, 2 semesters, {leave_count} leave periods, {phase_count} phases.",
             ),
         )
+
+    def _create_seed_account(self, email, name, role, password, is_staff=False, is_superuser=False):
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "name": name,
+                "role": role,
+                "organisation": "ADACS",
+                "is_staff": is_staff,
+                "is_superuser": is_superuser,
+            },
+        )
+        if created:
+            user.set_password(password)
+            user.save()
+        EmailAddress.objects.get_or_create(
+            user=user,
+            email=email,
+            defaults={"primary": True, "verified": True},
+        )
+        self.stdout.write(f"  {role} account: {email} / {password}")
+        return user
 
     def _get_or_create_semester(self, year, semester_type):
         sem, created = Semester.objects.get_or_create(
