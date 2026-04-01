@@ -4,39 +4,41 @@
 {% block title %} — {% trans "Planning" %}{% endblock %}
 
 {% block content %}
-<div class="p-6">
-  <div class="flex items-center justify-between mb-4">
-    <div>
-      <h1 class="text-2xl font-bold">{% trans "Planning" %}</h1>
-      <p class="text-sm text-neutral-500">{{ semester }}</p>
+<div class="h-[calc(100vh-4rem)] flex flex-col">
+  <div class="shrink-0 px-6 pt-6">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-2xl font-bold">{% trans "Planning" %}</h1>
+        <p class="text-sm text-neutral-500">{{ semester }}</p>
+      </div>
     </div>
-  </div>
 
-  {# Controls #}
-  <form method="get" class="flex flex-wrap gap-3 items-end mb-4">
-    <div class="form-control">
-      <label class="label label-text text-xs">{% trans "From" %}</label>
-      <input type="date" name="start" value="{{ range_start }}" class="input input-bordered input-sm">
-    </div>
-    <div class="form-control">
-      <label class="label label-text text-xs">{% trans "To" %}</label>
-      <input type="date" name="end" value="{{ range_end }}" class="input input-bordered input-sm">
-    </div>
-    <div class="form-control">
-      <label class="label label-text text-xs">{% trans "Tags" %}</label>
-      <select name="tags" multiple class="select select-bordered select-sm">
-        {% for tag in all_tags %}
-        <option value="{{ tag.name }}" {% if tag.name in selected_tags %}selected{% endif %}>{{ tag.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn btn-sm btn-primary">{% trans "Apply" %}</button>
-    <a href="{% url 'planning:planning' %}" class="btn btn-sm btn-ghost">{% trans "Reset" %}</a>
-  </form>
+    {# Controls #}
+    <form method="get" class="flex flex-wrap gap-3 items-end mb-3">
+      <div class="form-control">
+        <label class="label label-text text-xs">{% trans "From" %}</label>
+        <input type="date" name="start" value="{{ range_start }}" class="input input-bordered input-sm">
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">{% trans "To" %}</label>
+        <input type="date" name="end" value="{{ range_end }}" class="input input-bordered input-sm">
+      </div>
+      <div class="form-control">
+        <label class="label label-text text-xs">{% trans "Tags" %}</label>
+        <select name="tags" multiple class="select select-bordered select-sm">
+          {% for tag in all_tags %}
+          <option value="{{ tag.name }}" {% if tag.name in selected_tags %}selected{% endif %}>{{ tag.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">{% trans "Apply" %}</button>
+      <a href="{% url 'planning:planning' %}" class="btn btn-sm btn-ghost">{% trans "Reset" %}</a>
+    </form>
+  </div>
 
   {# Timeline table #}
   {% if weeks %}
-  <div class="overflow-x-auto border border-base-300 rounded-lg">
+  <div class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
     <table class="border-collapse" style="min-width: max-content; table-layout: fixed;">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-20">
@@ -132,7 +134,7 @@
     </table>
   </div>
   {% else %}
-  <p class="text-neutral-500">{% trans "No weeks in selected range." %}</p>
+  <p class="px-6 text-neutral-500">{% trans "No weeks in selected range." %}</p>
   {% endif %}
 </div>
 

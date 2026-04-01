@@ -4,52 +4,54 @@
 {% block title %} — {% trans "Leave" %}{% endblock %}
 
 {% block content %}
-<div class="p-6">
-  <div class="flex items-center justify-between mb-4">
-    <h1 class="text-2xl font-bold">{% trans "Leave" %}</h1>
-    <div class="flex gap-2">
-      {% if show_past %}
-      <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-sm">{% trans "Hide Past" %}</a>
-      {% else %}
-      <a href="?show_past=1" class="btn btn-outline btn-sm">{% trans "Show Past" %}</a>
-      {% endif %}
+<div class="h-[calc(100vh-4rem)] flex flex-col">
+  <div class="shrink-0 px-6 pt-6">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-bold">{% trans "Leave" %}</h1>
+      <div class="flex gap-2">
+        {% if show_past %}
+        <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-sm">{% trans "Hide Past" %}</a>
+        {% else %}
+        <a href="?show_past=1" class="btn btn-outline btn-sm">{% trans "Show Past" %}</a>
+        {% endif %}
+      </div>
     </div>
+
+    {% if can_edit or is_developer %}
+    <div class="card bg-base-200 mb-4 p-4">
+      <h2 class="text-sm font-semibold mb-3">{% trans "Add Leave" %}</h2>
+      <form method="post" action="{% url 'planning:leave_add' %}" class="flex flex-wrap gap-3 items-end">
+        {% csrf_token %}
+        {% if can_edit %}
+        <div class="form-control">
+          <label class="label label-text text-xs">{% trans "Developer" %}</label>
+          <select name="developer" class="select select-bordered select-sm" required>
+            {% for dev in developers %}
+            <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <input type="hidden" name="developer" value="{{ my_developer_id }}">
+        {% endif %}
+        <div class="form-control">
+          <label class="label label-text text-xs">{% trans "Start Date" %}</label>
+          <input type="date" name="start_date" class="input input-bordered input-sm" required>
+        </div>
+        <div class="form-control">
+          <label class="label label-text text-xs">{% trans "End Date" %}</label>
+          <input type="date" name="end_date" class="input input-bordered input-sm" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">{% trans "Add" %}</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
 
-  {% if can_edit or is_developer %}
-  <div class="card bg-base-200 mb-6 p-4">
-    <h2 class="text-sm font-semibold mb-3">{% trans "Add Leave" %}</h2>
-    <form method="post" action="{% url 'planning:leave_add' %}" class="flex flex-wrap gap-3 items-end">
-      {% csrf_token %}
-      {% if can_edit %}
-      <div class="form-control">
-        <label class="label label-text text-xs">{% trans "Developer" %}</label>
-        <select name="developer" class="select select-bordered select-sm" required>
-          {% for dev in developers %}
-          <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% else %}
-      <input type="hidden" name="developer" value="{{ my_developer_id }}">
-      {% endif %}
-      <div class="form-control">
-        <label class="label label-text text-xs">{% trans "Start Date" %}</label>
-        <input type="date" name="start_date" class="input input-bordered input-sm" required>
-      </div>
-      <div class="form-control">
-        <label class="label label-text text-xs">{% trans "End Date" %}</label>
-        <input type="date" name="end_date" class="input input-bordered input-sm" required>
-      </div>
-      <button type="submit" class="btn btn-primary btn-sm">{% trans "Add" %}</button>
-    </form>
-  </div>
-  {% endif %}
-
-  <div class="overflow-x-auto">
+  <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
     <table class="table table-zebra w-full">
       <thead>
-        <tr>
+        <tr class="bg-base-100 sticky top-0 z-10">
           {% if can_edit %}<th>{% trans "Developer" %}</th>{% endif %}
           <th>{% trans "Start Date" %}</th>
           <th>{% trans "End Date" %}</th>
