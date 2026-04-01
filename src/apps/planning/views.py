@@ -446,6 +446,21 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                         if leave.start_date <= we and leave.end_date >= ws:
                             leave_week_set.add(i)
 
+            # Build leave cells as an independent overlay so they always render
+            # above phases, even when the two overlap.
+            leave_cells = []
+            if weeks:
+                col, n = 0, len(weeks)
+                while col < n:
+                    if col in leave_week_set:
+                        end = col
+                        while end + 1 < n and end + 1 in leave_week_set:
+                            end += 1
+                        leave_cells.append({"col_start": col, "col_end": end, "colspan": end - col + 1})
+                        col = end + 1
+                    else:
+                        col += 1
+
             phase_segments = []
             for phase in dev_phases.get(dev.pk, []):
                 start_col, span = _coverage(phase.start_date, phase.end_date, weeks)
@@ -454,11 +469,13 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                     phase.effort_display = phase.effort_weeks()
                     phase_segments.append((start_col, span, phase))
 
-            layers = _build_timeline_layers(len(weeks), phase_segments, leave_week_set)
+            # Pass an empty leave set — leave is now rendered as a separate overlay.
+            layers = _build_timeline_layers(len(weeks), phase_segments, set())
             developer_rows.append({
                 "developer": dev,
                 "layers": layers,
                 "layer_count": len(layers),
+                "leave_cells": leave_cells,
             })
 
         all_projects = list(Project.objects.prefetch_related("semester_names").all())

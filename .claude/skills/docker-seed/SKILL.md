@@ -8,7 +8,7 @@ allowed-tools: Bash
 Run the following commands in sequence:
 
 ```bash
-docker compose build django && docker compose up -d django && docker compose exec django poetry run python manage.py seed_test_data
+docker compose build django nginx && docker compose up -d django nginx && docker compose exec django poetry run python manage.py seed_test_data
 ```
 
 Report when seeding is complete.

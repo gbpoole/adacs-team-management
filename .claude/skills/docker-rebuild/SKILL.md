@@ -5,10 +5,12 @@ disable-model-invocation: true
 allowed-tools: Bash
 ---
 
-Run the following command to rebuild the Django Docker image and restart it:
+Run the following commands to rebuild both the Django and Nginx Docker images and restart them:
 
 ```bash
-docker compose build django && docker compose up -d django
+docker compose build django nginx && docker compose up -d django nginx
 ```
 
-Report when the container is back up.
+Both services must be rebuilt together: `django` runs the app and `nginx` serves the compiled static files (CSS/JS). Rebuilding only `django` leaves nginx serving a stale CSS file with a different content hash, causing all styles to 404.
+
+Report when the containers are back up.
