@@ -88,7 +88,7 @@
                      data-col-end="{{ cell.col_end }}">
                   <div class="tooltip w-full h-full"
                        data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
-                    <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap cursor-default"
+                    <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap {% if can_edit %}cursor-grab{% else %}cursor-default{% endif %}"
                          style="background-color: {{ cell.phase.project.colour }}; position: relative;">
                       {% if can_edit %}
                       <div class="phase-resize-handle phase-resize-left"
@@ -328,6 +328,76 @@ function addDays(iso, days) {
     const newColEnd = parseInt(phaseBar.dataset.colEnd, 10);
 
     if (newColStart >= weeks.length || newColEnd < 0) return;
+    const startDate = weeks[Math.max(0, newColStart)];
+    const endDate = addDays(weeks[Math.min(weeks.length - 1, newColEnd)], 6);
+
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const body = new FormData();
+    body.append('csrfmiddlewaretoken', csrf);
+    body.append('start_date', startDate);
+    body.append('end_date', endDate);
+
+    fetch(`/planning/phase/${phaseId}/update/`, { method: 'POST', body })
+      .then(() => window.location.reload())
+      .catch(() => window.location.reload());
+  });
+})();
+
+// ── Drag-to-move phase bars ───────────────────────────────────────────────────
+(function () {
+  let moving = null;
+
+  document.addEventListener('mousedown', function (e) {
+    const phaseBar = e.target.closest('.phase-bar');
+    if (!phaseBar) return;
+    if (e.target.closest('.phase-resize-handle')) return;
+    if (e.target.closest('button') || e.target.closest('form')) return;
+    e.preventDefault();
+
+    const table = phaseBar.closest('table');
+    const ths = Array.from(table.querySelectorAll('thead th')).slice(1);
+    const wRects = ths.map(th => th.getBoundingClientRect());
+
+    const colStart = parseInt(phaseBar.dataset.colStart, 10);
+    const colEnd = parseInt(phaseBar.dataset.colEnd, 10);
+
+    moving = {
+      phaseBar,
+      span: colEnd - colStart + 1,
+      origColStart: colStart,
+      wRects,
+      dragOffsetX: e.clientX - wRects[colStart].left,
+    };
+    document.body.style.cursor = 'grabbing';
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!moving) return;
+    const { phaseBar, span, wRects, dragOffsetX } = moving;
+
+    const anchorX = e.clientX - dragOffsetX;
+    let newCol = 0;
+    for (let i = wRects.length - 1; i >= 0; i--) {
+      if (anchorX >= wRects[i].left) { newCol = i; break; }
+    }
+    newCol = Math.max(0, Math.min(newCol, wRects.length - span));
+
+    phaseBar.style.left = newCol * WEEK_WIDTH + 'px';
+    phaseBar.dataset.colStart = newCol;
+    phaseBar.dataset.colEnd = newCol + span - 1;
+  });
+
+  document.addEventListener('mouseup', function (e) {
+    if (!moving) return;
+    const { phaseBar, origColStart } = moving;
+    moving = null;
+    document.body.style.cursor = '';
+
+    const newColStart = parseInt(phaseBar.dataset.colStart, 10);
+    if (newColStart === origColStart) return;
+
+    const newColEnd = parseInt(phaseBar.dataset.colEnd, 10);
+    const phaseId = phaseBar.dataset.phaseId;
     const startDate = weeks[Math.max(0, newColStart)];
     const endDate = addDays(weeks[Math.min(weeks.length - 1, newColEnd)], 6);
 
