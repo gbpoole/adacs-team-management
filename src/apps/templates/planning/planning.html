@@ -66,8 +66,7 @@
                 style="position: relative; height: 32px; overflow: visible;
                        background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.15) 63px, rgba(128,128,128,0.15) 64px);
                        background-size: 64px 100%;">
-              {# Leave overlay: rendered only on the first layer, always above phases #}
-              {% if forloop.first %}
+              {# Leave overlay: rendered on every layer row so it spans the full developer height #}
               {% for leave in row.leave_cells %}
               <div class="bg-base-300 flex items-center justify-center"
                    style="position: absolute; top: 1px; height: 30px;
@@ -75,10 +74,8 @@
                           width: {{ leave.colspan|multiply:64 }}px;
                           z-index: 15; pointer-events: none; opacity: 0.85;"
                    title="{% trans 'Leave' %}">
-                <span class="text-xs text-neutral-400">✈</span>
               </div>
               {% endfor %}
-              {% endif %}
               {% for cell in cells %}
                 {% if cell.type == "phase" %}
                 <div class="phase-bar"
