@@ -85,7 +85,11 @@
                             z-index: 10;"
                      data-phase-id="{{ cell.phase.pk }}"
                      data-col-start="{{ cell.col_start }}"
-                     data-col-end="{{ cell.col_end }}">
+                     data-col-end="{{ cell.col_end }}"
+                     data-project-id="{{ cell.phase.project.pk }}"
+                     data-start-date="{{ cell.phase.start_date|date:'Y-m-d' }}"
+                     data-end-date="{{ cell.phase.end_date|date:'Y-m-d' }}"
+                     data-effort-multiplier="{{ cell.phase.effort_multiplier }}">
                   <div class="tooltip w-full h-full"
                        data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
                     <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap {% if can_edit %}cursor-grab{% else %}cursor-default{% endif %}"
@@ -182,6 +186,43 @@
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
 
+<dialog id="phase-edit-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Edit Phase" %}</h3>
+    <form id="phase-edit-form" method="post" action="">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Project" %}</label>
+        <select id="edit-phase-project" name="project" class="select select-bordered" required>
+          {% for project in projects %}
+          <option value="{{ project.pk }}">{{ project.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Start Date" %}</label>
+          <input id="edit-phase-start-date" type="date" name="start_date" class="input input-bordered" required>
+        </div>
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "End Date" %}</label>
+          <input id="edit-phase-end-date" type="date" name="end_date" class="input input-bordered" required>
+        </div>
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Effort Multiplier" %} <span class="label-text-alt">(0–1)</span></label>
+        <input id="edit-phase-effort" type="number" name="effort_multiplier" min="0" max="1" step="0.1" class="input input-bordered">
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('phase-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
 <script>
 const weeks = JSON.parse('{{ weeks_json|escapejs }}');
 const WEEK_WIDTH = 64;
@@ -196,6 +237,19 @@ function addDays(iso, days) {
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
+
+// ── Double-click phase bar to edit ───────────────────────────────────────────
+document.addEventListener('dblclick', function (e) {
+  const phaseBar = e.target.closest('.phase-bar');
+  if (!phaseBar) return;
+  const form = document.getElementById('phase-edit-form');
+  form.action = `/planning/phase/${phaseBar.dataset.phaseId}/edit/`;
+  document.getElementById('edit-phase-project').value = phaseBar.dataset.projectId;
+  document.getElementById('edit-phase-start-date').value = phaseBar.dataset.startDate;
+  document.getElementById('edit-phase-end-date').value = phaseBar.dataset.endDate;
+  document.getElementById('edit-phase-effort').value = phaseBar.dataset.effortMultiplier;
+  document.getElementById('phase-edit-modal').showModal();
+});
 
 // ── Click/drag on empty cells to create a new phase ──────────────────────────
 (function () {

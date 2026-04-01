@@ -546,6 +546,20 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         return HttpResponse(status=204)
 
 
+class PhaseEditView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        phase = get_object_or_404(Phase, pk=pk)
+        phase.project_id = request.POST.get("project")
+        phase.start_date = datetime.date.fromisoformat(request.POST.get("start_date"))
+        phase.end_date = datetime.date.fromisoformat(request.POST.get("end_date"))
+        phase.effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
+        phase.save(update_fields=["project_id", "start_date", "end_date", "effort_multiplier"])
+        next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
+        return redirect(next_url)
+
+
 # ---------------------------------------------------------------------------
 # Schedule page  (FR-17)
 # ---------------------------------------------------------------------------
