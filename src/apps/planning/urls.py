@@ -3,6 +3,7 @@ from django.urls import path
 from .views import DevelopersView
 from .views import LeaveCreateView
 from .views import LeaveDeleteView
+from .views import LeaveUpdateView
 from .views import LeaveView
 from .views import ObserversView
 from .views import PhaseCreateView
@@ -22,6 +23,7 @@ urlpatterns = [
     path("leave/", LeaveView.as_view(), name="leave"),
     path("leave/add/", LeaveCreateView.as_view(), name="leave_add"),
     path("leave/<int:pk>/delete/", LeaveDeleteView.as_view(), name="leave_delete"),
+    path("leave/<int:pk>/update/", LeaveUpdateView.as_view(), name="leave_update"),
     path("planning/", PlanningView.as_view(), name="planning"),
     path("schedule/", ScheduleView.as_view(), name="schedule"),
     path("phase/add/", PhaseCreateView.as_view(), name="phase_add"),

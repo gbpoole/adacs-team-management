@@ -434,32 +434,20 @@ class PlanningView(RoleRequiredMixin, TemplateView):
 
         developer_rows = []
         for dev in devs:
-            leave_week_set: set = set()
-            if weeks:
-                for leave in dev.leave_periods.all():
-                    if leave.start_date > weeks[-1] + datetime.timedelta(days=6):
-                        continue
-                    if leave.end_date < weeks[0]:
-                        continue
-                    for i, ws in enumerate(weeks):
-                        we = ws + datetime.timedelta(days=6)
-                        if leave.start_date <= we and leave.end_date >= ws:
-                            leave_week_set.add(i)
-
-            # Build leave cells as an independent overlay so they always render
-            # above phases, even when the two overlap.
+            # Build one leave cell per Leave period so each carries its pk and dates.
             leave_cells = []
             if weeks:
-                col, n = 0, len(weeks)
-                while col < n:
-                    if col in leave_week_set:
-                        end = col
-                        while end + 1 < n and end + 1 in leave_week_set:
-                            end += 1
-                        leave_cells.append({"col_start": col, "col_end": end, "colspan": end - col + 1})
-                        col = end + 1
-                    else:
-                        col += 1
+                for leave in dev.leave_periods.all():
+                    start_col, span = _coverage(leave.start_date, leave.end_date, weeks)
+                    if start_col is not None:
+                        leave_cells.append({
+                            "col_start": start_col,
+                            "col_end": start_col + span - 1,
+                            "colspan": span,
+                            "pk": leave.pk,
+                            "start_date": leave.start_date,
+                            "end_date": leave.end_date,
+                        })
 
             phase_segments = []
             for phase in dev_phases.get(dev.pk, []):
@@ -543,6 +531,17 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         phase.start_date = datetime.date.fromisoformat(start_date)
         phase.end_date = datetime.date.fromisoformat(end_date)
         phase.save(update_fields=["start_date", "end_date"])
+        return HttpResponse(status=204)
+
+
+class LeaveUpdateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        leave = get_object_or_404(Leave, pk=pk)
+        leave.start_date = datetime.date.fromisoformat(request.POST.get("start_date"))
+        leave.end_date = datetime.date.fromisoformat(request.POST.get("end_date"))
+        leave.save(update_fields=["start_date", "end_date"])
         return HttpResponse(status=204)
 
 

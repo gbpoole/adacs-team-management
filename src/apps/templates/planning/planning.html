@@ -68,12 +68,25 @@
                        background-size: 64px 100%;">
               {# Leave overlay: rendered on every layer row so it spans the full developer height #}
               {% for leave in row.leave_cells %}
-              <div class="bg-base-300 flex items-center justify-center"
+              <div class="leave-bar{% if can_edit %} cursor-grab{% endif %}"
                    style="position: absolute; top: 1px; height: 30px;
                           left: {{ leave.col_start|multiply:64 }}px;
                           width: {{ leave.colspan|multiply:64 }}px;
-                          z-index: 15; pointer-events: none; opacity: 0.85;"
+                          z-index: 15;{% if not can_edit %} pointer-events: none;{% endif %}"
+                   data-leave-id="{{ leave.pk }}"
+                   data-col-start="{{ leave.col_start }}"
+                   data-col-end="{{ leave.col_end }}"
+                   data-start-date="{{ leave.start_date|date:'Y-m-d' }}"
+                   data-end-date="{{ leave.end_date|date:'Y-m-d' }}"
                    title="{% trans 'Leave' %}">
+                <div class="bg-base-300 h-full w-full" style="position: relative; opacity: 0.85;">
+                  {% if can_edit %}
+                  <div class="leave-resize-handle leave-resize-left"
+                       style="position:absolute;left:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
+                  <div class="leave-resize-handle leave-resize-right"
+                       style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
+                  {% endif %}
+                </div>
               </div>
               {% endfor %}
               {% for cell in cells %}
@@ -223,6 +236,30 @@
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
 
+<dialog id="leave-edit-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
+    <form id="leave-edit-form" method="post" action="">
+      {% csrf_token %}
+      <div class="flex gap-3 mb-4">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Start Date" %}</label>
+          <input id="leave-edit-start-date" type="date" name="start_date" class="input input-bordered" required>
+        </div>
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "End Date" %}</label>
+          <input id="leave-edit-end-date" type="date" name="end_date" class="input input-bordered" required>
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('leave-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
 <script>
 const weeks = JSON.parse('{{ weeks_json|escapejs }}');
 const WEEK_WIDTH = 64;
@@ -237,6 +274,169 @@ function addDays(iso, days) {
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
+
+// ── Double-click leave bar to edit ───────────────────────────────────────────
+document.addEventListener('dblclick', function (e) {
+  const leaveBar = e.target.closest('.leave-bar');
+  if (!leaveBar) return;
+  const form = document.getElementById('leave-edit-form');
+  form.action = `/planning/leave/${leaveBar.dataset.leaveId}/update/`;
+  document.getElementById('leave-edit-start-date').value = leaveBar.dataset.startDate;
+  document.getElementById('leave-edit-end-date').value = leaveBar.dataset.endDate;
+  document.getElementById('leave-edit-modal').showModal();
+});
+
+document.getElementById('leave-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const body = new FormData(e.target);
+  fetch(e.target.action, { method: 'POST', body })
+    .then(() => window.location.reload())
+    .catch(() => window.location.reload());
+});
+
+function siblingLeaveBars(leaveBar) {
+  return Array.from(document.querySelectorAll(`.leave-bar[data-leave-id="${leaveBar.dataset.leaveId}"]`));
+}
+
+// ── Drag-to-resize leave bars ─────────────────────────────────────────────────
+(function () {
+  let resizing = null;
+  let weekRects = [];
+
+  function getColFromX(mouseX) {
+    for (let i = weekRects.length - 1; i >= 0; i--) {
+      if (mouseX >= weekRects[i].left) return i;
+    }
+    return 0;
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    const handle = e.target.closest('.leave-resize-handle');
+    if (!handle) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const leaveBar = handle.closest('.leave-bar');
+    const side = handle.classList.contains('leave-resize-right') ? 'right' : 'left';
+    const table = leaveBar.closest('table');
+    weekRects = Array.from(table.querySelectorAll('thead th')).slice(1).map(th => th.getBoundingClientRect());
+
+    resizing = {
+      leaveBar, side,
+      colStart: parseInt(leaveBar.dataset.colStart, 10),
+      colEnd: parseInt(leaveBar.dataset.colEnd, 10),
+    };
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!resizing) return;
+    const { leaveBar, side, colStart, colEnd } = resizing;
+    const col = getColFromX(e.clientX);
+
+    if (side === 'right') {
+      const newColEnd = Math.max(colStart, Math.min(col, weeks.length - 1));
+      siblingLeaveBars(leaveBar).forEach(bar => {
+        bar.style.width = (newColEnd - colStart + 1) * WEEK_WIDTH + 'px';
+        bar.dataset.colEnd = newColEnd;
+      });
+    } else {
+      const newColStart = Math.min(colEnd, Math.max(col, 0));
+      siblingLeaveBars(leaveBar).forEach(bar => {
+        bar.style.left = newColStart * WEEK_WIDTH + 'px';
+        bar.style.width = (colEnd - newColStart + 1) * WEEK_WIDTH + 'px';
+        bar.dataset.colStart = newColStart;
+      });
+    }
+  });
+
+  document.addEventListener('mouseup', function (e) {
+    if (!resizing) return;
+    const { leaveBar } = resizing;
+    resizing = null;
+
+    const newColStart = parseInt(leaveBar.dataset.colStart, 10);
+    const newColEnd = parseInt(leaveBar.dataset.colEnd, 10);
+    if (newColStart >= weeks.length || newColEnd < 0) return;
+
+    const startDate = weeks[Math.max(0, newColStart)];
+    const endDate = addDays(weeks[Math.min(weeks.length - 1, newColEnd)], 6);
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const body = new FormData();
+    body.append('csrfmiddlewaretoken', csrf);
+    body.append('start_date', startDate);
+    body.append('end_date', endDate);
+
+    fetch(`/planning/leave/${leaveBar.dataset.leaveId}/update/`, { method: 'POST', body })
+      .then(() => window.location.reload())
+      .catch(() => window.location.reload());
+  });
+})();
+
+// ── Drag-to-move leave bars ───────────────────────────────────────────────────
+(function () {
+  let moving = null;
+
+  document.addEventListener('mousedown', function (e) {
+    const leaveBar = e.target.closest('.leave-bar');
+    if (!leaveBar) return;
+    if (e.target.closest('.leave-resize-handle')) return;
+    e.preventDefault();
+
+    const table = leaveBar.closest('table');
+    const wRects = Array.from(table.querySelectorAll('thead th')).slice(1).map(th => th.getBoundingClientRect());
+    const colStart = parseInt(leaveBar.dataset.colStart, 10);
+    const colEnd = parseInt(leaveBar.dataset.colEnd, 10);
+
+    moving = {
+      leaveBar,
+      span: colEnd - colStart + 1,
+      origColStart: colStart,
+      wRects,
+      dragOffsetX: e.clientX - wRects[colStart].left,
+    };
+    document.body.style.cursor = 'grabbing';
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!moving) return;
+    const { leaveBar, span, wRects, dragOffsetX } = moving;
+
+    const anchorX = e.clientX - dragOffsetX;
+    let newCol = 0;
+    for (let i = wRects.length - 1; i >= 0; i--) {
+      if (anchorX >= wRects[i].left) { newCol = i; break; }
+    }
+    newCol = Math.max(0, Math.min(newCol, wRects.length - span));
+    siblingLeaveBars(leaveBar).forEach(bar => {
+      bar.style.left = newCol * WEEK_WIDTH + 'px';
+      bar.dataset.colStart = newCol;
+      bar.dataset.colEnd = newCol + span - 1;
+    });
+  });
+
+  document.addEventListener('mouseup', function (e) {
+    if (!moving) return;
+    const { leaveBar, origColStart } = moving;
+    moving = null;
+    document.body.style.cursor = '';
+
+    const newColStart = parseInt(leaveBar.dataset.colStart, 10);
+    if (newColStart === origColStart) return;
+
+    const newColEnd = parseInt(leaveBar.dataset.colEnd, 10);
+    const startDate = weeks[Math.max(0, newColStart)];
+    const endDate = addDays(weeks[Math.min(weeks.length - 1, newColEnd)], 6);
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const body = new FormData();
+    body.append('csrfmiddlewaretoken', csrf);
+    body.append('start_date', startDate);
+    body.append('end_date', endDate);
+
+    fetch(`/planning/leave/${leaveBar.dataset.leaveId}/update/`, { method: 'POST', body })
+      .then(() => window.location.reload())
+      .catch(() => window.location.reload());
+  });
+})();
 
 // ── Double-click phase bar to edit ───────────────────────────────────────────
 document.addEventListener('dblclick', function (e) {
