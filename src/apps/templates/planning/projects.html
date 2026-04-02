@@ -276,6 +276,13 @@ function openEditProject(row) {
   document.getElementById('project-edit-modal').showModal();
 }
 
+document.getElementById('project-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  fetch(this.action, { method: 'POST', body: new FormData(this) })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+});
+
 function confirmDeleteProject() {
   var pk = document.getElementById('edit-project-id').value;
   if (!pk || !confirm('{% trans "Delete this project? This cannot be undone." %}')) return;

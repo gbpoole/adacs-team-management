@@ -85,14 +85,21 @@
         <label class="label label-text">{% trans "Name" %}</label>
         <input type="text" name="name" class="input input-bordered">
       </div>
-      <div class="flex gap-3 mb-3">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Organisation" %}</label>
-          <input type="text" name="organisation" class="input input-bordered">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Organisation" %}</label>
+        <input type="text" name="organisation" class="input input-bordered">
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Emoji" %}</label>
+        <input type="hidden" name="emoji" id="add-dev-emoji-value" value="">
+        <div class="flex items-center gap-2">
+          <button type="button" class="btn btn-outline btn-sm font-normal" onclick="toggleEmojiPicker('add-dev')">
+            <span id="add-dev-emoji-preview"></span>{% trans "Pick emoji" %}
+          </button>
+          <button type="button" class="btn btn-ghost btn-xs text-neutral-400" onclick="clearEmoji('add-dev')">✕ {% trans "Clear" %}</button>
         </div>
-        <div class="form-control" style="width: 80px;">
-          <label class="label label-text">{% trans "Emoji" %}</label>
-          <input type="text" name="emoji" class="input input-bordered" maxlength="10">
+        <div id="add-dev-picker-wrap" style="display:none; margin-top:4px;">
+          <emoji-picker id="add-dev-picker" class="light"></emoji-picker>
         </div>
       </div>
       <div class="form-control mb-3">
@@ -167,14 +174,21 @@
         <label class="label label-text">{% trans "Name" %}</label>
         <input id="edit-developer-name" type="text" name="name" class="input input-bordered">
       </div>
-      <div class="flex gap-3 mb-3">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Organisation" %}</label>
-          <input id="edit-developer-organisation" type="text" name="organisation" class="input input-bordered">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Organisation" %}</label>
+        <input id="edit-developer-organisation" type="text" name="organisation" class="input input-bordered">
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Emoji" %}</label>
+        <input type="hidden" name="emoji" id="edit-dev-emoji-value" value="">
+        <div class="flex items-center gap-2">
+          <button type="button" class="btn btn-outline btn-sm font-normal" onclick="toggleEmojiPicker('edit-dev')">
+            <span id="edit-dev-emoji-preview"></span>{% trans "Pick emoji" %}
+          </button>
+          <button type="button" class="btn btn-ghost btn-xs text-neutral-400" onclick="clearEmoji('edit-dev')">✕ {% trans "Clear" %}</button>
         </div>
-        <div class="form-control" style="width: 80px;">
-          <label class="label label-text">{% trans "Emoji" %}</label>
-          <input id="edit-developer-emoji" type="text" name="emoji" class="input input-bordered" maxlength="10">
+        <div id="edit-dev-picker-wrap" style="display:none; margin-top:4px;">
+          <emoji-picker id="edit-dev-picker" class="light"></emoji-picker>
         </div>
       </div>
       <div class="form-control mb-3">
@@ -207,6 +221,7 @@
 </dialog>
 {% endif %}
 
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 <script>
 function initTagButtons(containerId) {
   document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(function (cb) {
@@ -272,11 +287,13 @@ initTagButtons('edit-dev-tag-buttons');
 function openEditDeveloper(row) {
   var pk = row.dataset.pk;
   var tags = row.dataset.tags ? row.dataset.tags.split(',') : [];
+  var emoji = row.dataset.emoji || '';
   document.getElementById('edit-developer-id').value = pk;
   document.getElementById('edit-developer-email').value = row.dataset.email;
   document.getElementById('edit-developer-name').value = row.dataset.name;
   document.getElementById('edit-developer-organisation').value = row.dataset.organisation;
-  document.getElementById('edit-developer-emoji').value = row.dataset.emoji;
+  document.getElementById('edit-dev-emoji-value').value = emoji;
+  document.getElementById('edit-dev-emoji-preview').textContent = emoji ? emoji + '\u00a0' : '';
   document.getElementById('edit-developer-effort').value = row.dataset.effort;
   document.querySelectorAll('#edit-dev-tag-buttons input[type="checkbox"]').forEach(function (cb) {
     cb.checked = tags.indexOf(cb.value) !== -1;
@@ -285,6 +302,44 @@ function openEditDeveloper(row) {
   document.getElementById('developer-edit-form').action = '/planning/developers/' + pk + '/edit/';
   document.getElementById('developer-edit-modal').showModal();
 }
+
+function toggleEmojiPicker(prefix) {
+  var wrap = document.getElementById(prefix + '-picker-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+}
+
+function clearEmoji(prefix) {
+  document.getElementById(prefix + '-emoji-value').value = '';
+  document.getElementById(prefix + '-emoji-preview').textContent = '';
+}
+
+function setupPicker(prefix) {
+  var picker = document.getElementById(prefix + '-picker');
+  if (!picker) return;
+  picker.addEventListener('emoji-click', function (e) {
+    var emoji = e.detail.unicode;
+    document.getElementById(prefix + '-emoji-value').value = emoji;
+    document.getElementById(prefix + '-emoji-preview').textContent = emoji + '\u00a0';
+    document.getElementById(prefix + '-picker-wrap').style.display = 'none';
+  });
+}
+
+setupPicker('add-dev');
+setupPicker('edit-dev');
+
+document.getElementById('add-developer-modal').addEventListener('close', function () {
+  document.getElementById('add-dev-picker-wrap').style.display = 'none';
+});
+document.getElementById('developer-edit-modal').addEventListener('close', function () {
+  document.getElementById('edit-dev-picker-wrap').style.display = 'none';
+});
+
+document.getElementById('developer-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  fetch(this.action, { method: 'POST', body: new FormData(this) })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+});
 
 function confirmDeleteDeveloper() {
   var pk = document.getElementById('edit-developer-id').value;

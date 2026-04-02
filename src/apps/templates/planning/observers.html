@@ -165,6 +165,13 @@ function openEditObserver(row) {
   document.getElementById('observer-edit-modal').showModal();
 }
 
+document.getElementById('observer-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  fetch(this.action, { method: 'POST', body: new FormData(this) })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+});
+
 function confirmDeleteObserver() {
   var pk = document.getElementById('edit-observer-id').value;
   if (!pk || !confirm('{% trans "Delete this observer? This cannot be undone." %}')) return;

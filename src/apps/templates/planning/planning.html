@@ -325,6 +325,14 @@ document.getElementById('leave-edit-form').addEventListener('submit', function (
     .catch(() => window.location.reload());
 });
 
+document.getElementById('phase-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const body = new FormData(e.target);
+  fetch(e.target.action, { method: 'POST', body })
+    .then(() => window.location.reload())
+    .catch(() => window.location.reload());
+});
+
 // ── Phase/Leave create modal toggle ──────────────────────────────────────────
 const PHASE_CREATE_ACTION = '{% url "planning:phase_add" %}';
 const LEAVE_CREATE_ACTION = '{% url "planning:leave_add" %}';

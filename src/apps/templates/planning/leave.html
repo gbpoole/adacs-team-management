@@ -126,6 +126,13 @@ function openEditLeave(row) {
   document.getElementById('leave-edit-modal').showModal();
 }
 
+document.getElementById('leave-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  fetch(this.action, { method: 'POST', body: new FormData(this) })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+});
+
 function confirmDeleteLeave() {
   var pk = document.getElementById('edit-leave-id').value;
   if (!pk || !confirm('{% trans "Delete this leave period?" %}')) return;
