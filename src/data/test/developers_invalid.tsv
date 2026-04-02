@@ -1,0 +1,6 @@
+email	name	organisation	emoji	effort_available	tags
+	Missing Email (1 of 5)	Test Org	🧪	20	python
+not-a-valid-email	Missing At-Sign (2 of 5)	Test Org	🔬	15	hpc
+test.dev.invalid.3@example.com		Test Org	🧫	10	ml
+test.dev.invalid.4@example.com	Negative Effort (4 of 5)	Test Org	⚗️	-5	api
+test.dev.invalid.5@example.com	Non-Numeric Effort (5 of 5)	Test Org	🧬	lots	devops

@@ -3,9 +3,12 @@ import datetime
 import io
 import json
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.validators import EmailValidator
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
@@ -330,6 +333,86 @@ def _get_or_create_tags(names):
     return [Tag.objects.get_or_create(name=n)[0] for n in names if n.strip()]
 
 
+_email_validator = EmailValidator()
+
+
+def _validate_email(value):
+    """Return an error string, or None if valid."""
+    if not value:
+        return "email is required"
+    try:
+        _email_validator(value)
+    except ValidationError:
+        return f"invalid email '{value}'"
+    return None
+
+
+def _validate_name(value):
+    if not value:
+        return "name is required"
+    return None
+
+
+def _validate_effort(value):
+    """Empty → valid (treated as 0). Non-empty must be a non-negative number."""
+    if not value:
+        return None
+    try:
+        f = float(value)
+    except ValueError:
+        return f"effort_available must be a number (got '{value}')"
+    if f < 0:
+        return f"effort_available must be zero or positive (got '{value}')"
+    return None
+
+
+def _validate_developer_rows(rows):
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        email_err = _validate_email(row.get("email", "").strip())
+        if email_err:
+            errors.append(f"Row {i}: {email_err}")
+        name_err = _validate_name(row.get("name", "").strip())
+        if name_err:
+            errors.append(f"Row {i}: {name_err}")
+        effort_err = _validate_effort(row.get("effort_available", "").strip())
+        if effort_err:
+            errors.append(f"Row {i}: {effort_err}")
+    return errors
+
+
+def _validate_project_rows(rows):
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        name_err = _validate_name(row.get("name", "").strip())
+        if name_err:
+            errors.append(f"Row {i}: {name_err}")
+    return errors
+
+
+def _validate_observer_rows(rows, valid_project_names):
+    """Validate observer rows; valid_project_names is a set of known project names."""
+    errors = []
+    for i, row in enumerate(rows, start=2):
+        email_err = _validate_email(row.get("email", "").strip())
+        if email_err:
+            errors.append(f"Row {i}: {email_err}")
+        name_err = _validate_name(row.get("name", "").strip())
+        if name_err:
+            errors.append(f"Row {i}: {name_err}")
+        access_names = [n.strip() for n in row.get("project_access", "").split(",") if n.strip()]
+        unknown = [n for n in access_names if n not in valid_project_names]
+        if unknown:
+            errors.append(f"Row {i}: unknown project(s) in project_access: {', '.join(repr(n) for n in unknown)}")
+    return errors
+
+
+def _upload_error(request, redirect_name, errors):
+    msg = "Upload failed — fix the following errors and try again:\n" + "\n".join(f"• {e}" for e in errors)
+    messages.error(request, msg)
+    return redirect(f"planning:{redirect_name}")
+
+
 class DeveloperCreateView(RoleRequiredMixin, View):
     allowed_roles = (Role.ADMIN, Role.PM)
 
@@ -371,42 +454,41 @@ class DeveloperUploadView(RoleRequiredMixin, View):
     allowed_roles = (Role.ADMIN, Role.PM)
 
     def post(self, request, *args, **kwargs):
-        User = get_user_model()
         f = request.FILES.get("tsv_file")
         if not f:
             return redirect("planning:developers")
+        rows = list(csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")), delimiter="\t"))
+        errors = _validate_developer_rows(rows)
+        if errors:
+            return _upload_error(request, "developers", errors)
+        User = get_user_model()
         semester = Semester.get_current()
-        reader = csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")), delimiter="\t")
-        for row in reader:
-            email = row.get("email", "").strip()
-            if not email:
-                continue
-            user, _ = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    "name": row.get("name", "").strip(),
-                    "role": Role.DEVELOPER,
-                    "organisation": row.get("organisation", "").strip(),
-                    "emoji": row.get("emoji", "").strip(),
-                },
-            )
-            profile, _ = DeveloperProfile.objects.get_or_create(user=user)
-            tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
-            if tag_names:
-                profile.tags.set(_get_or_create_tags(tag_names))
-            effort_str = row.get("effort_available", "").strip()
-            if effort_str:
-                try:
-                    effort = float(effort_str)
-                    sd, created = SemesterDeveloper.objects.get_or_create(
-                        developer=profile, semester=semester,
-                        defaults={"effort_available": effort},
-                    )
-                    if not created:
-                        sd.effort_available = effort
-                        sd.save(update_fields=["effort_available"])
-                except ValueError:
-                    pass
+        with transaction.atomic():
+            for row in rows:
+                email = row["email"].strip()
+                user, _ = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        "name": row.get("name", "").strip(),
+                        "role": Role.DEVELOPER,
+                        "organisation": row.get("organisation", "").strip(),
+                        "emoji": row.get("emoji", "").strip(),
+                    },
+                )
+                profile, _ = DeveloperProfile.objects.get_or_create(user=user)
+                tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+                if tag_names:
+                    profile.tags.set(_get_or_create_tags(tag_names))
+                effort_str = row.get("effort_available", "").strip()
+                effort = float(effort_str) if effort_str else 0
+                sd, created = SemesterDeveloper.objects.get_or_create(
+                    developer=profile, semester=semester,
+                    defaults={"effort_available": effort},
+                )
+                if not created:
+                    sd.effort_available = effort
+                    sd.save(update_fields=["effort_available"])
+        messages.success(request, f"{len(rows)} developer(s) uploaded successfully.")
         return redirect("planning:developers")
 
 
@@ -440,20 +522,23 @@ class ProjectUploadView(RoleRequiredMixin, View):
         f = request.FILES.get("tsv_file")
         if not f:
             return redirect("planning:projects")
+        rows = list(csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")), delimiter="\t"))
+        errors = _validate_project_rows(rows)
+        if errors:
+            return _upload_error(request, "projects", errors)
         semester = Semester.get_current()
-        reader = csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")), delimiter="\t")
-        for row in reader:
-            name = row.get("name", "").strip()
-            if not name:
-                continue
-            stream_name = row.get("stream", "").strip()
-            stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
-            project = Project(stream=stream)
-            project.save()
-            ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
-            tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
-            if tag_names:
-                project.tags.set(_get_or_create_tags(tag_names))
+        with transaction.atomic():
+            for row in rows:
+                name = row["name"].strip()
+                stream_name = row.get("stream", "").strip()
+                stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
+                project = Project(stream=stream)
+                project.save()
+                ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
+                tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+                if tag_names:
+                    project.tags.set(_get_or_create_tags(tag_names))
+        messages.success(request, f"{len(rows)} project(s) uploaded successfully.")
         return redirect("planning:projects")
 
 

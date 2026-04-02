@@ -1,0 +1,5 @@
+email	name	organisation	emoji	effort_available	tags
+test.dev.1@example.com	Test Developer (1 of 4)	Test Org A	🧪	20	python,web
+test.dev.2@example.com	Test Developer (2 of 4)	Test Org B	🔬	15	hpc,gpu
+test.dev.3@example.com	Test Developer (3 of 4)	Test Org A	🧫	10	ml,data-pipeline
+test.dev.4@example.com	Test Developer (4 of 4)	Test Org C	⚗️	26	api,devops

@@ -1,0 +1,6 @@
+email	name	organisation	project_access
+	Missing Email Observer	Test Org	Test Project (1 of 5)
+not-an-email	Missing At-Sign Observer	Test Org	Test Project (2 of 5)
+test.obs.invalid.3@example.com		Test Org	Test Project (3 of 5)
+test.obs.invalid.4@example.com	Unknown Projects Observer	Test Org	Nonexistent Project Alpha,Test Project (1 of 5),Nonexistent Project Beta
+test.obs.invalid.5@example.com	Multiple Failures Observer	Test Org	Nonexistent Project Gamma

@@ -1,0 +1,4 @@
+email	name	organisation	project_access
+test.obs.1@example.com	Test Observer (1 of 3)	Test Org A	Test Project (1 of 5),Test Project (2 of 5)
+test.obs.2@example.com	Test Observer (2 of 3)	Test Org B	Test Project (3 of 5),Test Project (4 of 5)
+test.obs.3@example.com	Test Observer (3 of 3)	Test Org C	Test Project (5 of 5)

@@ -1,0 +1,6 @@
+name	stream	tags
+Test Project (1 of 5)	Test Stream	python,web
+Test Project (2 of 5)	Test Stream	hpc,gpu
+Test Project (3 of 5)	Test Stream	ml,data-pipeline
+Test Project (4 of 5)	Test Stream	api,database
+Test Project (5 of 5)		devops

@@ -1,6 +1,7 @@
 import datetime
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -333,6 +334,7 @@ class SemesterDeveloper(models.Model):
         max_digits=6,
         decimal_places=2,
         default=0,
+        validators=[MinValueValidator(0)],
     )
 
     class Meta:
