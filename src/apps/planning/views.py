@@ -391,20 +391,7 @@ class PlanningView(RoleRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         semester = Semester.get_current()
 
-        range_start_str = self.request.GET.get("start")
-        range_end_str = self.request.GET.get("end")
-        try:
-            range_start = datetime.date.fromisoformat(range_start_str) if range_start_str else semester.start_date
-        except ValueError:
-            range_start = semester.start_date
-        try:
-            range_end = datetime.date.fromisoformat(range_end_str) if range_end_str else semester.end_date
-        except ValueError:
-            range_end = semester.end_date
-        if range_start > range_end:
-            range_start, range_end = range_end, range_start
-
-        weeks = _week_starts(range_start, range_end)
+        weeks = _week_starts(semester.start_date, semester.end_date)
 
         tag_filter = self.request.GET.getlist("tags")
         dev_qs = (
@@ -475,8 +462,6 @@ class PlanningView(RoleRequiredMixin, TemplateView):
         ctx["weeks_json"] = json.dumps([w.isoformat() for w in weeks])
         ctx["developer_rows"] = developer_rows
         ctx["semester"] = semester
-        ctx["range_start"] = range_start.isoformat()
-        ctx["range_end"] = range_end.isoformat()
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = tag_filter
         ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
@@ -573,28 +558,18 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         semester = Semester.get_current()
 
-        range_start_str = self.request.GET.get("start")
-        range_end_str = self.request.GET.get("end")
-        try:
-            range_start = datetime.date.fromisoformat(range_start_str) if range_start_str else semester.start_date
-        except ValueError:
-            range_start = semester.start_date
-        try:
-            range_end = datetime.date.fromisoformat(range_end_str) if range_end_str else semester.end_date
-        except ValueError:
-            range_end = semester.end_date
-        if range_start > range_end:
-            range_start, range_end = range_end, range_start
+        weeks = _week_starts(semester.start_date, semester.end_date)
 
-        weeks = _week_starts(range_start, range_end)
+        tag_filter = self.request.GET.getlist("tags")
 
         if weeks:
-            phases = list(
-                Phase.objects.filter(
-                    start_date__lte=weeks[-1] + datetime.timedelta(days=6),
-                    end_date__gte=weeks[0],
-                ).select_related("developer__user", "project")
-            )
+            phase_qs = Phase.objects.filter(
+                start_date__lte=weeks[-1] + datetime.timedelta(days=6),
+                end_date__gte=weeks[0],
+            ).select_related("developer__user", "project")
+            if tag_filter:
+                phase_qs = phase_qs.filter(project__tags__name__in=tag_filter).distinct()
+            phases = list(phase_qs)
         else:
             phases = []
 
@@ -654,6 +629,6 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
         ctx["weeks"] = weeks
         ctx["project_rows"] = project_rows
         ctx["semester"] = semester
-        ctx["range_start"] = range_start.isoformat()
-        ctx["range_end"] = range_end.isoformat()
+        ctx["all_tags"] = Tag.objects.all()
+        ctx["selected_tags"] = tag_filter
         return ctx
