@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n planning_extras %}
 
 {% block title %} — {% trans "Dashboard" %}{% endblock %}
 
@@ -50,12 +50,12 @@
     </div>
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
-      <div class="stat-value text-2xl">{{ total_effort_available }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
+      <div class="stat-value text-2xl">{{ total_effort_available|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
       <div class="stat-desc text-xs">{% trans "this semester" %}</div>
     </div>
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Effort Allocated" %}</div>
-      <div class="stat-value text-2xl">{{ total_effort_allocated }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
+      <div class="stat-value text-2xl">{{ total_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
       <div class="stat-desc text-xs">{% trans "across all phases" %}</div>
     </div>
   </div>
@@ -106,14 +106,14 @@
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
       <div class="stat-value text-2xl">
-        {{ my_effort_available|default:"—" }}{% if my_effort_available %}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>{% endif %}
+        {{ my_effort_available|wks }}{% if my_effort_available is not None %}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>{% endif %}
       </div>
       <div class="stat-desc text-xs">{% trans "this semester" %}</div>
     </div>
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Effort Allocated" %}</div>
       <div class="stat-value text-2xl {% if my_effort_available and my_effort_allocated > my_effort_available %}text-error{% endif %}">
-        {{ my_effort_allocated }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>
+        {{ my_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>
       </div>
       <div class="stat-desc text-xs">{% trans "across your phases" %}</div>
     </div>
@@ -142,7 +142,7 @@
               </td>
               <td>{{ phase.start_date }}</td>
               <td>{{ phase.end_date }}</td>
-              <td class="text-right tabular-nums">{{ phase.effort_weeks }}</td>
+              <td class="text-right tabular-nums">{{ phase.effort_weeks|wks }}</td>
             </tr>
             {% endfor %}
           </tbody>

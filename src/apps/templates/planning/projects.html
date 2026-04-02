@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n planning_extras %}
 
 {% block title %} — {% trans "Projects" %}{% endblock %}
 
@@ -52,10 +52,10 @@
             <span class="badge badge-outline badge-sm">{{ tag }}</span>
             {% empty %}—{% endfor %}
           </td>
-          <td class="text-right">{{ project.effort_resourced|default:"—" }}</td>
-          <td class="text-right">{{ project.effort_allocated }}</td>
+          <td class="text-right">{{ project.effort_resourced|wks }}</td>
+          <td class="text-right">{{ project.effort_allocated|wks }}</td>
           <td class="text-right{% if project.effort_discrepancy < 0 %} text-error font-bold{% endif %}">
-            {{ project.effort_discrepancy }}
+            {{ project.effort_discrepancy|wks }}
             {% if project.effort_discrepancy < 0 %}
             <span class="ml-1 tooltip" data-tip="{% trans 'Over-allocated' %}">⚠</span>
             {% endif %}

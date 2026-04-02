@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n planning_extras %}
 
 {% block title %} — {% trans "Developers" %}{% endblock %}
 
@@ -53,9 +53,9 @@
             <span class="badge badge-outline badge-sm">{{ tag }}</span>
             {% empty %}—{% endfor %}
           </td>
-          <td class="text-right">{{ dev.effort_available|default:"—" }}</td>
+          <td class="text-right">{{ dev.effort_available|wks }}</td>
           <td class="text-right{% if dev.effort_available and dev.effort_allocated > dev.effort_available %} text-error font-bold{% endif %}">
-            {{ dev.effort_allocated }}
+            {{ dev.effort_allocated|wks }}
             {% if dev.effort_available and dev.effort_allocated > dev.effort_available %}
             <span class="ml-1 tooltip" data-tip="{% trans 'Over-allocated' %}">⚠</span>
             {% endif %}
