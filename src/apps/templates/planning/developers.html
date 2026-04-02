@@ -13,8 +13,8 @@
       </div>
       {% if can_edit %}
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" disabled>+ {% trans "Add Developer" %}</button>
-        <button class="btn btn-outline btn-sm" disabled>{% trans "Upload TSV" %}</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-developer-modal').showModal()">+ {% trans "Add Developer" %}</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('upload-developer-modal').showModal()">{% trans "Upload TSV" %}</button>
       </div>
       {% endif %}
     </div>
@@ -62,4 +62,133 @@
     </table>
   </div>
 </div>
+
+{# Add Developer modal #}
+<dialog id="add-developer-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Add Developer" %}</h3>
+    <form method="post" action="{% url 'planning:developer_add' %}">
+      {% csrf_token %}
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Email" %} <span class="text-error">*</span></label>
+        <input type="email" name="email" class="input input-bordered" required>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %}</label>
+        <input type="text" name="name" class="input input-bordered">
+      </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Organisation" %}</label>
+          <input type="text" name="organisation" class="input input-bordered">
+        </div>
+        <div class="form-control" style="width: 80px;">
+          <label class="label label-text">{% trans "Emoji" %}</label>
+          <input type="text" name="emoji" class="input input-bordered" maxlength="10">
+        </div>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Effort Available (wks)" %}</label>
+        <input type="number" name="effort_available" min="0" step="0.5" class="input input-bordered">
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Tags" %}</label>
+        <div id="dev-tag-buttons" class="flex flex-wrap gap-2 mt-1">
+          {% for tag in all_tags %}
+          <label class="btn btn-sm btn-outline cursor-pointer">
+            <input type="checkbox" name="tags" value="{{ tag.name }}" class="hidden">
+            {{ tag.name }}
+          </label>
+          {% endfor %}
+        </div>
+        <div class="flex gap-2 mt-2">
+          <input type="text" id="dev-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="devAddTag()">+ {% trans "Add" %}</button>
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-developer-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+{# Upload TSV modal #}
+<dialog id="upload-developer-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-2">{% trans "Upload Developers TSV" %}</h3>
+    <p class="text-sm text-neutral-500 mb-4">
+      {% trans "Tab-separated file with a header row. Columns:" %}
+      <code class="text-xs bg-base-200 px-1 rounded">email</code>,
+      <code class="text-xs bg-base-200 px-1 rounded">name</code>,
+      <code class="text-xs bg-base-200 px-1 rounded">organisation</code>,
+      <code class="text-xs bg-base-200 px-1 rounded">emoji</code>,
+      <code class="text-xs bg-base-200 px-1 rounded">effort_available</code>,
+      <code class="text-xs bg-base-200 px-1 rounded">tags</code>
+      {% trans "(comma-separated tag names)" %}
+    </p>
+    <form method="post" action="{% url 'planning:developer_upload' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-control mb-4">
+        <input type="file" name="tsv_file" accept=".tsv,.txt" class="file-input file-input-bordered w-full" required>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('upload-developer-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Upload" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+<script>
+function initTagButtons(containerId) {
+  document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(function (cb) {
+    var label = cb.closest('label');
+    function sync() {
+      label.classList.toggle('btn-primary', cb.checked);
+      label.classList.toggle('btn-outline', !cb.checked);
+    }
+    sync();
+    cb.addEventListener('change', sync);
+  });
+}
+
+function addTagButton(containerId, name) {
+  if (!name) return;
+  var container = document.getElementById(containerId);
+  var existing = container.querySelector('input[name="tags"][value="' + name.replace(/"/g, '\\"') + '"]');
+  if (existing) {
+    existing.checked = true;
+    existing.dispatchEvent(new Event('change'));
+    return;
+  }
+  var label = document.createElement('label');
+  label.className = 'btn btn-sm btn-primary cursor-pointer';
+  var cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.name = 'tags'; cb.value = name; cb.checked = true; cb.className = 'hidden';
+  cb.addEventListener('change', function () {
+    label.classList.toggle('btn-primary', cb.checked);
+    label.classList.toggle('btn-outline', !cb.checked);
+  });
+  label.appendChild(cb);
+  label.appendChild(document.createTextNode(name));
+  container.appendChild(label);
+}
+
+function devAddTag() {
+  var input = document.getElementById('dev-new-tag');
+  addTagButton('dev-tag-buttons', input.value.trim());
+  input.value = '';
+  input.focus();
+}
+
+document.getElementById('dev-new-tag').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); devAddTag(); }
+});
+
+initTagButtons('dev-tag-buttons');
+</script>
 {% endblock %}

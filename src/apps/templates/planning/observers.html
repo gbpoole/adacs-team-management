@@ -7,9 +7,12 @@
 <div class="h-[calc(100vh-4rem)] flex flex-col">
   <div class="shrink-0 px-6 pt-6 pb-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">{% trans "Observers" %}</h1>
+      <div>
+        <h1 class="text-2xl font-bold">{% trans "Observers" %}</h1>
+        <p class="text-sm text-neutral-500">{{ semester }}</p>
+      </div>
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" disabled>+ {% trans "Add Observer" %}</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-observer-modal').showModal()">+ {% trans "Add Observer" %}</button>
       </div>
     </div>
   </div>
@@ -45,4 +48,48 @@
     </table>
   </div>
 </div>
+
+{# Add Observer modal #}
+<dialog id="add-observer-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Add Observer" %}</h3>
+    <form method="post" action="{% url 'planning:observer_add' %}">
+      {% csrf_token %}
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Email" %} <span class="text-error">*</span></label>
+        <input type="email" name="email" class="input input-bordered" required>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %}</label>
+        <input type="text" name="name" class="input input-bordered">
+      </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Organisation" %}</label>
+          <input type="text" name="organisation" class="input input-bordered">
+        </div>
+        <div class="form-control" style="width: 80px;">
+          <label class="label label-text">{% trans "Emoji" %}</label>
+          <input type="text" name="emoji" class="input input-bordered" maxlength="10">
+        </div>
+      </div>
+      {% if all_projects %}
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Project Access" %}</label>
+        <select name="project_access" multiple class="select select-bordered h-40">
+          {% for project in all_projects %}
+          <option value="{{ project.pk }}">{{ project.display_name }}</option>
+          {% endfor %}
+        </select>
+        <span class="label-text-alt mt-1 text-neutral-400">{% trans "Hold Ctrl/Cmd to select multiple" %}</span>
+      </div>
+      {% endif %}
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-observer-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
 {% endblock %}

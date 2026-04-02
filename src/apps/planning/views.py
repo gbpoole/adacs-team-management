@@ -1,6 +1,9 @@
+import csv
 import datetime
+import io
 import json
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
@@ -16,8 +19,10 @@ from .models import (
     ObserverProfile,
     Phase,
     Project,
+    ProjectSemesterName,
     Semester,
     SemesterDeveloper,
+    Stream,
     Tag,
 )
 
@@ -230,7 +235,8 @@ class DevelopersView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = Semester.get_current()
         ctx["semester"] = semester
-        ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM)
+        ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
+        ctx["all_tags"] = Tag.objects.all()
 
         records = SemesterDeveloper.objects.filter(semester=semester).values_list(
             "developer_id", "effort_available",
@@ -269,6 +275,16 @@ class ObserversView(RoleRequiredMixin, ListView):
             .order_by("user__name", "user__email")
         )
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        semester = Semester.get_current()
+        ctx["semester"] = semester
+        all_projects = list(Project.objects.prefetch_related("semester_names").all())
+        for p in all_projects:
+            p.display_name = p.name_for_semester(semester)
+        ctx["all_projects"] = all_projects
+        return ctx
+
 
 # ---------------------------------------------------------------------------
 # Projects page  (FR-12)
@@ -297,9 +313,177 @@ class ProjectsView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = Semester.get_current()
         ctx["semester"] = semester
+        ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
+        ctx["all_tags"] = Tag.objects.all()
+        ctx["streams"] = Stream.objects.order_by("name")
         for project in ctx["projects"]:
             project.display_name = project.name_for_semester(semester)
         return ctx
+
+
+# ---------------------------------------------------------------------------
+# Developer create / upload
+# ---------------------------------------------------------------------------
+
+
+def _get_or_create_tags(names):
+    return [Tag.objects.get_or_create(name=n)[0] for n in names if n.strip()]
+
+
+class DeveloperCreateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, *args, **kwargs):
+        User = get_user_model()
+        email = request.POST.get("email", "").strip()
+        if not email:
+            return redirect("planning:developers")
+        user, _ = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "name": request.POST.get("name", "").strip(),
+                "role": Role.DEVELOPER,
+                "organisation": request.POST.get("organisation", "").strip(),
+                "emoji": request.POST.get("emoji", "").strip(),
+            },
+        )
+        profile, _ = DeveloperProfile.objects.get_or_create(user=user)
+        tag_names = request.POST.getlist("tags")
+        if tag_names:
+            profile.tags.set(_get_or_create_tags(tag_names))
+        effort_str = request.POST.get("effort_available", "").strip()
+        if effort_str:
+            try:
+                effort = float(effort_str)
+                sd, created = SemesterDeveloper.objects.get_or_create(
+                    developer=profile, semester=Semester.get_current(),
+                    defaults={"effort_available": effort},
+                )
+                if not created:
+                    sd.effort_available = effort
+                    sd.save(update_fields=["effort_available"])
+            except ValueError:
+                pass
+        return redirect("planning:developers")
+
+
+class DeveloperUploadView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, *args, **kwargs):
+        User = get_user_model()
+        f = request.FILES.get("tsv_file")
+        if not f:
+            return redirect("planning:developers")
+        semester = Semester.get_current()
+        reader = csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")), delimiter="\t")
+        for row in reader:
+            email = row.get("email", "").strip()
+            if not email:
+                continue
+            user, _ = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    "name": row.get("name", "").strip(),
+                    "role": Role.DEVELOPER,
+                    "organisation": row.get("organisation", "").strip(),
+                    "emoji": row.get("emoji", "").strip(),
+                },
+            )
+            profile, _ = DeveloperProfile.objects.get_or_create(user=user)
+            tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+            if tag_names:
+                profile.tags.set(_get_or_create_tags(tag_names))
+            effort_str = row.get("effort_available", "").strip()
+            if effort_str:
+                try:
+                    effort = float(effort_str)
+                    sd, created = SemesterDeveloper.objects.get_or_create(
+                        developer=profile, semester=semester,
+                        defaults={"effort_available": effort},
+                    )
+                    if not created:
+                        sd.effort_available = effort
+                        sd.save(update_fields=["effort_available"])
+                except ValueError:
+                    pass
+        return redirect("planning:developers")
+
+
+# ---------------------------------------------------------------------------
+# Project create / upload
+# ---------------------------------------------------------------------------
+
+
+class ProjectCreateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get("name", "").strip()
+        if not name:
+            return redirect("planning:projects")
+        stream_name = request.POST.get("stream", "").strip()
+        stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
+        project = Project(stream=stream)
+        project.save()
+        ProjectSemesterName.objects.create(project=project, semester=Semester.get_current(), name=name)
+        tag_names = request.POST.getlist("tags")
+        if tag_names:
+            project.tags.set(_get_or_create_tags(tag_names))
+        return redirect("planning:projects")
+
+
+class ProjectUploadView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, *args, **kwargs):
+        f = request.FILES.get("tsv_file")
+        if not f:
+            return redirect("planning:projects")
+        semester = Semester.get_current()
+        reader = csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")), delimiter="\t")
+        for row in reader:
+            name = row.get("name", "").strip()
+            if not name:
+                continue
+            stream_name = row.get("stream", "").strip()
+            stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
+            project = Project(stream=stream)
+            project.save()
+            ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
+            tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+            if tag_names:
+                project.tags.set(_get_or_create_tags(tag_names))
+        return redirect("planning:projects")
+
+
+# ---------------------------------------------------------------------------
+# Observer create
+# ---------------------------------------------------------------------------
+
+
+class ObserverCreateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, *args, **kwargs):
+        User = get_user_model()
+        email = request.POST.get("email", "").strip()
+        if not email:
+            return redirect("planning:observers")
+        user, _ = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "name": request.POST.get("name", "").strip(),
+                "role": Role.OBSERVER,
+                "organisation": request.POST.get("organisation", "").strip(),
+                "emoji": request.POST.get("emoji", "").strip(),
+            },
+        )
+        obs, _ = ObserverProfile.objects.get_or_create(user=user)
+        project_pks = request.POST.getlist("project_access")
+        if project_pks:
+            obs.project_access.set(project_pks)
+        return redirect("planning:observers")
 
 
 # ---------------------------------------------------------------------------
