@@ -1,21 +1,74 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% load crispy_forms_tags %}
+{% block title %} — {% trans "My Info" %}{% endblock %}
 
-{% block title %}
-  {{ user.name }}
-{% endblock title %}
 {% block content %}
-  <h1>{{ user.name }}</h1>
-  <form class="form-horizontal"
-        method="post"
-        action="{% url 'users:update' %}">
-    {% csrf_token %}
-    {{ form|crispy }}
-    <div class="control-group">
-      <div class="controls">
-        <button type="submit" class="btn btn-primary">Update</button>
+<div class="flex justify-center px-6 py-8">
+  <div class="w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-6">{% trans "My Info" %}</h1>
+
+    <form method="post" action="{% url 'users:update' %}">
+      {% csrf_token %}
+
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %}</label>
+        <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+               class="input input-bordered w-full">
       </div>
-    </div>
-  </form>
-{% endblock content %}
+
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Organisation" %}</label>
+        <input type="text" name="organisation" value="{{ form.organisation.value|default:'' }}"
+               class="input input-bordered w-full">
+      </div>
+
+      <div class="form-control mb-6">
+        <label class="label label-text">{% trans "Emoji" %}</label>
+        <input type="hidden" name="emoji" id="profile-emoji-value" value="{{ form.emoji.value|default:'' }}">
+        <div class="flex items-center gap-2">
+          <button type="button" id="profile-emoji-btn"
+                  class="btn btn-outline btn-sm font-normal"
+                  onclick="toggleEmojiPicker('profile')">
+            <span id="profile-emoji-preview">{{ form.emoji.value|default:"😀" }}</span> {% trans "Pick emoji" %}
+          </button>
+          <button type="button" class="btn btn-ghost btn-xs text-neutral-400"
+                  onclick="clearEmoji('profile')">✕ {% trans "Clear" %}</button>
+        </div>
+        <div id="profile-picker-wrap" style="display:none; margin-top: 4px;">
+          <emoji-picker id="profile-picker" class="light"></emoji-picker>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">{% trans "Update" %}</button>
+        <a href="{{ request.user.get_absolute_url }}" class="btn btn-ghost btn-sm">{% trans "Cancel" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+<script>
+function toggleEmojiPicker(prefix) {
+  var wrap = document.getElementById(prefix + '-picker-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+}
+
+function clearEmoji(prefix) {
+  document.getElementById(prefix + '-emoji-value').value = '';
+  document.getElementById(prefix + '-emoji-preview').textContent = '😀';
+}
+
+function setupPicker(prefix) {
+  document.getElementById(prefix + '-picker').addEventListener('emoji-click', function (e) {
+    var emoji = e.detail.unicode;
+    document.getElementById(prefix + '-emoji-value').value = emoji;
+    document.getElementById(prefix + '-emoji-preview').textContent = emoji;
+    document.getElementById(prefix + '-picker-wrap').style.display = 'none';
+  });
+}
+
+setupPicker('profile');
+</script>
+{% endblock %}
