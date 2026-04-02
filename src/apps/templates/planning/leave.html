@@ -61,22 +61,17 @@
       </thead>
       <tbody>
         {% for leave in leave_periods %}
-        <tr>
+        <tr{% if can_edit or is_developer %} class="cursor-pointer hover:bg-base-200"
+            onclick="openEditLeave(this)"
+            data-pk="{{ leave.pk }}"
+            data-developer="{{ leave.developer.user.name|default:leave.developer.user.email }}"
+            data-start="{{ leave.start_date|date:'Y-m-d' }}"
+            data-end="{{ leave.end_date|date:'Y-m-d' }}"{% endif %}>
           {% if can_edit %}<td>{{ leave.developer.user.name|default:leave.developer.user.email }}</td>{% endif %}
           <td>{{ leave.start_date }}</td>
           <td>{{ leave.end_date }}</td>
           <td class="text-right">{{ leave.start_date|timeuntil:leave.end_date }}</td>
-          {% if can_edit or is_developer %}
-          <td class="text-right">
-            <form method="post" action="{% url 'planning:leave_delete' leave.pk %}" class="inline">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-ghost btn-xs text-error"
-                      onclick="return confirm('{% trans "Delete this leave period?" %}')">
-                {% trans "Delete" %}
-              </button>
-            </form>
-          </td>
-          {% endif %}
+          {% if can_edit or is_developer %}<td></td>{% endif %}
         </tr>
         {% empty %}
         <tr>
@@ -87,4 +82,61 @@
     </table>
   </div>
 </div>
+
+{# Edit Leave modal #}
+{% if can_edit or is_developer %}
+<dialog id="leave-edit-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
+    <form id="leave-edit-form" method="post" action="">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{% url 'planning:leave' %}{% if show_past %}?show_past=1{% endif %}">
+      <input type="hidden" id="edit-leave-id" value="">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Developer" %}</label>
+        <input id="edit-leave-developer" type="text" class="input input-bordered bg-base-200" readonly>
+      </div>
+      <div class="flex gap-3 mb-4">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Start Date" %}</label>
+          <input id="edit-leave-start" type="date" name="start_date" class="input input-bordered" required>
+        </div>
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "End Date" %}</label>
+          <input id="edit-leave-end" type="date" name="end_date" class="input input-bordered" required>
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteLeave()">{% trans "Delete" %}</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('leave-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+<script>
+function openEditLeave(row) {
+  document.getElementById('edit-leave-id').value = row.dataset.pk;
+  document.getElementById('edit-leave-developer').value = row.dataset.developer;
+  document.getElementById('edit-leave-start').value = row.dataset.start;
+  document.getElementById('edit-leave-end').value = row.dataset.end;
+  document.getElementById('leave-edit-form').action = '/planning/leave/' + row.dataset.pk + '/update/';
+  document.getElementById('leave-edit-modal').showModal();
+}
+
+function confirmDeleteLeave() {
+  var pk = document.getElementById('edit-leave-id').value;
+  if (!pk || !confirm('{% trans "Delete this leave period?" %}')) return;
+  document.getElementById('leave-edit-modal').close();
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  var body = new FormData();
+  body.append('csrfmiddlewaretoken', csrf);
+  fetch('/planning/leave/' + pk + '/delete/', { method: 'POST', body: body })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+}
+</script>
+{% endif %}
 {% endblock %}

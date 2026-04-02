@@ -29,7 +29,14 @@
       </thead>
       <tbody>
         {% for obs in observers %}
-        <tr>
+        <tr class="cursor-pointer hover:bg-base-200"
+            onclick="openEditObserver(this)"
+            data-pk="{{ obs.pk }}"
+            data-name="{{ obs.user.name|default:'' }}"
+            data-email="{{ obs.user.email }}"
+            data-organisation="{{ obs.user.organisation|default:'' }}"
+            data-emoji="{{ obs.user.emoji|default:'' }}"
+            data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
           <td>{% if obs.user.emoji %}{{ obs.user.emoji }} {% endif %}{{ obs.user.name|default:"—" }}</td>
           <td>{{ obs.user.email }}</td>
           <td>{{ obs.user.organisation|default:"—" }}</td>
@@ -92,4 +99,82 @@
   </div>
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
+
+{# Edit Observer modal #}
+<dialog id="observer-edit-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Edit Observer" %}</h3>
+    <form id="observer-edit-form" method="post" action="">
+      {% csrf_token %}
+      <input type="hidden" id="edit-observer-id" value="">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Email" %}</label>
+        <input id="edit-observer-email" type="email" class="input input-bordered bg-base-200" readonly>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %}</label>
+        <input id="edit-observer-name" type="text" name="name" class="input input-bordered">
+      </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Organisation" %}</label>
+          <input id="edit-observer-organisation" type="text" name="organisation" class="input input-bordered">
+        </div>
+        <div class="form-control" style="width: 80px;">
+          <label class="label label-text">{% trans "Emoji" %}</label>
+          <input id="edit-observer-emoji" type="text" name="emoji" class="input input-bordered" maxlength="10">
+        </div>
+      </div>
+      {% if all_projects %}
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Project Access" %}</label>
+        <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-40">
+          {% for project in all_projects %}
+          <option value="{{ project.pk }}">{{ project.display_name }}</option>
+          {% endfor %}
+        </select>
+        <span class="label-text-alt mt-1 text-neutral-400">{% trans "Hold Ctrl/Cmd to select multiple" %}</span>
+      </div>
+      {% endif %}
+      <div class="modal-action">
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteObserver()">{% trans "Delete" %}</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('observer-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+<script>
+function openEditObserver(row) {
+  var pk = row.dataset.pk;
+  var projectPks = row.dataset.projects ? row.dataset.projects.split(',') : [];
+  document.getElementById('edit-observer-id').value = pk;
+  document.getElementById('edit-observer-email').value = row.dataset.email;
+  document.getElementById('edit-observer-name').value = row.dataset.name;
+  document.getElementById('edit-observer-organisation').value = row.dataset.organisation;
+  document.getElementById('edit-observer-emoji').value = row.dataset.emoji;
+  var sel = document.getElementById('edit-observer-projects');
+  if (sel) {
+    Array.from(sel.options).forEach(function (opt) {
+      opt.selected = projectPks.indexOf(opt.value) !== -1;
+    });
+  }
+  document.getElementById('observer-edit-form').action = '/planning/observers/' + pk + '/edit/';
+  document.getElementById('observer-edit-modal').showModal();
+}
+
+function confirmDeleteObserver() {
+  var pk = document.getElementById('edit-observer-id').value;
+  if (!pk || !confirm('{% trans "Delete this observer? This cannot be undone." %}')) return;
+  document.getElementById('observer-edit-modal').close();
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  var body = new FormData();
+  body.append('csrfmiddlewaretoken', csrf);
+  fetch('/planning/observers/' + pk + '/delete/', { method: 'POST', body: body })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+}
+</script>
 {% endblock %}

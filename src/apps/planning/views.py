@@ -22,6 +22,7 @@ from .models import (
     ObserverProfile,
     Phase,
     Project,
+    ProjectAllocation,
     ProjectSemesterName,
     Semester,
     SemesterDeveloper,
@@ -319,8 +320,21 @@ class ProjectsView(RoleRequiredMixin, ListView):
         ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
         ctx["streams"] = Stream.objects.order_by("name")
+
+        resourced_map = {
+            pk: float(new + carryover)
+            for pk, new, carryover in ProjectAllocation.objects.filter(semester=semester)
+            .values_list("project_id", "weeks_new", "weeks_carryover")
+        }
+        allocated_map: dict = {}
+        for phase in Phase.objects.filter(semester=semester).select_related("developer"):
+            allocated_map[phase.project_id] = allocated_map.get(phase.project_id, 0) + phase.effort_weeks()
+
         for project in ctx["projects"]:
             project.display_name = project.name_for_semester(semester)
+            project.effort_resourced = resourced_map.get(project.pk, 0)
+            project.effort_allocated = round(allocated_map.get(project.pk, 0), 2)
+            project.effort_discrepancy = round(project.effort_resourced - project.effort_allocated, 2)
         return ctx
 
 
@@ -387,6 +401,9 @@ def _validate_project_rows(rows):
         name_err = _validate_name(row.get("name", "").strip())
         if name_err:
             errors.append(f"Row {i}: {name_err}")
+        effort_err = _validate_effort(row.get("effort_resourced", "").strip())
+        if effort_err:
+            errors.append(f"Row {i}: {effort_err}")
     return errors
 
 
@@ -504,14 +521,21 @@ class ProjectCreateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if not name:
             return redirect("planning:projects")
+        semester = Semester.get_current()
         stream_name = request.POST.get("stream", "").strip()
         stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
         project = Project(stream=stream)
         project.save()
-        ProjectSemesterName.objects.create(project=project, semester=Semester.get_current(), name=name)
+        ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
         tag_names = request.POST.getlist("tags")
         if tag_names:
             project.tags.set(_get_or_create_tags(tag_names))
+        effort_str = request.POST.get("effort_resourced", "").strip()
+        weeks = float(effort_str) if effort_str else 0
+        ProjectAllocation.objects.create(
+            project=project, semester=semester,
+            weeks_new=weeks, weeks_carryover=0,
+        )
         return redirect("planning:projects")
 
 
@@ -538,6 +562,12 @@ class ProjectUploadView(RoleRequiredMixin, View):
                 tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
                 if tag_names:
                     project.tags.set(_get_or_create_tags(tag_names))
+                effort_str = row.get("effort_resourced", "").strip()
+                weeks = float(effort_str) if effort_str else 0
+                ProjectAllocation.objects.create(
+                    project=project, semester=semester,
+                    weeks_new=weeks, weeks_carryover=0,
+                )
         messages.success(request, f"{len(rows)} project(s) uploaded successfully.")
         return redirect("planning:projects")
 
@@ -790,13 +820,23 @@ class PhaseUpdateView(RoleRequiredMixin, View):
 
 
 class LeaveUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
+        user = request.user
+        if user.role == Role.DEVELOPER and not user.is_superuser:
+            try:
+                if leave.developer != user.developer_profile:
+                    return HttpResponse(status=403)
+            except DeveloperProfile.DoesNotExist:
+                return HttpResponse(status=403)
         leave.start_date = datetime.date.fromisoformat(request.POST.get("start_date"))
         leave.end_date = datetime.date.fromisoformat(request.POST.get("end_date"))
         leave.save(update_fields=["start_date", "end_date"])
+        next_url = request.POST.get("next")
+        if next_url:
+            return redirect(next_url)
         return HttpResponse(status=204)
 
 
@@ -901,3 +941,124 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = tag_filter
         return ctx
+
+
+# ---------------------------------------------------------------------------
+# Developer edit / delete
+# ---------------------------------------------------------------------------
+
+
+class DeveloperUpdateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        profile = get_object_or_404(DeveloperProfile, pk=pk)
+        user = profile.user
+        user.name = request.POST.get("name", "").strip()
+        user.organisation = request.POST.get("organisation", "").strip()
+        user.emoji = request.POST.get("emoji", "").strip()
+        user.save(update_fields=["name", "organisation", "emoji"])
+        tag_names = request.POST.getlist("tags")
+        profile.tags.set(_get_or_create_tags(tag_names))
+        effort_str = request.POST.get("effort_available", "").strip()
+        if effort_str:
+            try:
+                effort = float(effort_str)
+                sd, created = SemesterDeveloper.objects.get_or_create(
+                    developer=profile, semester=Semester.get_current(),
+                    defaults={"effort_available": effort},
+                )
+                if not created:
+                    sd.effort_available = effort
+                    sd.save(update_fields=["effort_available"])
+            except ValueError:
+                pass
+        return redirect("planning:developers")
+
+
+class DeveloperDeleteView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        profile = get_object_or_404(DeveloperProfile, pk=pk)
+        user = profile.user
+        profile.delete()
+        user.delete()
+        return HttpResponse(status=204)
+
+
+# ---------------------------------------------------------------------------
+# Project edit / delete
+# ---------------------------------------------------------------------------
+
+
+class ProjectUpdateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        project = get_object_or_404(Project, pk=pk)
+        semester = Semester.get_current()
+        name = request.POST.get("name", "").strip()
+        if name:
+            psn, _ = ProjectSemesterName.objects.get_or_create(project=project, semester=semester)
+            psn.name = name
+            psn.save(update_fields=["name"])
+        stream_name = request.POST.get("stream", "").strip()
+        project.stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
+        project.save(update_fields=["stream"])
+        tag_names = request.POST.getlist("tags")
+        project.tags.set(_get_or_create_tags(tag_names))
+        effort_str = request.POST.get("effort_resourced", "").strip()
+        try:
+            weeks = float(effort_str) if effort_str else 0.0
+            alloc, created = ProjectAllocation.objects.get_or_create(
+                project=project, semester=semester,
+                defaults={"weeks_new": weeks, "weeks_carryover": 0},
+            )
+            if not created:
+                alloc.weeks_new = weeks
+                alloc.weeks_carryover = 0
+                alloc.save(update_fields=["weeks_new", "weeks_carryover"])
+        except ValueError:
+            pass
+        return redirect("planning:projects")
+
+
+class ProjectDeleteView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        project = get_object_or_404(Project, pk=pk)
+        project.delete()
+        return HttpResponse(status=204)
+
+
+# ---------------------------------------------------------------------------
+# Observer edit / delete
+# ---------------------------------------------------------------------------
+
+
+class ObserverUpdateView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        profile = get_object_or_404(ObserverProfile, pk=pk)
+        user = profile.user
+        user.name = request.POST.get("name", "").strip()
+        user.organisation = request.POST.get("organisation", "").strip()
+        user.emoji = request.POST.get("emoji", "").strip()
+        user.save(update_fields=["name", "organisation", "emoji"])
+        project_pks = request.POST.getlist("project_access")
+        profile.project_access.set(project_pks)
+        return redirect("planning:observers")
+
+
+class ObserverDeleteView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        profile = get_object_or_404(ObserverProfile, pk=pk)
+        user = profile.user
+        profile.delete()
+        user.delete()
+        return HttpResponse(status=204)
