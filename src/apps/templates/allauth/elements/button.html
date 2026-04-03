@@ -6,11 +6,11 @@
                       {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
                       {% if attrs.name %}name="{{ attrs.name }}"{% endif %}
                       {% if attrs.type %}type="{{ attrs.type }}"{% endif %}
-                      class="btn btn-block
-{% if 'success' in attrs.tags %}btn-success
+                      class="btn btn-sm
+{% if 'secondary' in attrs.tags %}btn-outline
+{% elif 'danger' in attrs.tags %}btn-error btn-outline
 {% elif 'warning' in attrs.tags %}btn-warning
-{% elif 'secondary' in attrs.tags %}btn-secondary
-{% elif 'danger' in attrs.tags %}btn-danger
+{% elif 'success' in attrs.tags %}btn-success
 {% elif 'primary' in attrs.tags %}btn-primary
 {% else %}btn-primary
 {% endif %}"

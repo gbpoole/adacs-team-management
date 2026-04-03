@@ -6,6 +6,9 @@
 {% block content %}
 <div class="flex justify-center px-6 py-8">
   <div class="w-full max-w-md">
+    <div class="mb-4">
+      <a href="{{ request.user.get_absolute_url }}" class="btn btn-ghost btn-sm">← {% trans "My Profile" %}</a>
+    </div>
     <h1 class="text-2xl font-bold mb-6">{% trans "My Info" %}</h1>
 
     <form method="post" action="{% url 'users:update' %}">
@@ -42,7 +45,6 @@
 
       <div class="flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm">{% trans "Update" %}</button>
-        <a href="{{ request.user.get_absolute_url }}" class="btn btn-ghost btn-sm">{% trans "Cancel" %}</a>
       </div>
     </form>
   </div>
