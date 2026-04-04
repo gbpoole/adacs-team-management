@@ -17,6 +17,7 @@ from django.views.generic import ListView, TemplateView
 from apps.users.models import Role
 
 from .models import (
+    DeveloperLane,
     DeveloperProfile,
     Leave,
     ObserverProfile,
@@ -127,6 +128,89 @@ def _week_starts(start: datetime.date, end: datetime.date) -> list:
         weeks.append(w)
         w += datetime.timedelta(weeks=1)
     return weeks
+
+
+def _find_or_create_non_overlapping_lane(
+    developer, semester, start_date, end_date, preferred_lane, exclude_phase_pk=None,
+):
+    """
+    Return ``preferred_lane`` if no phase in it overlaps [start_date, end_date].
+    Otherwise try each of the developer's lanes in order; if all overlap, create
+    a new lane at max_order+1.
+    """
+    from django.db.models import Max  # noqa: PLC0415
+
+    def has_overlap(lane):
+        qs = Phase.objects.filter(
+            lane=lane, start_date__lte=end_date, end_date__gte=start_date,
+        )
+        if exclude_phase_pk:
+            qs = qs.exclude(pk=exclude_phase_pk)
+        return qs.exists()
+
+    if not has_overlap(preferred_lane):
+        return preferred_lane
+
+    for lane in DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).exclude(pk=preferred_lane.pk).order_by("order", "pk"):
+        if not has_overlap(lane):
+            return lane
+
+    max_order = DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).aggregate(Max("order"))["order__max"]
+    new_order = (max_order + 1) if max_order is not None else 0
+    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+
+
+def _build_lane_cells(n_weeks, phase_segments):
+    """
+    Build a cell list for a single lane.
+    phase_segments: list of (start_col, span, phase).
+
+    All phases are emitted as individual cells regardless of overlap — absolute
+    positioning in the template renders them correctly even when they overlap.
+    Empty cells are emitted for column runs not covered by any phase (used for
+    drag-to-create).
+    """
+    # Mark columns covered by at least one phase
+    covered = bytearray(n_weeks)
+    for start_col, span, _ in phase_segments:
+        for c in range(max(0, start_col), min(n_weeks, start_col + span)):
+            covered[c] = 1
+
+    # Emit every phase cell (sorted for deterministic order)
+    cells = [
+        {
+            "type": "phase",
+            "colspan": span,
+            "phase": ph,
+            "col_start": start_col,
+            "col_end": start_col + span - 1,
+        }
+        for start_col, span, ph in sorted(phase_segments, key=lambda x: x[0])
+    ]
+
+    # Emit empty cells for uncovered column runs
+    col = 0
+    while col < n_weeks:
+        if not covered[col]:
+            end = col
+            while end + 1 < n_weeks and not covered[end + 1]:
+                end += 1
+            cells.append({
+                "type": "empty",
+                "colspan": end - col + 1,
+                "phase": None,
+                "col_start": col,
+                "col_end": end,
+            })
+            col = end + 1
+        else:
+            col += 1
+
+    return cells
 
 
 def _coverage(item_start: datetime.date, item_end: datetime.date, weeks: list):
@@ -709,19 +793,36 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                     developer__in=devs,
                     start_date__lte=weeks[-1] + datetime.timedelta(days=6),
                     end_date__gte=weeks[0],
-                ).select_related("developer", "project")
+                ).select_related("developer", "project", "lane")
             )
         else:
             phases = []
 
         from collections import defaultdict
-        dev_phases: dict = defaultdict(list)
+
+        # Fetch all lanes for these developers in the current semester
+        lanes_qs = DeveloperLane.objects.filter(
+            developer__in=devs, semester=semester,
+        ).order_by("order", "pk")
+        lanes_by_dev: dict = defaultdict(list)
+        for lane in lanes_qs:
+            lanes_by_dev[lane.developer_id].append(lane)
+
+        # Group phases by lane pk
+        phases_by_lane: dict = defaultdict(list)
         for phase in phases:
-            dev_phases[phase.developer_id].append(phase)
+            phases_by_lane[phase.lane_id].append(phase)
 
         developer_rows = []
         for dev in devs:
-            # Build one leave cell per Leave period so each carries its pk and dates.
+            # Ensure at least one lane exists
+            if not lanes_by_dev[dev.pk]:
+                lane0, _ = DeveloperLane.objects.get_or_create(
+                    developer=dev, semester=semester, order=0,
+                )
+                lanes_by_dev[dev.pk] = [lane0]
+
+            # Build one leave cell per Leave period
             leave_cells = []
             if weeks:
                 for leave in dev.leave_periods.all():
@@ -736,20 +837,31 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                             "end_date": leave.end_date,
                         })
 
-            phase_segments = []
-            for phase in dev_phases.get(dev.pk, []):
-                start_col, span = _coverage(phase.start_date, phase.end_date, weeks)
-                if start_col is not None:
-                    phase.display_name = phase.project.name_for_semester(semester)
-                    phase.effort_display = phase.effort_weeks()
-                    phase_segments.append((start_col, span, phase))
+            dev_lanes = lanes_by_dev[dev.pk]
+            lane_rows = []
+            for lane in dev_lanes:
+                phase_segments = []
+                for phase in phases_by_lane.get(lane.pk, []):
+                    start_col, span = _coverage(phase.start_date, phase.end_date, weeks)
+                    if start_col is not None:
+                        phase.display_name = phase.project.name_for_semester(semester)
+                        phase.effort_display = phase.effort_weeks()
+                        phase_segments.append((start_col, span, phase))
+                cells = _build_lane_cells(len(weeks), phase_segments)
+                lane_rows.append({
+                    "lane": lane,
+                    "cells": cells,
+                    "is_empty": len(phase_segments) == 0,
+                    "is_last": False,  # set below
+                })
+            if lane_rows:
+                lane_rows[-1]["is_last"] = True
 
-            # Pass an empty leave set — leave is now rendered as a separate overlay.
-            layers = _build_timeline_layers(len(weeks), phase_segments, set())
             developer_rows.append({
                 "developer": dev,
-                "layers": layers,
-                "layer_count": len(layers),
+                "lanes": lane_rows,
+                "lane_count": len(lane_rows),
+                "last_lane_pk": dev_lanes[-1].pk if dev_lanes else None,
                 "leave_cells": leave_cells,
             })
 
@@ -784,10 +896,25 @@ class PhaseCreateView(RoleRequiredMixin, View):
         end_date = request.POST.get("end_date")
         effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
         semester = Semester.get_current()
+        lane_pk = request.POST.get("lane_pk")
+        if lane_pk:
+            preferred_lane = get_object_or_404(DeveloperLane, pk=lane_pk)
+        else:
+            preferred_lane, _ = DeveloperLane.objects.get_or_create(
+                developer_id=developer_id, semester=semester, order=0,
+            )
+        developer = get_object_or_404(DeveloperProfile, pk=developer_id)
+        lane = _find_or_create_non_overlapping_lane(
+            developer, semester,
+            datetime.date.fromisoformat(start_date),
+            datetime.date.fromisoformat(end_date),
+            preferred_lane,
+        )
         Phase.objects.create(
             developer_id=developer_id,
             project_id=project_id,
             semester=semester,
+            lane=lane,
             start_date=start_date,
             end_date=end_date,
             effort_multiplier=effort_multiplier,
@@ -813,9 +940,26 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         phase = get_object_or_404(Phase, pk=pk)
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        phase.start_date = datetime.date.fromisoformat(start_date)
-        phase.end_date = datetime.date.fromisoformat(end_date)
-        phase.save(update_fields=["start_date", "end_date"])
+        new_start = datetime.date.fromisoformat(start_date)
+        new_end = datetime.date.fromisoformat(end_date)
+        update_fields = ["start_date", "end_date"]
+        lane_pk = request.POST.get("lane_pk")
+        if lane_pk:
+            preferred_lane = get_object_or_404(DeveloperLane, pk=lane_pk)
+            phase.developer = preferred_lane.developer
+            update_fields.append("developer_id")
+        else:
+            preferred_lane = phase.lane
+        semester = phase.semester
+        lane = _find_or_create_non_overlapping_lane(
+            phase.developer, semester, new_start, new_end, preferred_lane,
+            exclude_phase_pk=phase.pk,
+        )
+        phase.start_date = new_start
+        phase.end_date = new_end
+        phase.lane = lane
+        update_fields.extend(["lane_id"])
+        phase.save(update_fields=list(dict.fromkeys(update_fields)))
         return HttpResponse(status=204)
 
 
@@ -846,12 +990,55 @@ class PhaseEditView(RoleRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
         phase.project_id = request.POST.get("project")
-        phase.start_date = datetime.date.fromisoformat(request.POST.get("start_date"))
-        phase.end_date = datetime.date.fromisoformat(request.POST.get("end_date"))
+        new_start = datetime.date.fromisoformat(request.POST.get("start_date"))
+        new_end = datetime.date.fromisoformat(request.POST.get("end_date"))
         phase.effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
-        phase.save(update_fields=["project_id", "start_date", "end_date", "effort_multiplier"])
+        lane = _find_or_create_non_overlapping_lane(
+            phase.developer, phase.semester, new_start, new_end, phase.lane,
+            exclude_phase_pk=phase.pk,
+        )
+        phase.start_date = new_start
+        phase.end_date = new_end
+        phase.lane = lane
+        phase.save(update_fields=["project_id", "start_date", "end_date", "effort_multiplier", "lane_id"])
         next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
         return redirect(next_url)
+
+
+# ---------------------------------------------------------------------------
+# Lane add / remove
+# ---------------------------------------------------------------------------
+
+
+class LaneAddView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        developer = get_object_or_404(DeveloperProfile, pk=pk)
+        semester = Semester.get_current()
+        from django.db.models import Max
+        max_order = DeveloperLane.objects.filter(
+            developer=developer, semester=semester,
+        ).aggregate(Max("order"))["order__max"]
+        new_order = (max_order + 1) if max_order is not None else 0
+        DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+        return HttpResponse(status=204)
+
+
+class LaneRemoveView(RoleRequiredMixin, View):
+    allowed_roles = (Role.ADMIN, Role.PM)
+
+    def post(self, request, pk, *args, **kwargs):
+        lane = get_object_or_404(DeveloperLane, pk=pk)
+        if lane.phases.exists():
+            return HttpResponse(status=400)
+        other_lanes = DeveloperLane.objects.filter(
+            developer=lane.developer, semester=lane.semester,
+        ).exclude(pk=pk)
+        if not other_lanes.exists():
+            return HttpResponse(status=400)
+        lane.delete()
+        return HttpResponse(status=204)
 
 
 # ---------------------------------------------------------------------------

@@ -367,6 +367,32 @@ class Leave(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# DeveloperLane — explicit row for a developer in a semester  (FR-15)
+# ---------------------------------------------------------------------------
+
+
+class DeveloperLane(models.Model):
+    developer = models.ForeignKey(
+        DeveloperProfile,
+        on_delete=models.CASCADE,
+        related_name="lanes",
+    )
+    semester = models.ForeignKey(
+        Semester,
+        on_delete=models.CASCADE,
+        related_name="lanes",
+    )
+    order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "pk"]
+        unique_together = [["developer", "semester", "order"]]
+
+    def __str__(self):
+        return f"{self.developer} lane {self.order} ({self.semester})"
+
+
+# ---------------------------------------------------------------------------
 # Phase  (FR-15)
 # ---------------------------------------------------------------------------
 
@@ -385,6 +411,13 @@ class Phase(models.Model):
     semester = models.ForeignKey(
         Semester,
         on_delete=models.CASCADE,
+        related_name="phases",
+    )
+    lane = models.ForeignKey(
+        DeveloperLane,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
         related_name="phases",
     )
     start_date = models.DateField()
