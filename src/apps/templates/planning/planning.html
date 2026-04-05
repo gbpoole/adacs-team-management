@@ -36,7 +36,7 @@
 
   {# Timeline table #}
   {% if weeks %}
-  <div class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
+  <div id="planning-scroll-container" class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
     <table class="border-collapse" style="min-width: max-content; table-layout: fixed;">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-20">
@@ -346,6 +346,28 @@
 </dialog>
 
 <script>
+// ── Scroll position preservation ──────────────────────────────────────────────
+(function () {
+  const container = document.getElementById('planning-scroll-container');
+  const top  = sessionStorage.getItem('planningScrollTop');
+  const left = sessionStorage.getItem('planningScrollLeft');
+  if (container && top !== null) {
+    container.scrollTop  = parseInt(top,  10);
+    container.scrollLeft = parseInt(left, 10) || 0;
+    sessionStorage.removeItem('planningScrollTop');
+    sessionStorage.removeItem('planningScrollLeft');
+  }
+})();
+
+function reloadPreservingScroll() {
+  const container = document.getElementById('planning-scroll-container');
+  if (container) {
+    sessionStorage.setItem('planningScrollTop',  container.scrollTop);
+    sessionStorage.setItem('planningScrollLeft', container.scrollLeft);
+  }
+  window.location.reload();
+}
+
 const weeks = JSON.parse('{{ weeks_json|escapejs }}');
 const WEEK_WIDTH = 64;
 
@@ -368,8 +390,8 @@ function deletePhase(phaseId, closeModal) {
   const body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch(`/planning/phase/${phaseId}/delete/`, { method: 'POST', body })
-    .then(() => window.location.reload())
-    .catch(() => window.location.reload());
+    .then(() => reloadPreservingScroll())
+    .catch(() => reloadPreservingScroll());
 }
 
 function confirmDeletePhase() {
@@ -391,8 +413,8 @@ function confirmDeleteLeave() {
   const body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch(`/planning/leave/${leaveId}/delete/`, { method: 'POST', body })
-    .then(() => window.location.reload())
-    .catch(() => window.location.reload());
+    .then(() => reloadPreservingScroll())
+    .catch(() => reloadPreservingScroll());
 }
 
 // ── Double-click leave bar to edit ───────────────────────────────────────────
@@ -411,16 +433,16 @@ document.getElementById('leave-edit-form').addEventListener('submit', function (
   e.preventDefault();
   const body = new FormData(e.target);
   fetch(e.target.action, { method: 'POST', body })
-    .then(() => window.location.reload())
-    .catch(() => window.location.reload());
+    .then(() => reloadPreservingScroll())
+    .catch(() => reloadPreservingScroll());
 });
 
 document.getElementById('phase-edit-form').addEventListener('submit', function (e) {
   e.preventDefault();
   const body = new FormData(e.target);
   fetch(e.target.action, { method: 'POST', body })
-    .then(() => window.location.reload())
-    .catch(() => window.location.reload());
+    .then(() => reloadPreservingScroll())
+    .catch(() => reloadPreservingScroll());
 });
 
 // ── Phase/Leave create modal toggle ──────────────────────────────────────────
@@ -465,8 +487,8 @@ document.getElementById('phase-create-form').addEventListener('submit', function
   document.getElementById('phase-create-modal').close();
   const action = createMode === 'leave' ? LEAVE_CREATE_ACTION : PHASE_CREATE_ACTION;
   fetch(action, { method: 'POST', body })
-    .then(() => window.location.reload())
-    .catch(() => window.location.reload());
+    .then(() => reloadPreservingScroll())
+    .catch(() => reloadPreservingScroll());
 });
 
 function siblingLeaveBars(leaveBar) {
@@ -542,8 +564,8 @@ function siblingLeaveBars(leaveBar) {
     body.append('end_date', endDate);
 
     fetch(`/planning/leave/${leaveBar.dataset.leaveId}/update/`, { method: 'POST', body })
-      .then(() => window.location.reload())
-      .catch(() => window.location.reload());
+      .then(() => reloadPreservingScroll())
+      .catch(() => reloadPreservingScroll());
   });
 })();
 
@@ -608,8 +630,8 @@ function siblingLeaveBars(leaveBar) {
     body.append('end_date', endDate);
 
     fetch(`/planning/leave/${leaveBar.dataset.leaveId}/update/`, { method: 'POST', body })
-      .then(() => window.location.reload())
-      .catch(() => window.location.reload());
+      .then(() => reloadPreservingScroll())
+      .catch(() => reloadPreservingScroll());
   });
 })();
 
@@ -781,8 +803,8 @@ document.addEventListener('dblclick', function (e) {
     body.append('end_date', endDate);
 
     fetch(`/planning/phase/${phaseId}/update/`, { method: 'POST', body })
-      .then(() => window.location.reload())
-      .catch(() => window.location.reload());
+      .then(() => reloadPreservingScroll())
+      .catch(() => reloadPreservingScroll());
   });
 })();
 
@@ -899,8 +921,8 @@ document.addEventListener('dblclick', function (e) {
     }
 
     fetch(`/planning/phase/${phaseId}/update/`, { method: 'POST', body })
-      .then(() => window.location.reload())
-      .catch(() => window.location.reload());
+      .then(() => reloadPreservingScroll())
+      .catch(() => reloadPreservingScroll());
   });
 })();
 </script>
