@@ -117,6 +117,14 @@
                       {% endif %}
                       <span class="truncate" style="margin: 0 8px;">{{ cell.phase.display_name }}</span>
                       {% if can_edit %}
+                      <button type="button"
+                              class="phase-delete-btn"
+                              data-phase-id="{{ cell.phase.pk }}"
+                              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                                     z-index:25;background:rgba(0,0,0,0.35);border:none;border-radius:50%;
+                                     width:16px;height:16px;line-height:16px;text-align:center;
+                                     color:white;font-size:11px;cursor:pointer;padding:0;
+                                     display:none;align-items:center;justify-content:center;">✕</button>
                       <div class="phase-resize-handle phase-resize-right"
                            style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
                       {% endif %}
@@ -200,6 +208,7 @@
 
 <style>
   .phase-bar:hover { z-index: 25 !important; }
+  .phase-bar:hover .phase-delete-btn { display: flex !important; }
 </style>
 
 {# Phase / Leave create modal #}
@@ -339,10 +348,9 @@ function addDays(iso, days) {
 }
 
 // ── Delete phase / leave ──────────────────────────────────────────────────────
-function confirmDeletePhase() {
-  const phaseId = document.getElementById('edit-phase-id').value;
+function deletePhase(phaseId, closeModal) {
   if (!phaseId || !confirm('{% trans "Delete this phase?" %}')) return;
-  document.getElementById('phase-edit-modal').close();
+  if (closeModal) document.getElementById('phase-edit-modal').close();
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
   const body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
@@ -350,6 +358,17 @@ function confirmDeletePhase() {
     .then(() => window.location.reload())
     .catch(() => window.location.reload());
 }
+
+function confirmDeletePhase() {
+  deletePhase(document.getElementById('edit-phase-id').value, true);
+}
+
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest('.phase-delete-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  deletePhase(btn.dataset.phaseId, false);
+});
 
 function confirmDeleteLeave() {
   const leaveId = document.getElementById('edit-leave-id').value;
