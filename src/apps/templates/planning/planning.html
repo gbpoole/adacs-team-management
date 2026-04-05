@@ -110,7 +110,7 @@
                   <div class="tooltip w-full h-full"
                        data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
                     <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap {% if can_edit %}cursor-grab{% else %}cursor-default{% endif %}"
-                         style="background-color: {{ cell.phase.project.colour }}; position: relative;">
+                         style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};{% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);{% endif %} position: relative;">
                       {% if can_edit %}
                       <div class="phase-resize-handle phase-resize-left"
                            style="position:absolute;left:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>

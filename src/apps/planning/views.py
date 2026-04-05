@@ -855,6 +855,7 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                     if start_col is not None:
                         phase.display_name = phase.project.name_for_semester(semester)
                         phase.effort_display = phase.effort_weeks()
+                        phase.effort_unfilled_pct = round((1 - phase.effort_multiplier) * 100, 1)
                         phase_segments.append((start_col, span, phase))
                 cells = _build_lane_cells(len(weeks), phase_segments)
                 lane_rows.append({
