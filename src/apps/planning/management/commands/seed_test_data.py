@@ -24,6 +24,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.planning.models import AllocationType
+from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.planning.models import ObserverProfile
@@ -234,10 +235,16 @@ class Command(BaseCommand):
                 start = sem.start_date + datetime.timedelta(weeks=offset_weeks)
                 end = min(start + datetime.timedelta(weeks=duration_weeks) - datetime.timedelta(days=1), sem.end_date)
                 multiplier = random.choice([0.5, 1.0, 1.0, 1.0])
-                Phase.objects.get_or_create(
+                phase, _ = Phase.objects.get_or_create(
                     developer=profile, project=project, semester=sem, start_date=start,
                     defaults={"end_date": end, "effort_multiplier": multiplier},
                 )
+                if phase.lane is None:
+                    lane, _ = DeveloperLane.objects.get_or_create(
+                        developer=profile, semester=sem, order=0,
+                    )
+                    phase.lane = lane
+                    phase.save(update_fields=["lane_id"])
                 phase_count += 1
 
         self.stdout.write(self.style.SUCCESS(
