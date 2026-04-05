@@ -48,46 +48,26 @@
       </thead>
       <tbody>
         {% for row in developer_rows %}
+          {# ── Real lane rows ── #}
           {% for lane_row in row.lanes %}
-          <tr class="{% if forloop.last %}border-b-2 border-base-300{% endif %}" data-lane-pk="{{ lane_row.lane.pk }}">
+          <tr data-lane-pk="{{ lane_row.lane.pk }}">
             {% if forloop.first %}
             <td class="sticky left-0 bg-base-100 z-20 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
-                rowspan="{{ row.lane_count }}" style="width: 160px;">
-              <div class="flex items-center gap-1 mb-1">
+                rowspan="{{ row.lane_count|add:1 }}" style="width: 160px;">
+              <div class="flex items-center gap-1">
                 <span class="inline-block w-3 h-3 rounded-full shrink-0"
                       style="background-color: {{ row.developer.colour }};"></span>
                 <span class="truncate">{{ row.developer.user.name|default:row.developer.user.email }}</span>
               </div>
-              {% if can_edit %}
-              <div class="flex items-center gap-1">
-                <button type="button"
-                        class="btn btn-xs btn-ghost text-neutral-400 px-1"
-                        title="{% trans 'Add row' %}"
-                        onclick="addLane({{ row.developer.pk }})">+</button>
-                {% with last_lane=row.lanes|last %}
-                {% if last_lane.is_empty and row.lane_count > 1 %}
-                <button type="button"
-                        class="btn btn-xs btn-ghost text-error px-1"
-                        title="{% trans 'Remove last row' %}"
-                        onclick="removeLane({{ row.last_lane_pk }})">×</button>
-                {% else %}
-                <button type="button"
-                        class="btn btn-xs btn-ghost text-neutral-200 px-1 cursor-not-allowed"
-                        title="{% trans 'Remove last row (only when empty)' %}"
-                        disabled>×</button>
-                {% endif %}
-                {% endwith %}
-              </div>
-              {% endif %}
             </td>
             {% endif %}
-            {# Single canvas cell — phase bars and leave indicators are absolutely positioned inside #}
+            {# Canvas cell #}
             <td colspan="{{ weeks|length }}"
                 class="lane-canvas p-0"
                 style="position: relative; height: 32px; overflow: visible;
                        background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.15) 63px, rgba(128,128,128,0.15) 64px);
                        background-size: 64px 100%;">
-              {# Leave overlay: rendered on every lane row so it spans the full developer height #}
+              {# Leave overlay on every real lane row #}
               {% for leave in row.leave_cells %}
               <div class="leave-bar{% if can_edit %} cursor-grab{% endif %}"
                    style="position: absolute; top: 1px; height: 30px;
@@ -123,6 +103,7 @@
                      data-col-start="{{ cell.col_start }}"
                      data-col-end="{{ cell.col_end }}"
                      data-project-id="{{ cell.phase.project.pk }}"
+                     data-developer-id="{{ cell.phase.developer.pk }}"
                      data-start-date="{{ cell.phase.start_date|date:'Y-m-d' }}"
                      data-end-date="{{ cell.phase.end_date|date:'Y-m-d' }}"
                      data-effort-multiplier="{{ cell.phase.effort_multiplier }}">
@@ -156,7 +137,54 @@
               {% endfor %}
             </td>
           </tr>
+          {% empty %}
+          {# Developer has no real lanes — phantom row carries the developer name cell #}
+          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}">
+            <td class="sticky left-0 bg-base-100 z-20 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
+                rowspan="1" style="width: 160px;">
+              <div class="flex items-center gap-1">
+                <span class="inline-block w-3 h-3 rounded-full shrink-0"
+                      style="background-color: {{ row.developer.colour }};"></span>
+                <span class="truncate">{{ row.developer.user.name|default:row.developer.user.email }}</span>
+              </div>
+            </td>
+            <td colspan="{{ weeks|length }}"
+                class="lane-canvas p-0"
+                style="position: relative; height: 32px; overflow: visible;
+                       background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
+                       background-size: 64px 100%;">
+              {% if can_edit %}
+              <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
+                   style="position: absolute; top: 0; height: 32px; left: 0;
+                          width: {{ weeks|length|multiply:64 }}px; z-index: 2;"
+                   data-developer="{{ row.developer.pk }}"
+                   data-lane-pk=""
+                   data-col-start="0"
+                   data-col-end="{{ weeks|length|add:-1 }}"></div>
+              {% endif %}
+            </td>
+          </tr>
           {% endfor %}
+          {# ── Phantom lane row (always shown after real lanes when there are any) ── #}
+          {% if row.lane_count > 0 %}
+          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}">
+            <td colspan="{{ weeks|length }}"
+                class="lane-canvas p-0"
+                style="position: relative; height: 32px; overflow: visible;
+                       background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
+                       background-size: 64px 100%;">
+              {% if can_edit %}
+              <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
+                   style="position: absolute; top: 0; height: 32px; left: 0;
+                          width: {{ weeks|length|multiply:64 }}px; z-index: 2;"
+                   data-developer="{{ row.developer.pk }}"
+                   data-lane-pk=""
+                   data-col-start="0"
+                   data-col-end="{{ weeks|length|add:-1 }}"></div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endif %}
         {% empty %}
         <tr>
           <td colspan="{{ weeks|length|add:1 }}" class="text-center text-neutral-500 p-4">{% trans "No developers found." %}</td>
@@ -188,11 +216,8 @@
       <input type="hidden" id="phase-lane-pk" name="lane_pk" value="">
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Developer" %}</label>
-        <select id="phase-developer" name="developer" class="select select-bordered" required>
-          {% for dev in developers %}
-          <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
-          {% endfor %}
-        </select>
+        <input type="hidden" id="phase-developer" name="developer">
+        <div id="phase-developer-display" class="input input-bordered bg-base-200 text-base-content/60 flex items-center"></div>
       </div>
       <div id="create-project-field" class="form-control mb-3">
         <label class="label label-text">{% trans "Project" %}</label>
@@ -232,6 +257,14 @@
       {% csrf_token %}
       <input type="hidden" id="edit-phase-id" name="_phase_id" value="">
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Developer" %}</label>
+        <select id="edit-phase-developer" name="developer" class="select select-bordered" required>
+          {% for dev in developers %}
+          <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Project" %}</label>
         <select id="edit-phase-project" name="project" class="select select-bordered" required>
@@ -330,25 +363,6 @@ function confirmDeleteLeave() {
     .catch(() => window.location.reload());
 }
 
-// ── Add / remove developer lanes ─────────────────────────────────────────────
-function addLane(devPk) {
-  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  const body = new FormData();
-  body.append('csrfmiddlewaretoken', csrf);
-  fetch(`/planning/developer/${devPk}/lane/add/`, { method: 'POST', body })
-    .then(() => window.location.reload())
-    .catch(() => window.location.reload());
-}
-
-function removeLane(lanePk) {
-  const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  const body = new FormData();
-  body.append('csrfmiddlewaretoken', csrf);
-  fetch(`/planning/lane/${lanePk}/remove/`, { method: 'POST', body })
-    .then(r => { if (r.ok) window.location.reload(); })
-    .catch(() => window.location.reload());
-}
-
 // ── Double-click leave bar to edit ───────────────────────────────────────────
 document.addEventListener('dblclick', function (e) {
   const leaveBar = e.target.closest('.leave-bar');
@@ -380,6 +394,10 @@ document.getElementById('phase-edit-form').addEventListener('submit', function (
 // ── Phase/Leave create modal toggle ──────────────────────────────────────────
 const PHASE_CREATE_ACTION = '{% url "planning:phase_add" %}';
 const LEAVE_CREATE_ACTION = '{% url "planning:leave_add" %}';
+const DEVELOPER_NAMES = {
+  {% for dev in developers %}'{{ dev.pk }}': '{{ dev.user.name|default:dev.user.email|escapejs }}',
+  {% endfor %}
+};
 let createMode = 'phase';
 
 function setCreateMode(mode) {
@@ -410,11 +428,11 @@ document.getElementById('create-toggle-leave').addEventListener('click', () => s
 // close event fires before the browser captures form.action, resetting it back
 // to the phase URL.
 document.getElementById('phase-create-form').addEventListener('submit', function (e) {
-  if (createMode !== 'leave') return;          // phase mode — let normal POST proceed
   e.preventDefault();
   const body = new FormData(this);
   document.getElementById('phase-create-modal').close();
-  fetch(LEAVE_CREATE_ACTION, { method: 'POST', body })
+  const action = createMode === 'leave' ? LEAVE_CREATE_ACTION : PHASE_CREATE_ACTION;
+  fetch(action, { method: 'POST', body })
     .then(() => window.location.reload())
     .catch(() => window.location.reload());
 });
@@ -570,6 +588,7 @@ document.addEventListener('dblclick', function (e) {
   const form = document.getElementById('phase-edit-form');
   form.action = `/planning/phase/${phaseBar.dataset.phaseId}/edit/`;
   document.getElementById('edit-phase-id').value = phaseBar.dataset.phaseId;
+  document.getElementById('edit-phase-developer').value = phaseBar.dataset.developerId;
   document.getElementById('edit-phase-project').value = phaseBar.dataset.projectId;
   document.getElementById('edit-phase-start-date').value = phaseBar.dataset.startDate;
   document.getElementById('edit-phase-end-date').value = phaseBar.dataset.endDate;
@@ -645,6 +664,7 @@ document.addEventListener('dblclick', function (e) {
     const endDate = hi < weeks.length ? addDays(weeks[hi], 6) : addDays(weeks[weeks.length - 1], 6);
 
     document.getElementById('phase-developer').value = devId;
+    document.getElementById('phase-developer-display').textContent = DEVELOPER_NAMES[devId] || devId;
     document.getElementById('phase-lane-pk').value = lanePk || '';
     document.getElementById('phase-start-date').value = startDate;
     document.getElementById('phase-end-date').value = endDate;
@@ -758,6 +778,7 @@ document.addEventListener('dblclick', function (e) {
     // Snapshot lane-row bounding rects for Y tracking; also capture each canvas td
     const laneRows = Array.from(table.querySelectorAll('tr[data-lane-pk]')).map(tr => ({
       pk: tr.dataset.lanePk,
+      developerPk: tr.dataset.developerPk || null,
       el: tr,
       canvas: tr.querySelector('.lane-canvas'),
       rect: tr.getBoundingClientRect(),
@@ -770,6 +791,7 @@ document.addEventListener('dblclick', function (e) {
       origLanePk,
       origCanvas,
       currentLanePk: origLanePk,
+      currentDeveloperPk: null,
       wRects,
       laneRows,
       dragOffsetX: e.clientX - wRects[colStart].left,
@@ -805,19 +827,21 @@ document.addEventListener('dblclick', function (e) {
       if (targetRow.pk !== moving.currentLanePk && targetRow.canvas) {
         targetRow.canvas.appendChild(phaseBar);
         moving.currentLanePk = targetRow.pk;
+        moving.currentDeveloperPk = targetRow.developerPk;
       }
     } else {
       // Cursor outside all lane rows — snap back to origin
       if (moving.currentLanePk !== origLanePk && origCanvas) {
         origCanvas.appendChild(phaseBar);
         moving.currentLanePk = origLanePk;
+        moving.currentDeveloperPk = null;
       }
     }
   });
 
   document.addEventListener('mouseup', function (e) {
     if (!moving) return;
-    const { phaseBar, origColStart, origLanePk, currentLanePk } = moving;
+    const { phaseBar, origColStart, origLanePk, currentLanePk, currentDeveloperPk } = moving;
     moving = null;
     document.body.style.cursor = '';
 
@@ -835,7 +859,12 @@ document.addEventListener('dblclick', function (e) {
     body.append('csrfmiddlewaretoken', csrf);
     body.append('start_date', startDate);
     body.append('end_date', endDate);
-    if (laneChanged) body.append('lane_pk', currentLanePk);
+    if (laneChanged) {
+      body.append('lane_pk', currentLanePk);  // "new" for phantom rows
+      if (currentLanePk === 'new' && currentDeveloperPk) {
+        body.append('developer_pk', currentDeveloperPk);
+      }
+    }
 
     fetch(`/planning/phase/${phaseId}/update/`, { method: 'POST', body })
       .then(() => window.location.reload())

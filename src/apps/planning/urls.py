@@ -1,7 +1,5 @@
 from django.urls import path
 
-from .views import LaneAddView
-from .views import LaneRemoveView
 from .views import DeveloperCreateView
 from .views import DeveloperDeleteView
 from .views import DeveloperUpdateView
@@ -54,6 +52,4 @@ urlpatterns = [
     path("phase/<int:pk>/delete/", PhaseDeleteView.as_view(), name="phase_delete"),
     path("phase/<int:pk>/update/", PhaseUpdateView.as_view(), name="phase_update"),
     path("phase/<int:pk>/edit/", PhaseEditView.as_view(), name="phase_edit"),
-    path("developer/<int:pk>/lane/add/", LaneAddView.as_view(), name="lane_add"),
-    path("lane/<int:pk>/remove/", LaneRemoveView.as_view(), name="lane_remove"),
 ]

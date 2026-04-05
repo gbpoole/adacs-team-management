@@ -9,6 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import EmailValidator
 from django.db import transaction
+from django.db.models import Max
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
@@ -138,8 +139,6 @@ def _find_or_create_non_overlapping_lane(
     Otherwise try each of the developer's lanes in order; if all overlap, create
     a new lane at max_order+1.
     """
-    from django.db.models import Max  # noqa: PLC0415
-
     def has_overlap(lane):
         qs = Phase.objects.filter(
             lane=lane, start_date__lte=end_date, end_date__gte=start_date,
@@ -162,6 +161,23 @@ def _find_or_create_non_overlapping_lane(
     ).aggregate(Max("order"))["order__max"]
     new_order = (max_order + 1) if max_order is not None else 0
     return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+
+
+def _create_next_lane(developer, semester):
+    """Create a new DeveloperLane with order = max_order + 1."""
+    max_order = DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).aggregate(Max("order"))["order__max"]
+    new_order = (max_order + 1) if max_order is not None else 0
+    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+
+
+def _delete_empty_lane(lane):
+    """Delete the lane if it now has no phases."""
+    if lane is None:
+        return
+    if not lane.phases.exists():
+        lane.delete()
 
 
 def _build_lane_cells(n_weeks, phase_segments):
@@ -815,13 +831,6 @@ class PlanningView(RoleRequiredMixin, TemplateView):
 
         developer_rows = []
         for dev in devs:
-            # Ensure at least one lane exists
-            if not lanes_by_dev[dev.pk]:
-                lane0, _ = DeveloperLane.objects.get_or_create(
-                    developer=dev, semester=semester, order=0,
-                )
-                lanes_by_dev[dev.pk] = [lane0]
-
             # Build one leave cell per Leave period
             leave_cells = []
             if weeks:
@@ -861,7 +870,6 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                 "developer": dev,
                 "lanes": lane_rows,
                 "lane_count": len(lane_rows),
-                "last_lane_pk": dev_lanes[-1].pk if dev_lanes else None,
                 "leave_cells": leave_cells,
             })
 
@@ -896,14 +904,12 @@ class PhaseCreateView(RoleRequiredMixin, View):
         end_date = request.POST.get("end_date")
         effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
         semester = Semester.get_current()
+        developer = get_object_or_404(DeveloperProfile, pk=developer_id)
         lane_pk = request.POST.get("lane_pk")
-        if lane_pk:
+        if lane_pk and lane_pk != "new":
             preferred_lane = get_object_or_404(DeveloperLane, pk=lane_pk)
         else:
-            preferred_lane, _ = DeveloperLane.objects.get_or_create(
-                developer_id=developer_id, semester=semester, order=0,
-            )
-        developer = get_object_or_404(DeveloperProfile, pk=developer_id)
+            preferred_lane = _create_next_lane(developer, semester)
         lane = _find_or_create_non_overlapping_lane(
             developer, semester,
             datetime.date.fromisoformat(start_date),
@@ -928,7 +934,9 @@ class PhaseDeleteView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
+        lane = phase.lane
         phase.delete()
+        _delete_empty_lane(lane)
         next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
         return redirect(next_url)
 
@@ -938,28 +946,33 @@ class PhaseUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
-        new_start = datetime.date.fromisoformat(start_date)
-        new_end = datetime.date.fromisoformat(end_date)
+        old_lane = phase.lane
+        new_start = datetime.date.fromisoformat(request.POST.get("start_date"))
+        new_end = datetime.date.fromisoformat(request.POST.get("end_date"))
         update_fields = ["start_date", "end_date"]
         lane_pk = request.POST.get("lane_pk")
-        if lane_pk:
+        if lane_pk == "new":
+            developer = get_object_or_404(DeveloperProfile, pk=request.POST.get("developer_pk"))
+            preferred_lane = _create_next_lane(developer, phase.semester)
+            phase.developer = developer
+            update_fields.append("developer_id")
+        elif lane_pk:
             preferred_lane = get_object_or_404(DeveloperLane, pk=lane_pk)
             phase.developer = preferred_lane.developer
             update_fields.append("developer_id")
         else:
             preferred_lane = phase.lane
-        semester = phase.semester
         lane = _find_or_create_non_overlapping_lane(
-            phase.developer, semester, new_start, new_end, preferred_lane,
+            phase.developer, phase.semester, new_start, new_end, preferred_lane,
             exclude_phase_pk=phase.pk,
         )
         phase.start_date = new_start
         phase.end_date = new_end
         phase.lane = lane
-        update_fields.extend(["lane_id"])
+        update_fields.append("lane_id")
         phase.save(update_fields=list(dict.fromkeys(update_fields)))
+        if lane != old_lane:
+            _delete_empty_lane(old_lane)
         return HttpResponse(status=204)
 
 
@@ -989,56 +1002,34 @@ class PhaseEditView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
+        old_lane = phase.lane
         phase.project_id = request.POST.get("project")
         new_start = datetime.date.fromisoformat(request.POST.get("start_date"))
         new_end = datetime.date.fromisoformat(request.POST.get("end_date"))
         phase.effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
+        new_developer_id = request.POST.get("developer")
+        update_fields = ["project_id", "start_date", "end_date", "effort_multiplier", "lane_id"]
+        if new_developer_id and int(new_developer_id) != phase.developer_id:
+            phase.developer = get_object_or_404(DeveloperProfile, pk=new_developer_id)
+            update_fields.append("developer_id")
+            # New developer — preferred lane is the first lane for them in this semester
+            preferred_lane, _ = DeveloperLane.objects.get_or_create(
+                developer=phase.developer, semester=phase.semester, order=0,
+            )
+        else:
+            preferred_lane = phase.lane
         lane = _find_or_create_non_overlapping_lane(
-            phase.developer, phase.semester, new_start, new_end, phase.lane,
+            phase.developer, phase.semester, new_start, new_end, preferred_lane,
             exclude_phase_pk=phase.pk,
         )
         phase.start_date = new_start
         phase.end_date = new_end
         phase.lane = lane
-        phase.save(update_fields=["project_id", "start_date", "end_date", "effort_multiplier", "lane_id"])
+        phase.save(update_fields=list(dict.fromkeys(update_fields)))
+        if lane != old_lane:
+            _delete_empty_lane(old_lane)
         next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
         return redirect(next_url)
-
-
-# ---------------------------------------------------------------------------
-# Lane add / remove
-# ---------------------------------------------------------------------------
-
-
-class LaneAddView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
-
-    def post(self, request, pk, *args, **kwargs):
-        developer = get_object_or_404(DeveloperProfile, pk=pk)
-        semester = Semester.get_current()
-        from django.db.models import Max
-        max_order = DeveloperLane.objects.filter(
-            developer=developer, semester=semester,
-        ).aggregate(Max("order"))["order__max"]
-        new_order = (max_order + 1) if max_order is not None else 0
-        DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
-        return HttpResponse(status=204)
-
-
-class LaneRemoveView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
-
-    def post(self, request, pk, *args, **kwargs):
-        lane = get_object_or_404(DeveloperLane, pk=pk)
-        if lane.phases.exists():
-            return HttpResponse(status=400)
-        other_lanes = DeveloperLane.objects.filter(
-            developer=lane.developer, semester=lane.semester,
-        ).exclude(pk=pk)
-        if not other_lanes.exists():
-            return HttpResponse(status=400)
-        lane.delete()
-        return HttpResponse(status=204)
 
 
 # ---------------------------------------------------------------------------
