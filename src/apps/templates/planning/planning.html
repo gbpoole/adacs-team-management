@@ -67,6 +67,13 @@
                 style="position: relative; height: 32px; overflow: visible;
                        background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.15) 63px, rgba(128,128,128,0.15) 64px);
                        background-size: 64px 100%;">
+              {# Over-allocation shading — one div per over-allocated week column #}
+              {% for col in row.overallocated_cols %}
+              <div style="position:absolute;top:0;bottom:0;
+                          left:{{ col|multiply:64 }}px;width:64px;
+                          background:rgba(239,68,68,0.18);
+                          z-index:1;pointer-events:none;"></div>
+              {% endfor %}
               {# Leave overlay on every real lane row #}
               {% for leave in row.leave_cells %}
               <div class="leave-bar{% if can_edit %} cursor-grab{% endif %}"
@@ -181,6 +188,12 @@
                 style="position: relative; height: 32px; overflow: visible;
                        background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
                        background-size: 64px 100%;">
+              {% for col in row.overallocated_cols %}
+              <div style="position:absolute;top:0;bottom:0;
+                          left:{{ col|multiply:64 }}px;width:64px;
+                          background:rgba(239,68,68,0.18);
+                          z-index:1;pointer-events:none;"></div>
+              {% endfor %}
               {% if can_edit %}
               <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
                    style="position: absolute; top: 0; height: 32px; left: 0;
@@ -247,7 +260,7 @@
         </div>
       </div>
       <div id="create-effort-field" class="form-control mb-4">
-        <label class="label label-text">{% trans "Effort Multiplier" %} <span class="label-text-alt">(0–1)</span></label>
+        <label class="label label-text">{% trans "Fractional Time" %} <span class="label-text-alt">(0–1)</span></label>
         <input type="number" name="effort_multiplier" value="1.0" min="0" max="1" step="0.1" class="input input-bordered">
       </div>
       <div class="modal-action">
@@ -293,7 +306,7 @@
         </div>
       </div>
       <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Effort Multiplier" %} <span class="label-text-alt">(0–1)</span></label>
+        <label class="label label-text">{% trans "Fractional Time" %} <span class="label-text-alt">(0–1)</span></label>
         <input id="edit-phase-effort" type="number" name="effort_multiplier" min="0" max="1" step="0.1" class="input input-bordered">
       </div>
       <div class="modal-action">

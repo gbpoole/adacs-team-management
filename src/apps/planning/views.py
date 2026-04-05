@@ -848,6 +848,7 @@ class PlanningView(RoleRequiredMixin, TemplateView):
 
             dev_lanes = lanes_by_dev[dev.pk]
             lane_rows = []
+            effort_by_col = [0.0] * len(weeks)
             for lane in dev_lanes:
                 phase_segments = []
                 for phase in phases_by_lane.get(lane.pk, []):
@@ -857,6 +858,8 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                         phase.effort_display = phase.effort_weeks()
                         phase.effort_unfilled_pct = round((1 - phase.effort_multiplier) * 100, 1)
                         phase_segments.append((start_col, span, phase))
+                        for col in range(start_col, start_col + span):
+                            effort_by_col[col] += phase.effort_multiplier
                 cells = _build_lane_cells(len(weeks), phase_segments)
                 lane_rows.append({
                     "lane": lane,
@@ -867,11 +870,15 @@ class PlanningView(RoleRequiredMixin, TemplateView):
             if lane_rows:
                 lane_rows[-1]["is_last"] = True
 
+            overallocated_cols = sorted(
+                col for col, effort in enumerate(effort_by_col) if effort > 1.0
+            )
             developer_rows.append({
                 "developer": dev,
                 "lanes": lane_rows,
                 "lane_count": len(lane_rows),
                 "leave_cells": leave_cells,
+                "overallocated_cols": overallocated_cols,
             })
 
         all_projects = list(Project.objects.prefetch_related("semester_names").all())
