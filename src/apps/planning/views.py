@@ -387,6 +387,12 @@ class ObserversView(RoleRequiredMixin, ListView):
         for p in all_projects:
             p.display_name = p.name_for_semester(semester)
         ctx["all_projects"] = all_projects
+        project_name_map = {p.pk: p.display_name for p in all_projects}
+        for obs in ctx["observers"]:
+            obs.project_display_names = [
+                project_name_map.get(p.pk, str(p))
+                for p in obs.project_access.all()
+            ]
         return ctx
 
 

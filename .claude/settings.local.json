@@ -6,7 +6,8 @@
       "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py migrate)",
       "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py check 2>&1)",
       "Bash(docker compose:*)",
-      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning tests)"
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning tests)",
+      "Skill(run-tests)"
     ]
   }
 }

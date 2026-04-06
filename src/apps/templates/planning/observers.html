@@ -41,8 +41,8 @@
           <td>{{ obs.user.email }}</td>
           <td>{{ obs.user.organisation|default:"—" }}</td>
           <td>
-            {% for project in obs.project_access.all %}
-            <span class="badge badge-outline badge-sm">{{ project }}</span>
+            {% for name in obs.project_display_names %}
+            <span class="badge badge-outline badge-sm">{{ name }}</span>
             {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
           </td>
         </tr>
