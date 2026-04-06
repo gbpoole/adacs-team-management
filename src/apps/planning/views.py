@@ -9,7 +9,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import EmailValidator
 from django.db import transaction
-from django.db.models import Max
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
@@ -30,6 +29,9 @@ from .models import (
     SemesterDeveloper,
     Stream,
     Tag,
+    _create_next_lane,
+    _delete_empty_lane,
+    _find_or_create_non_overlapping_lane,
 )
 
 
@@ -131,53 +133,6 @@ def _week_starts(start: datetime.date, end: datetime.date) -> list:
     return weeks
 
 
-def _find_or_create_non_overlapping_lane(
-    developer, semester, start_date, end_date, preferred_lane, exclude_phase_pk=None,
-):
-    """
-    Return ``preferred_lane`` if no phase in it overlaps [start_date, end_date].
-    Otherwise try each of the developer's lanes in order; if all overlap, create
-    a new lane at max_order+1.
-    """
-    def has_overlap(lane):
-        qs = Phase.objects.filter(
-            lane=lane, start_date__lte=end_date, end_date__gte=start_date,
-        )
-        if exclude_phase_pk:
-            qs = qs.exclude(pk=exclude_phase_pk)
-        return qs.exists()
-
-    if not has_overlap(preferred_lane):
-        return preferred_lane
-
-    for lane in DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
-    ).exclude(pk=preferred_lane.pk).order_by("order", "pk"):
-        if not has_overlap(lane):
-            return lane
-
-    max_order = DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
-    ).aggregate(Max("order"))["order__max"]
-    new_order = (max_order + 1) if max_order is not None else 0
-    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
-
-
-def _create_next_lane(developer, semester):
-    """Create a new DeveloperLane with order = max_order + 1."""
-    max_order = DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
-    ).aggregate(Max("order"))["order__max"]
-    new_order = (max_order + 1) if max_order is not None else 0
-    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
-
-
-def _delete_empty_lane(lane):
-    """Delete the lane if it now has no phases."""
-    if lane is None:
-        return
-    if not lane.phases.exists():
-        lane.delete()
 
 
 def _build_lane_cells(n_weeks, phase_segments):

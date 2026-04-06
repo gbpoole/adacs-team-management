@@ -3,6 +3,7 @@ import datetime
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Max
 from django.utils.translation import gettext_lazy as _
 
 from apps.users.models import Role
@@ -427,6 +428,23 @@ class Phase(models.Model):
     class Meta:
         ordering = ["start_date"]
 
+    def save(self, *args, **kwargs):
+        if self.lane_id is None and self.developer_id and self.semester_id and self.start_date and self.end_date:
+            preferred, _ = DeveloperLane.objects.get_or_create(
+                developer_id=self.developer_id,
+                semester_id=self.semester_id,
+                order=0,
+            )
+            self.lane = _find_or_create_non_overlapping_lane(
+                self.developer,
+                self.semester,
+                self.start_date,
+                self.end_date,
+                preferred,
+                exclude_phase_pk=self.pk or None,
+            )
+        super().save(*args, **kwargs)
+
     def effort_weeks(self) -> float:
         """Effort in weeks, excluding developer leave days (5 work days = 1 week)."""
         work_days = 0
@@ -449,3 +467,56 @@ class Phase(models.Model):
 
     def __str__(self):
         return f"{self.developer} on {self.project} ({self.semester})"
+
+
+# ---------------------------------------------------------------------------
+# Lane-management helpers  (used by Phase.save() and views)
+# ---------------------------------------------------------------------------
+
+
+def _find_or_create_non_overlapping_lane(
+    developer, semester, start_date, end_date, preferred_lane, exclude_phase_pk=None,
+):
+    """Return ``preferred_lane`` if no phase in it overlaps [start_date, end_date].
+    Otherwise try each of the developer's lanes in order; if all overlap, create
+    a new lane at max_order+1.
+    """
+    def has_overlap(lane):
+        qs = Phase.objects.filter(
+            lane=lane, start_date__lte=end_date, end_date__gte=start_date,
+        )
+        if exclude_phase_pk:
+            qs = qs.exclude(pk=exclude_phase_pk)
+        return qs.exists()
+
+    if not has_overlap(preferred_lane):
+        return preferred_lane
+
+    for lane in DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).exclude(pk=preferred_lane.pk).order_by("order", "pk"):
+        if not has_overlap(lane):
+            return lane
+
+    max_order = DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).aggregate(Max("order"))["order__max"]
+    new_order = (max_order + 1) if max_order is not None else 0
+    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+
+
+def _create_next_lane(developer, semester):
+    """Create a new DeveloperLane with order = max_order + 1."""
+    max_order = DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).aggregate(Max("order"))["order__max"]
+    new_order = (max_order + 1) if max_order is not None else 0
+    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+
+
+def _delete_empty_lane(lane):
+    """Delete the lane if it now has no phases."""
+    if lane is None:
+        return
+    if not lane.phases.exists():
+        lane.delete()
