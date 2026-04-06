@@ -1059,6 +1059,7 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
                     if start_col is not None:
                         phase.display_name = project.display_name
                         phase.effort_display = phase.effort_weeks()
+                        phase.effort_unfilled_pct = round((1 - phase.effort_multiplier) * 100, 1)
                         phase_segments.append((start_col, span, phase))
 
                 phase_at = {s: (s, sp, ph) for s, sp, ph in sorted(phase_segments, key=lambda x: x[0])}
