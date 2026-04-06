@@ -3,10 +3,18 @@ import datetime
 
 from django.test import TestCase
 
+from django.db import IntegrityError
+from django.db.models import ProtectedError
+
 from apps.planning.models import COLOUR_PALETTE
 from apps.planning.models import DeveloperLane
+from apps.planning.models import Leave
+from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
+from apps.planning.models import Project
+from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
+from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterType
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
@@ -15,6 +23,7 @@ from apps.planning.models import _next_colour
 from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
+from apps.planning.tests.factories import ObserverProfileFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
@@ -401,3 +410,193 @@ class TestPhaseEffortWeeks(TestCase):
             end_date=datetime.date(2026, 1, 9),
         )
         self.assertAlmostEqual(phase.effort_weeks(), 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Project.colour auto-assignment
+# ---------------------------------------------------------------------------
+
+
+class TestProjectColour(TestCase):
+    def test_colour_auto_assigned_on_save(self):
+        project = ProjectFactory(colour="")
+        self.assertIn(project.colour, [h for h, _ in COLOUR_PALETTE])
+
+    def test_colour_cycles_for_multiple_projects(self):
+        p1 = ProjectFactory(colour="")
+        p2 = ProjectFactory(colour="")
+        self.assertNotEqual(p1.colour, p2.colour)
+
+    def test_explicit_colour_preserved(self):
+        colour = COLOUR_PALETTE[0][0]
+        project = ProjectFactory(colour=colour)
+        self.assertEqual(project.colour, colour)
+
+
+# ---------------------------------------------------------------------------
+# ObserverProfile.project_access M2M
+# ---------------------------------------------------------------------------
+
+
+class TestObserverProjectAccess(TestCase):
+    def setUp(self):
+        self.obs = ObserverProfileFactory()
+        self.project = ProjectFactory()
+
+    def test_no_access_by_default(self):
+        self.assertEqual(self.obs.project_access.count(), 0)
+
+    def test_add_gives_access(self):
+        self.obs.project_access.add(self.project)
+        self.assertIn(self.project, self.obs.project_access.all())
+
+    def test_remove_revokes_access(self):
+        self.obs.project_access.add(self.project)
+        self.obs.project_access.remove(self.project)
+        self.assertNotIn(self.project, self.obs.project_access.all())
+
+    def test_deleting_project_removes_it_from_access(self):
+        self.obs.project_access.add(self.project)
+        project_pk = self.project.pk
+        self.project.delete()
+        self.assertFalse(self.obs.project_access.filter(pk=project_pk).exists())
+
+    def test_deleting_observer_does_not_delete_project(self):
+        self.obs.project_access.add(self.project)
+        project_pk = self.project.pk
+        self.obs.delete()
+        self.assertTrue(Project.objects.filter(pk=project_pk).exists())
+
+
+# ---------------------------------------------------------------------------
+# DeveloperLane model constraints
+# ---------------------------------------------------------------------------
+
+
+class TestDeveloperLaneModel(TestCase):
+    def setUp(self):
+        self.dev = DeveloperProfileFactory()
+        self.sem = SemesterFactory()
+        self.project = ProjectFactory()
+
+    def test_str_contains_order_and_semester(self):
+        lane = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        s = str(lane)
+        self.assertIn("0", s)
+        self.assertIn(str(self.sem), s)
+
+    def test_unique_together_prevents_duplicate_order(self):
+        DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        with self.assertRaises(IntegrityError):
+            DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+
+    def test_ordering_by_order_then_pk(self):
+        l2 = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=2)
+        l0 = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        l1 = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=1)
+        lanes = list(DeveloperLane.objects.filter(developer=self.dev, semester=self.sem))
+        self.assertEqual(lanes, [l0, l1, l2])
+
+    def test_lane_protected_when_it_has_phases(self):
+        lane = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        Phase.objects.create(
+            developer=self.dev, project=self.project, semester=self.sem,
+            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            lane=lane,
+        )
+        with self.assertRaises(ProtectedError):
+            lane.delete()
+
+
+# ---------------------------------------------------------------------------
+# Leave model
+# ---------------------------------------------------------------------------
+
+
+class TestLeaveModel(TestCase):
+    def setUp(self):
+        self.dev = DeveloperProfileFactory()
+
+    def test_str_contains_developer_and_dates(self):
+        leave = LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 3, 1),
+            end_date=datetime.date(2026, 3, 7),
+        )
+        s = str(leave)
+        self.assertIn(self.dev.user.email, s)
+
+    def test_cascade_delete_with_developer(self):
+        leave = LeaveFactory(developer=self.dev)
+        pk = leave.pk
+        self.dev.delete()
+        self.assertFalse(Leave.objects.filter(pk=pk).exists())
+
+    def test_ordering_by_start_date(self):
+        l2 = LeaveFactory(developer=self.dev, start_date=datetime.date(2026, 5, 1),
+                          end_date=datetime.date(2026, 5, 7))
+        l1 = LeaveFactory(developer=self.dev, start_date=datetime.date(2026, 3, 1),
+                          end_date=datetime.date(2026, 3, 7))
+        leaves = list(Leave.objects.filter(developer=self.dev))
+        self.assertEqual(leaves[0].pk, l1.pk)
+        self.assertEqual(leaves[1].pk, l2.pk)
+
+
+# ---------------------------------------------------------------------------
+# SemesterDeveloper model constraints
+# ---------------------------------------------------------------------------
+
+
+class TestSemesterDeveloperModel(TestCase):
+    def setUp(self):
+        self.dev = DeveloperProfileFactory()
+        self.sem = SemesterFactory()
+
+    def test_effort_available_defaults_to_zero(self):
+        record = SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem)
+        self.assertEqual(record.effort_available, 0)
+
+    def test_unique_together_prevents_duplicate(self):
+        SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem, effort_available=26)
+        with self.assertRaises(IntegrityError):
+            SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem, effort_available=20)
+
+    def test_cascade_delete_with_developer(self):
+        record = SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem)
+        pk = record.pk
+        self.dev.delete()
+        self.assertFalse(SemesterDeveloper.objects.filter(pk=pk).exists())
+
+
+# ---------------------------------------------------------------------------
+# ProjectSemesterName model
+# ---------------------------------------------------------------------------
+
+
+class TestProjectSemesterNameModel(TestCase):
+    def setUp(self):
+        self.sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.project = ProjectFactory()
+
+    def test_str_contains_name_and_semester(self):
+        psn = ProjectSemesterNameFactory(
+            project=self.project, semester=self.sem, name="My Project",
+        )
+        s = str(psn)
+        self.assertIn("My Project", s)
+        self.assertIn("2026A", s)
+
+    def test_unique_together_prevents_duplicate(self):
+        ProjectSemesterNameFactory(project=self.project, semester=self.sem, name="First")
+        with self.assertRaises(IntegrityError):
+            ProjectSemesterName.objects.create(
+                project=self.project, semester=self.sem, name="Second",
+            )
+
+    def test_cascade_delete_with_project(self):
+        psn = ProjectSemesterNameFactory(
+            project=self.project, semester=self.sem, name="My Project",
+        )
+        pk = psn.pk
+        self.project.delete()
+        self.assertFalse(ProjectSemesterName.objects.filter(pk=pk).exists())
