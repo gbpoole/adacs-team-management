@@ -109,12 +109,11 @@ class RoleRequiredMixin(LoginRequiredMixin):
     allowed_roles: tuple[str, ...] = ()
 
     def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
         if request.user.is_authenticated:
             role = request.user.role
             if not (role in self.allowed_roles or request.user.is_superuser):
                 raise PermissionDenied
-        return response
+        return super().dispatch(request, *args, **kwargs)
 
 
 # ---------------------------------------------------------------------------

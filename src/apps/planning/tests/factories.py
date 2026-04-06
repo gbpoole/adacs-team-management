@@ -3,6 +3,7 @@ import datetime
 import factory
 from factory.django import DjangoModelFactory
 
+from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.planning.models import ObserverProfile
@@ -80,6 +81,7 @@ class ObserverProfileFactory(DjangoModelFactory):
 class SemesterFactory(DjangoModelFactory):
     class Meta:
         model = Semester
+        django_get_or_create = ("year", "semester_type")
 
     year = 2026
     semester_type = SemesterType.A
@@ -128,6 +130,15 @@ class LeaveFactory(DjangoModelFactory):
     developer = factory.SubFactory(DeveloperProfileFactory)
     start_date = datetime.date(2026, 3, 1)
     end_date = datetime.date(2026, 3, 7)
+
+
+class DeveloperLaneFactory(DjangoModelFactory):
+    class Meta:
+        model = DeveloperLane
+
+    developer = factory.SubFactory(DeveloperProfileFactory)
+    semester = factory.SubFactory(SemesterFactory)
+    order = 0
 
 
 class PhaseFactory(DjangoModelFactory):
