@@ -1,6 +1,7 @@
 """Integration tests for planning views."""
 import datetime
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
@@ -16,6 +17,7 @@ from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
+from apps.planning.models import Tag
 from apps.planning.tests.factories import AdminUserFactory
 from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
@@ -62,6 +64,48 @@ class HomeViewTests(TestCase):
         self.client.force_login(AdminUserFactory())
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
+
+    def test_developer_context_populated(self):
+        dev = DeveloperProfileFactory()
+        self.client.force_login(dev.user)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["my_profile"], dev)
+
+    def test_developer_effort_available_in_context(self):
+        dev = DeveloperProfileFactory()
+        sem = Semester.get_current()
+        SemesterDeveloper.objects.create(developer=dev, semester=sem, effort_available=15)
+        self.client.force_login(dev.user)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.context["my_effort_available"], 15)
+
+    def test_developer_without_profile_shows_no_error(self):
+        # A user with role=DEVELOPER but no DeveloperProfile should still get 200
+        from apps.planning.tests.factories import DeveloperUserFactory
+        user = DeveloperUserFactory()
+        self.client.force_login(user)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("my_profile", response.context)
+
+    def test_observer_project_count_in_context(self):
+        obs = ObserverProfileFactory()
+        project = ProjectFactory()
+        obs.project_access.add(project)
+        self.client.force_login(obs.user)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["my_project_count"], 1)
+
+    def test_admin_sees_summary_counts(self):
+        DeveloperProfileFactory()
+        ProjectFactory()
+        self.client.force_login(AdminUserFactory())
+        response = self.client.get(reverse("home"))
+        self.assertIn("dev_count", response.context)
+        self.assertIn("project_count", response.context)
+        self.assertGreaterEqual(response.context["dev_count"], 1)
 
 
 class DevelopersViewTests(PlanningTestCase):
@@ -190,6 +234,37 @@ class PlanningViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(self.url, allowed=["admin", "pm"], denied=["developer", "observer"])
+
+    def test_context_contains_developer_rows(self):
+        sem = Semester.get_current()
+        dev = DeveloperProfileFactory()
+        project = ProjectFactory()
+        Phase.objects.create(
+            developer=dev, project=project, semester=sem,
+            start_date=sem.start_date, end_date=sem.start_date + datetime.timedelta(days=6),
+        )
+        self.client.force_login(AdminUserFactory())
+        response = self.client.get(self.url)
+        self.assertIn("developer_rows", response.context)
+        pks = [row["developer"].pk for row in response.context["developer_rows"]]
+        self.assertIn(dev.pk, pks)
+
+    def test_tag_filter_excludes_untagged_developers(self):
+        sem = Semester.get_current()
+        tag, _ = Tag.objects.get_or_create(name="python")
+        dev_with = DeveloperProfileFactory()
+        dev_with.tags.set([tag])
+        dev_without = DeveloperProfileFactory()
+        for dev in (dev_with, dev_without):
+            Phase.objects.create(
+                developer=dev, project=ProjectFactory(), semester=sem,
+                start_date=sem.start_date, end_date=sem.start_date + datetime.timedelta(days=6),
+            )
+        self.client.force_login(AdminUserFactory())
+        response = self.client.get(self.url + "?tags=python")
+        pks = [row["developer"].pk for row in response.context["developer_rows"]]
+        self.assertIn(dev_with.pk, pks)
+        self.assertNotIn(dev_without.pk, pks)
 
 
 # ---------------------------------------------------------------------------
@@ -1078,3 +1153,90 @@ class LeaveUpdateViewTests(PlanningTestCase):
         self.client.force_login(PMUserFactory())
         response = self.client.post(self.url, {"start_date": "not-a-date", "end_date": "2026-03-13"})
         self.assertEqual(response.status_code, 400)
+
+
+# ---------------------------------------------------------------------------
+# Developer upload view
+# ---------------------------------------------------------------------------
+
+
+def _tsv_bytes(rows):
+    """Build a tab-separated bytes object from a list of dicts."""
+    if not rows:
+        return b""
+    header = "\t".join(rows[0].keys())
+    body = "\n".join("\t".join(str(v) for v in r.values()) for r in rows)
+    return (header + "\n" + body).encode("utf-8")
+
+
+class DeveloperUploadViewTests(PlanningTestCase):
+    def setUp(self):
+        self.url = reverse("planning:developer_upload")
+        self.admin = AdminUserFactory()
+
+    def _post(self, rows):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile("devs.tsv", _tsv_bytes(rows), content_type="text/plain")
+        self.client.force_login(self.admin)
+        return self.client.post(self.url, {"tsv_file": f})
+
+    def test_role_access(self):
+        self.assertRoleAccess(self.url, method="post", denied=["developer", "observer"])
+
+    def test_missing_file_redirects(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(self.url, {})
+        self.assertEqual(response.status_code, 302)
+
+    def test_upload_creates_developer(self):
+        self._post([{"email": "upload@example.com", "name": "Upload Dev", "organisation": "", "emoji": "", "tags": "", "effort_available": ""}])
+        self.assertTrue(DeveloperProfile.objects.filter(user__email="upload@example.com").exists())
+
+    def test_upload_sets_effort(self):
+        self._post([{"email": "effort@example.com", "name": "Effort Dev", "organisation": "", "emoji": "", "tags": "", "effort_available": "12"}])
+        profile = DeveloperProfile.objects.get(user__email="effort@example.com")
+        self.assertTrue(SemesterDeveloper.objects.filter(developer=profile, effort_available=12).exists())
+
+    def test_upload_invalid_email_returns_redirect_with_error(self):
+        response = self._post([{"email": "not-an-email", "name": "Bad", "organisation": "", "emoji": "", "tags": "", "effort_available": ""}])
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DeveloperProfile.objects.filter(user__email="not-an-email").exists())
+
+
+# ---------------------------------------------------------------------------
+# Project upload view
+# ---------------------------------------------------------------------------
+
+
+class ProjectUploadViewTests(PlanningTestCase):
+    def setUp(self):
+        self.url = reverse("planning:project_upload")
+        self.admin = AdminUserFactory()
+
+    def _post(self, rows):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile("projects.tsv", _tsv_bytes(rows), content_type="text/plain")
+        self.client.force_login(self.admin)
+        return self.client.post(self.url, {"tsv_file": f})
+
+    def test_role_access(self):
+        self.assertRoleAccess(self.url, method="post", denied=["developer", "observer"])
+
+    def test_missing_file_redirects(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(self.url, {})
+        self.assertEqual(response.status_code, 302)
+
+    def test_upload_creates_project(self):
+        self._post([{"name": "Uploaded Project", "stream": "Engineering", "tags": "", "effort_resourced": "8"}])
+        self.assertTrue(ProjectSemesterName.objects.filter(name="Uploaded Project").exists())
+
+    def test_upload_creates_allocation(self):
+        self._post([{"name": "Alloc Project", "stream": "", "tags": "", "effort_resourced": "5"}])
+        psn = ProjectSemesterName.objects.get(name="Alloc Project")
+        self.assertTrue(ProjectAllocation.objects.filter(project=psn.project, weeks_new=5).exists())
+
+    def test_upload_invalid_name_returns_redirect_with_error(self):
+        before = Project.objects.count()
+        self._post([{"name": "", "stream": "", "tags": "", "effort_resourced": ""}])
+        self.assertEqual(Project.objects.count(), before)

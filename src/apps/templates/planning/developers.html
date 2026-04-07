@@ -71,6 +71,7 @@
   </div>
 </div>
 
+{% if can_edit %}
 {# Add Developer modal #}
 <dialog id="add-developer-modal" class="modal">
   <div class="modal-box">
@@ -129,6 +130,7 @@
   </div>
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
+{% endif %}
 
 {# Upload TSV modal #}
 <dialog id="upload-developer-modal" class="modal">
