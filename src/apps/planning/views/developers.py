@@ -21,6 +21,24 @@ from ._csv_import import _get_or_create_tags
 from ._csv_import import _upload_error
 from ._csv_import import _validate_developer_rows
 from ._mixins import RoleRequiredMixin
+from ._mixins import _update_user_profile_fields
+
+
+def _upsert_semester_developer(profile, effort_str):
+    if not effort_str:
+        return
+    try:
+        effort = float(effort_str)
+    except ValueError:
+        return
+    sd, created = SemesterDeveloper.objects.get_or_create(
+        developer=profile,
+        semester=Semester.get_current(),
+        defaults={"effort_available": effort},
+    )
+    if not created:
+        sd.effort_available = effort
+        sd.save(update_fields=["effort_available"])
 
 
 class DevelopersView(RoleRequiredMixin, ListView):
@@ -83,19 +101,7 @@ class DeveloperCreateView(RoleRequiredMixin, View):
         tag_names = request.POST.getlist("tags")
         if tag_names:
             profile.tags.set(_get_or_create_tags(tag_names))
-        effort_str = request.POST.get("effort_available", "").strip()
-        if effort_str:
-            try:
-                effort = float(effort_str)
-                sd, created = SemesterDeveloper.objects.get_or_create(
-                    developer=profile, semester=Semester.get_current(),
-                    defaults={"effort_available": effort},
-                )
-                if not created:
-                    sd.effort_available = effort
-                    sd.save(update_fields=["effort_available"])
-            except ValueError:
-                pass
+        _upsert_semester_developer(profile, request.POST.get("effort_available", "").strip())
         return redirect("planning:developers")
 
 
@@ -111,7 +117,6 @@ class DeveloperUploadView(RoleRequiredMixin, View):
         if errors:
             return _upload_error(request, "developers", errors)
         User = get_user_model()
-        semester = Semester.get_current()
         with transaction.atomic():
             for row in rows:
                 email = row["email"].strip()
@@ -128,15 +133,7 @@ class DeveloperUploadView(RoleRequiredMixin, View):
                 tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
                 if tag_names:
                     profile.tags.set(_get_or_create_tags(tag_names))
-                effort_str = row.get("effort_available", "").strip()
-                effort = float(effort_str) if effort_str else 0
-                sd, created = SemesterDeveloper.objects.get_or_create(
-                    developer=profile, semester=semester,
-                    defaults={"effort_available": effort},
-                )
-                if not created:
-                    sd.effort_available = effort
-                    sd.save(update_fields=["effort_available"])
+                _upsert_semester_developer(profile, row.get("effort_available", "").strip())
         messages.success(request, f"{len(rows)} developer(s) uploaded successfully.")
         return redirect("planning:developers")
 
@@ -146,26 +143,10 @@ class DeveloperUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(DeveloperProfile, pk=pk)
-        user = profile.user
-        user.name = request.POST.get("name", "").strip()
-        user.organisation = request.POST.get("organisation", "").strip()
-        user.emoji = request.POST.get("emoji", "").strip()
-        user.save(update_fields=["name", "organisation", "emoji"])
+        _update_user_profile_fields(profile.user, request.POST)
         tag_names = request.POST.getlist("tags")
         profile.tags.set(_get_or_create_tags(tag_names))
-        effort_str = request.POST.get("effort_available", "").strip()
-        if effort_str:
-            try:
-                effort = float(effort_str)
-                sd, created = SemesterDeveloper.objects.get_or_create(
-                    developer=profile, semester=Semester.get_current(),
-                    defaults={"effort_available": effort},
-                )
-                if not created:
-                    sd.effort_available = effort
-                    sd.save(update_fields=["effort_available"])
-            except ValueError:
-                pass
+        _upsert_semester_developer(profile, request.POST.get("effort_available", "").strip())
         return redirect("planning:developers")
 
 

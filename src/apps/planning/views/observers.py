@@ -11,6 +11,7 @@ from apps.planning.models import Semester
 from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
+from ._mixins import _update_user_profile_fields
 
 
 class ObserversView(RoleRequiredMixin, ListView):
@@ -71,11 +72,7 @@ class ObserverUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(ObserverProfile, pk=pk)
-        user = profile.user
-        user.name = request.POST.get("name", "").strip()
-        user.organisation = request.POST.get("organisation", "").strip()
-        user.emoji = request.POST.get("emoji", "").strip()
-        user.save(update_fields=["name", "organisation", "emoji"])
+        _update_user_profile_fields(profile.user, request.POST)
         project_pks = request.POST.getlist("project_access")
         profile.project_access.set(project_pks)
         return redirect("planning:observers")

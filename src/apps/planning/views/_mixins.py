@@ -2,6 +2,17 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 
 
+def _get_next_url(request, default="/planning/planning/"):
+    return request.POST.get("next") or request.META.get("HTTP_REFERER", default)
+
+
+def _update_user_profile_fields(user, post):
+    user.name = post.get("name", "").strip()
+    user.organisation = post.get("organisation", "").strip()
+    user.emoji = post.get("emoji", "").strip()
+    user.save(update_fields=["name", "organisation", "emoji"])
+
+
 class RoleRequiredMixin(LoginRequiredMixin):
     """Restrict access to users whose role is in ``allowed_roles``."""
 

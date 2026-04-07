@@ -496,6 +496,13 @@ class Phase(models.Model):
 # ---------------------------------------------------------------------------
 
 
+def _next_lane_order(developer: DeveloperProfile, semester: Semester) -> int:
+    max_order = DeveloperLane.objects.filter(
+        developer=developer, semester=semester,
+    ).aggregate(Max("order"))["order__max"]
+    return (max_order + 1) if max_order is not None else 0
+
+
 def _find_or_create_non_overlapping_lane(
     developer: DeveloperProfile,
     semester: Semester,
@@ -525,20 +532,16 @@ def _find_or_create_non_overlapping_lane(
         if not has_overlap(lane):
             return lane
 
-    max_order = DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
-    ).aggregate(Max("order"))["order__max"]
-    new_order = (max_order + 1) if max_order is not None else 0
-    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+    return DeveloperLane.objects.create(
+        developer=developer, semester=semester, order=_next_lane_order(developer, semester),
+    )
 
 
 def _create_next_lane(developer: DeveloperProfile, semester: Semester) -> DeveloperLane:
     """Create a new DeveloperLane with order = max_order + 1."""
-    max_order = DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
-    ).aggregate(Max("order"))["order__max"]
-    new_order = (max_order + 1) if max_order is not None else 0
-    return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
+    return DeveloperLane.objects.create(
+        developer=developer, semester=semester, order=_next_lane_order(developer, semester),
+    )
 
 
 def _delete_empty_lane(lane):

@@ -13,6 +13,17 @@ from apps.planning.models import Leave
 from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
+from ._mixins import _get_next_url
+
+
+def _check_leave_ownership(user, leave):
+    if user.role == Role.DEVELOPER and not user.is_superuser:
+        try:
+            if leave.developer != user.developer_profile:
+                return HttpResponse(status=403)
+        except DeveloperProfile.DoesNotExist:
+            return HttpResponse(status=403)
+    return None
 
 
 class LeaveView(RoleRequiredMixin, ListView):
@@ -59,7 +70,7 @@ class LeaveCreateView(RoleRequiredMixin, View):
                 developer_id = user.developer_profile.pk
             except DeveloperProfile.DoesNotExist:
                 return HttpResponse(status=403)
-        next_url = request.POST.get("next") or reverse("planning:leave")
+        next_url = _get_next_url(request, default=reverse("planning:leave"))
         try:
             start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
             end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
@@ -82,13 +93,8 @@ class LeaveDeleteView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
-        user = request.user
-        if user.role == Role.DEVELOPER and not user.is_superuser:
-            try:
-                if leave.developer != user.developer_profile:
-                    return HttpResponse(status=403)
-            except DeveloperProfile.DoesNotExist:
-                return HttpResponse(status=403)
+        if denied := _check_leave_ownership(request.user, leave):
+            return denied
         leave.delete()
         return redirect("planning:leave")
 
@@ -98,13 +104,8 @@ class LeaveUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
-        user = request.user
-        if user.role == Role.DEVELOPER and not user.is_superuser:
-            try:
-                if leave.developer != user.developer_profile:
-                    return HttpResponse(status=403)
-            except DeveloperProfile.DoesNotExist:
-                return HttpResponse(status=403)
+        if denied := _check_leave_ownership(request.user, leave):
+            return denied
         try:
             leave.start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
             leave.end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))

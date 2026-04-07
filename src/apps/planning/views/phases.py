@@ -16,6 +16,7 @@ from apps.planning.models import _find_or_create_non_overlapping_lane
 from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
+from ._mixins import _get_next_url
 
 
 class PhaseCreateView(RoleRequiredMixin, View):
@@ -24,7 +25,7 @@ class PhaseCreateView(RoleRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         developer_id = request.POST.get("developer")
         project_id = request.POST.get("project")
-        next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
+        next_url = _get_next_url(request)
         try:
             start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
             end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
@@ -62,8 +63,7 @@ class PhaseDeleteView(RoleRequiredMixin, View):
         lane = phase.lane
         phase.delete()
         _delete_empty_lane(lane)
-        next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
-        return redirect(next_url)
+        return redirect(_get_next_url(request))
 
 
 class PhaseUpdateView(RoleRequiredMixin, View):
@@ -137,5 +137,4 @@ class PhaseEditView(RoleRequiredMixin, View):
         phase.save(update_fields=list(dict.fromkeys(update_fields)))
         if lane != old_lane:
             _delete_empty_lane(old_lane)
-        next_url = request.POST.get("next") or request.META.get("HTTP_REFERER", "/planning/planning/")
-        return redirect(next_url)
+        return redirect(_get_next_url(request))
