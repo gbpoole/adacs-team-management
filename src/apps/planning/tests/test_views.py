@@ -369,6 +369,13 @@ class PhaseCreateViewTests(TestCase):
         response = self.client.post(self.url, data)
         self.assertRedirects(response, "/planning/planning/", fetch_redirect_response=False)
 
+    def test_invalid_date_returns_redirect_not_500(self):
+        self.client.force_login(self.admin)
+        data = dict(self.post_data, start_date="not-a-date")
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Phase.objects.count(), 0)
+
 
 class PhaseDeleteViewTests(TestCase):
     def setUp(self):
@@ -454,6 +461,12 @@ class PhaseUpdateViewTests(TestCase):
         self.client.force_login(self.admin)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 204)
+
+    def test_invalid_date_returns_400_not_500(self):
+        self.client.force_login(self.admin)
+        data = dict(self.post_data, start_date="not-a-date")
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 400)
 
     def test_updates_dates(self):
         self.client.force_login(self.admin)
@@ -1063,6 +1076,20 @@ class LeaveCreateViewTests(TestCase):
         self.client.force_login(user)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
+
+    def test_invalid_date_returns_redirect_not_500(self):
+        self.client.force_login(self.admin)
+        data = dict(self.post_data, start_date="not-a-date")
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Leave.objects.count(), 0)
+
+    def test_end_before_start_returns_redirect(self):
+        self.client.force_login(self.admin)
+        data = dict(self.post_data, start_date="2026-06-07", end_date="2026-06-01")
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Leave.objects.count(), 0)
 
 
 class LeaveDeleteViewTests(TestCase):

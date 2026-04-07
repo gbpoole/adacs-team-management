@@ -31,13 +31,20 @@ COLOUR_CHOICES = [(hex_val, name) for hex_val, name in COLOUR_PALETTE]
 SEMESTER_A_END_MONTH = 6
 
 
-def _next_colour(used_colours):
+def _next_colour(used_colours: set[str]) -> str:
     """Return the first palette colour not already in ``used_colours``."""
     for hex_val, _name in COLOUR_PALETTE:
         if hex_val not in used_colours:
             return hex_val
     # All used — cycle from the start
     return COLOUR_PALETTE[0][0]
+
+
+def _assign_colour_if_blank(instance, model_class) -> None:
+    """Auto-assign the next unused palette colour if instance.colour is empty."""
+    if not instance.colour:
+        used = set(model_class.objects.exclude(pk=instance.pk).values_list("colour", flat=True))
+        instance.colour = _next_colour(used)
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +68,8 @@ class Tag(models.Model):
 
 
 class DeveloperProfile(models.Model):
+    """Per-user developer metadata (colour, tags) linked via OneToOne to User."""
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -83,13 +92,7 @@ class DeveloperProfile(models.Model):
         return self.user.email
 
     def save(self, *args, **kwargs):
-        if not self.colour:
-            used = set(
-                DeveloperProfile.objects.exclude(pk=self.pk).values_list(
-                    "colour", flat=True,
-                ),
-            )
-            self.colour = _next_colour(used)
+        _assign_colour_if_blank(self, DeveloperProfile)
         super().save(*args, **kwargs)
 
 
@@ -99,6 +102,8 @@ class DeveloperProfile(models.Model):
 
 
 class ObserverProfile(models.Model):
+    """Read-only observer linked via OneToOne to User; accesses specific projects."""
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -170,6 +175,8 @@ class Semester(models.Model):
 
 
 class Stream(models.Model):
+    """Named stream (work category) for grouping projects."""
+
     name = models.CharField(_("name"), max_length=100, unique=True)
 
     class Meta:
@@ -209,11 +216,7 @@ class Project(models.Model):
         return f"Project #{self.pk}"
 
     def save(self, *args, **kwargs):
-        if not self.colour:
-            used = set(
-                Project.objects.exclude(pk=self.pk).values_list("colour", flat=True),
-            )
-            self.colour = _next_colour(used)
+        _assign_colour_if_blank(self, Project)
         super().save(*args, **kwargs)
 
     def name_for_semester(self, semester):
@@ -429,6 +432,7 @@ class Phase(models.Model):
         ordering = ["start_date"]
 
     def save(self, *args, **kwargs):
+        """Auto-assign a non-overlapping DeveloperLane if lane_id is not yet set."""
         if self.lane_id is None and self.developer_id and self.semester_id and self.start_date and self.end_date:
             preferred, _ = DeveloperLane.objects.get_or_create(
                 developer_id=self.developer_id,
@@ -475,8 +479,13 @@ class Phase(models.Model):
 
 
 def _find_or_create_non_overlapping_lane(
-    developer, semester, start_date, end_date, preferred_lane, exclude_phase_pk=None,
-):
+    developer: DeveloperProfile,
+    semester: Semester,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    preferred_lane: DeveloperLane,
+    exclude_phase_pk=None,
+) -> DeveloperLane:
     """Return ``preferred_lane`` if no phase in it overlaps [start_date, end_date].
     Otherwise try each of the developer's lanes in order; if all overlap, create
     a new lane at max_order+1.
@@ -505,7 +514,7 @@ def _find_or_create_non_overlapping_lane(
     return DeveloperLane.objects.create(developer=developer, semester=semester, order=new_order)
 
 
-def _create_next_lane(developer, semester):
+def _create_next_lane(developer: DeveloperProfile, semester: Semester) -> DeveloperLane:
     """Create a new DeveloperLane with order = max_order + 1."""
     max_order = DeveloperLane.objects.filter(
         developer=developer, semester=semester,

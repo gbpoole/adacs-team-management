@@ -16,6 +16,7 @@ from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterType
+from apps.planning.models import _assign_colour_if_blank
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
 from apps.planning.models import _find_or_create_non_overlapping_lane
@@ -600,3 +601,24 @@ class TestProjectSemesterNameModel(TestCase):
         pk = psn.pk
         self.project.delete()
         self.assertFalse(ProjectSemesterName.objects.filter(pk=pk).exists())
+
+
+class TestAssignColourIfBlank(TestCase):
+    """Tests for the shared _assign_colour_if_blank() helper."""
+
+    def test_assigns_when_blank(self):
+        profile = DeveloperProfileFactory(colour="")
+        # Factory triggers save(), which calls _assign_colour_if_blank
+        self.assertIn(profile.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
+
+    def test_no_op_when_colour_set(self):
+        profile = DeveloperProfileFactory(colour="#4E79A7")
+        original = profile.colour
+        _assign_colour_if_blank(profile, type(profile))
+        self.assertEqual(profile.colour, original)
+
+    def test_developer_profile_and_project_both_use_palette_colours(self):
+        dev = DeveloperProfileFactory(colour="")
+        proj = ProjectFactory(colour="")
+        self.assertIn(dev.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
+        self.assertIn(proj.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])

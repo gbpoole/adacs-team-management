@@ -20,7 +20,8 @@ from pathlib import Path
 
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
+from django.core.management.base import CommandError
 from django.db import transaction
 
 from apps.planning.models import AllocationType
@@ -36,12 +37,25 @@ from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterType
 from apps.planning.models import Stream
 from apps.planning.models import Tag
+from apps.planning.views._csv_import import _validate_developer_rows
+from apps.planning.views._csv_import import _validate_observer_rows
+from apps.planning.views._csv_import import _validate_project_rows
 from apps.users.models import Role
 
 User = get_user_model()
 
 # src/data/seed/ relative to this file (src/apps/planning/management/commands/)
 DATA_DIR = Path(__file__).parents[4] / "data" / "seed"
+
+# ── Seed constants ────────────────────────────────────────────────────────────
+DEFAULT_EFFORT_WEEKS = 26
+ALLOCATION_WEEK_OPTIONS = [10, 15, 20, 25, 30]
+MAX_LEAVE_DEVELOPERS = 6
+MAX_PHASE_PROJECTS = 10
+PHASES_PER_DEVELOPER_RANGE = (2, 5)
+PHASE_OFFSET_WEEKS_RANGE = (0, 10)
+PHASE_DURATION_WEEKS_RANGE = (3, 10)
+EFFORT_MULTIPLIER_WEIGHTS = [0.5, 1.0, 1.0, 1.0]
 
 
 def _read_tsv(path):
@@ -51,14 +65,6 @@ def _read_tsv(path):
 
 def _get_or_create_tags(names):
     return [Tag.objects.get_or_create(name=n)[0] for n in names if n.strip()]
-
-
-# Import shared validators from the planning views module.
-from apps.planning.views import (  # noqa: E402
-    _validate_developer_rows,
-    _validate_observer_rows,
-    _validate_project_rows,
-)
 
 
 class Command(BaseCommand):
@@ -109,8 +115,9 @@ class Command(BaseCommand):
         self._create_seed_account("developer@adacs.org.au", "Developer User", Role.DEVELOPER, "developer1234")
 
         self.stdout.write("Creating semesters...")
-        sem_a = self._get_or_create_semester(2026, SemesterType.A)
-        sem_b = self._get_or_create_semester(2026, SemesterType.B)
+        seed_year = datetime.date.today().year
+        sem_a = self._get_or_create_semester(seed_year, SemesterType.A)
+        sem_b = self._get_or_create_semester(seed_year, SemesterType.B)
 
         # ── Developers ────────────────────────────────────────────────────────
         self.stdout.write(f"Loading developers from {DATA_DIR / 'developers.tsv'} ...")
@@ -136,7 +143,7 @@ class Command(BaseCommand):
             if tag_names:
                 profile.tags.set(_get_or_create_tags(tag_names))
             effort_str = row.get("effort_available", "").strip()
-            effort = float(effort_str) if effort_str else 26
+            effort = float(effort_str) if effort_str else DEFAULT_EFFORT_WEEKS
             for sem in [sem_a, sem_b]:
                 SemesterDeveloper.objects.get_or_create(
                     developer=profile, semester=sem,
@@ -170,7 +177,7 @@ class Command(BaseCommand):
                     project=project, semester=sem,
                     defaults={
                         "allocation_type": AllocationType.FIXED,
-                        "weeks_new": random.choice([10, 15, 20, 25, 30]),
+                        "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
                         "weeks_carryover": 0,
                     },
                 )
@@ -212,7 +219,7 @@ class Command(BaseCommand):
         # ── Leave ─────────────────────────────────────────────────────────────
         self.stdout.write("Generating leave periods...")
         leave_count = 0
-        for profile in random.sample(dev_profiles, k=min(6, len(dev_profiles))):
+        for profile in random.sample(dev_profiles, k=min(MAX_LEAVE_DEVELOPERS, len(dev_profiles))):
             start = datetime.date(2026, random.randint(1, 10), random.choice([1, 8, 15, 22]))
             end = start + datetime.timedelta(days=random.choice([4, 7, 9, 14]))
             Leave.objects.get_or_create(developer=profile, start_date=start, defaults={"end_date": end})
@@ -223,17 +230,17 @@ class Command(BaseCommand):
         phase_count = 0
         sem_project_pairs = []
         for sem in [sem_a, sem_b]:
-            for project in random.sample(projects, k=min(10, len(projects))):
+            for project in random.sample(projects, k=min(MAX_PHASE_PROJECTS, len(projects))):
                 sem_project_pairs.append((sem, project))
 
         for profile in dev_profiles:
-            pairs = random.sample(sem_project_pairs, k=random.randint(2, 5))
+            pairs = random.sample(sem_project_pairs, k=random.randint(*PHASES_PER_DEVELOPER_RANGE))
             for sem, project in pairs:
-                offset_weeks = random.randint(0, 10)
-                duration_weeks = random.randint(3, 10)
+                offset_weeks = random.randint(*PHASE_OFFSET_WEEKS_RANGE)
+                duration_weeks = random.randint(*PHASE_DURATION_WEEKS_RANGE)
                 start = sem.start_date + datetime.timedelta(weeks=offset_weeks)
                 end = min(start + datetime.timedelta(weeks=duration_weeks) - datetime.timedelta(days=1), sem.end_date)
-                multiplier = random.choice([0.5, 1.0, 1.0, 1.0])
+                multiplier = random.choice(EFFORT_MULTIPLIER_WEIGHTS)
                 Phase.objects.get_or_create(
                     developer=profile, project=project, semester=sem, start_date=start,
                     defaults={"end_date": end, "effort_multiplier": multiplier},
