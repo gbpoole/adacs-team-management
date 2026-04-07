@@ -1,5 +1,6 @@
 """Unit tests for planning models and business logic."""
 import datetime
+from unittest.mock import patch
 
 from django.test import TestCase
 
@@ -83,16 +84,28 @@ class TestSemesterDates(TestCase):
 
 
 class TestSemesterGetCurrent(TestCase):
-    def test_get_current_creates_if_missing(self):
-        today = datetime.date.today()
-        expected_type = SemesterType.A if today.month <= 6 else SemesterType.B
-        sem = Semester.get_current()
-        self.assertEqual(sem.year, today.year)
-        self.assertEqual(sem.semester_type, expected_type)
+    def test_get_current_creates_semester_A_in_june(self):
+        fixed = datetime.date(2026, 6, 15)
+        with patch("apps.planning.models.datetime") as mock_dt:
+            mock_dt.date.today.return_value = fixed
+            sem = Semester.get_current()
+        self.assertEqual(sem.year, 2026)
+        self.assertEqual(sem.semester_type, SemesterType.A)
+
+    def test_get_current_creates_semester_B_in_july(self):
+        fixed = datetime.date(2026, 7, 1)
+        with patch("apps.planning.models.datetime") as mock_dt:
+            mock_dt.date.today.return_value = fixed
+            sem = Semester.get_current()
+        self.assertEqual(sem.year, 2026)
+        self.assertEqual(sem.semester_type, SemesterType.B)
 
     def test_get_current_idempotent(self):
-        s1 = Semester.get_current()
-        s2 = Semester.get_current()
+        fixed = datetime.date(2026, 3, 1)
+        with patch("apps.planning.models.datetime") as mock_dt:
+            mock_dt.date.today.return_value = fixed
+            s1 = Semester.get_current()
+            s2 = Semester.get_current()
         self.assertEqual(s1.pk, s2.pk)
 
 
@@ -116,7 +129,16 @@ class TestProjectNameForSemester(TestCase):
 
     def test_returns_placeholder_when_no_name(self):
         name = self.project.name_for_semester(self.sem_a)
-        self.assertIn(str(self.project.pk), name)
+        self.assertEqual(name, f"Project #{self.project.pk}")
+
+    def test_fallback_returns_most_recent_of_multiple_priors(self):
+        sem_2025a = SemesterFactory(year=2025, semester_type=SemesterType.A)
+        sem_2025b = SemesterFactory(year=2025, semester_type=SemesterType.B)
+        sem_2026b = SemesterFactory(year=2026, semester_type=SemesterType.B)
+        ProjectSemesterNameFactory(project=self.project, semester=sem_2025a, name="Old Name")
+        ProjectSemesterNameFactory(project=self.project, semester=sem_2025b, name="Newer Name")
+        # 2026B has no direct name; should fall back to 2025B, not 2025A
+        self.assertEqual(self.project.name_for_semester(sem_2026b), "Newer Name")
 
 
 class TestProjectAllocationTotalWeeks(TestCase):
@@ -425,6 +447,44 @@ class TestPhaseEffortWeeks(TestCase):
         )
         # Other developer's leave must not affect this phase
         self.assertAlmostEqual(phase.effort_weeks(), 2.0)
+
+    def test_leave_on_weekend_only_does_not_reduce_effort(self):
+        # Phase Mon 5 Jan – Fri 9 Jan = 5 work days = 1.0 week
+        # Leave covers Sat 3 Jan – Sun 4 Jan only — no work days overlap
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9))
+        LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 1, 3),
+            end_date=datetime.date(2026, 1, 4),
+        )
+        self.assertAlmostEqual(phase.effort_weeks(), 1.0)
+
+    def test_multiple_non_contiguous_leave_periods(self):
+        # Phase Mon 5 Jan – Fri 23 Jan = 15 work days = 3.0 weeks
+        # Leave week 1 (5 days) and leave week 3 (5 days) → 5 days remain = 1.0 week
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 23))
+        LeaveFactory(developer=self.dev,
+                     start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 1, 9))
+        LeaveFactory(developer=self.dev,
+                     start_date=datetime.date(2026, 1, 19), end_date=datetime.date(2026, 1, 23))
+        self.assertAlmostEqual(phase.effort_weeks(), 1.0)
+
+    def test_leave_partially_overlapping_phase_start(self):
+        # Phase Wed 7 Jan – Fri 9 Jan = 3 work days
+        # Leave Mon 5 Jan – Wed 7 Jan: only Wed 7 Jan falls inside the phase → 2 work days remain
+        phase = self._phase(datetime.date(2026, 1, 7), datetime.date(2026, 1, 9))
+        LeaveFactory(developer=self.dev,
+                     start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 1, 7))
+        self.assertAlmostEqual(phase.effort_weeks(), round(2 / 5, 2))
+
+    def test_effort_multiplier_zero_returns_zero(self):
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=0.0)
+        self.assertAlmostEqual(phase.effort_weeks(), 0.0)
+
+    def test_single_day_phase(self):
+        # Mon 5 Jan only = 1 work day = 0.2 weeks
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 5))
+        self.assertAlmostEqual(phase.effort_weeks(), 0.2)
 
 
 # ---------------------------------------------------------------------------

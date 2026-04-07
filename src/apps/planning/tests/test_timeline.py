@@ -68,6 +68,12 @@ class TestCoverage(SimpleTestCase):
         self.assertEqual(start_col, 3)
         self.assertEqual(span, 1)
 
+    def test_item_starting_on_last_day_of_last_week_is_included(self):
+        # Week Jan 26 runs Jan 26–Feb 1; an item starting exactly Feb 1 still overlaps
+        start_col, span = _coverage(datetime.date(2026, 2, 1), datetime.date(2026, 2, 1), self.weeks)
+        self.assertEqual(start_col, 3)
+        self.assertEqual(span, 1)
+
 
 class TestBuildLaneCells(SimpleTestCase):
     def test_empty_lane_all_empty_cells(self):

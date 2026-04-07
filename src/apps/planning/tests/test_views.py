@@ -103,9 +103,8 @@ class HomeViewTests(TestCase):
         ProjectFactory()
         self.client.force_login(AdminUserFactory())
         response = self.client.get(reverse("home"))
-        self.assertIn("dev_count", response.context)
-        self.assertIn("project_count", response.context)
-        self.assertGreaterEqual(response.context["dev_count"], 1)
+        self.assertEqual(response.context["dev_count"], 1)
+        self.assertEqual(response.context["project_count"], 1)
 
 
 class DevelopersViewTests(PlanningTestCase):
@@ -248,6 +247,9 @@ class PlanningViewTests(PlanningTestCase):
         self.assertIn("developer_rows", response.context)
         pks = [row["developer"].pk for row in response.context["developer_rows"]]
         self.assertIn(dev.pk, pks)
+        row = next(r for r in response.context["developer_rows"] if r["developer"].pk == dev.pk)
+        self.assertIn("lanes", row)
+        self.assertIn("overallocated_cols", row)
 
     def test_tag_filter_excludes_untagged_developers(self):
         sem = Semester.get_current()
@@ -373,6 +375,7 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.client.force_login(ObserverUserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
+        self.assertEqual(Phase.objects.count(), 0)
 
     def test_creates_phase_with_correct_fields(self):
         self.client.force_login(self.admin)
@@ -998,6 +1001,7 @@ class LeaveViewTests(PlanningTestCase):
         pks = [lv.pk for lv in response.context["leave_periods"]]
         self.assertIn(leave1.pk, pks)
         self.assertNotIn(leave2.pk, pks)
+        self.assertEqual(len(pks), 1)
 
     def test_admin_sees_all_leave(self):
         dev1 = DeveloperProfileFactory()
