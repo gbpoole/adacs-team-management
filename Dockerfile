@@ -66,7 +66,7 @@ CMD /app/src/docker-entrypoint.sh
 FROM runner AS cron
 
 # Install cron in the container
-RUN apt-get update && apt-get install --no-install-recommends -y cron
+RUN apt-get update && apt-get install --no-install-recommends -y cron procps
 
 WORKDIR /app/src
 
@@ -84,6 +84,8 @@ CMD ["cron", "-f"]
 
 
 FROM nginx AS nginx
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /static
 COPY --from=builder /app/src/staticfiles /static/

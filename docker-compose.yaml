@@ -14,6 +14,12 @@ services:
         condition: service_healthy
         restart: true
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   nginx:
     build:
@@ -23,8 +29,16 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - django
+      django:
+        condition: service_healthy
+        restart: true
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   db:
     image: mysql:8.4.3
@@ -54,8 +68,18 @@ services:
     env_file: .env
     container_name: adacs_team_planning_mailbox_cron
     depends_on:
-      - django
-      - db
-      - mailpit
+      django:
+        condition: service_healthy
+        restart: true
+      db:
+        condition: service_healthy
+        restart: true
+      mailpit:
+        condition: service_started
     restart: unless-stopped
-
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x cron > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
