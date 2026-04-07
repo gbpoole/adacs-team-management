@@ -16,6 +16,8 @@ from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterType
+from django.core.exceptions import ValidationError
+
 from apps.planning.models import _assign_colour_if_blank
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
@@ -412,6 +414,18 @@ class TestPhaseEffortWeeks(TestCase):
         )
         self.assertAlmostEqual(phase.effort_weeks(), 0.0)
 
+    def test_other_developer_leave_not_subtracted(self):
+        # Phase Mon 5 Jan – Fri 16 Jan = 2.0 weeks
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 16))
+        other_dev = DeveloperProfileFactory()
+        LeaveFactory(
+            developer=other_dev,
+            start_date=datetime.date(2026, 1, 12),
+            end_date=datetime.date(2026, 1, 16),
+        )
+        # Other developer's leave must not affect this phase
+        self.assertAlmostEqual(phase.effort_weeks(), 2.0)
+
 
 # ---------------------------------------------------------------------------
 # Project.colour auto-assignment
@@ -622,3 +636,65 @@ class TestAssignColourIfBlank(TestCase):
         proj = ProjectFactory(colour="")
         self.assertIn(dev.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
         self.assertIn(proj.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
+
+
+class TestLeaveValidation(TestCase):
+    """Tests for Leave.clean() model-level validation."""
+
+    def setUp(self):
+        self.dev = DeveloperProfileFactory()
+
+    def test_clean_raises_if_end_before_start(self):
+        leave = Leave(
+            developer=self.dev,
+            start_date=datetime.date(2026, 2, 10),
+            end_date=datetime.date(2026, 2, 5),
+        )
+        with self.assertRaises(ValidationError):
+            leave.full_clean()
+
+    def test_clean_passes_when_end_equals_start(self):
+        leave = Leave(
+            developer=self.dev,
+            start_date=datetime.date(2026, 2, 5),
+            end_date=datetime.date(2026, 2, 5),
+        )
+        leave.full_clean()  # must not raise
+
+
+class TestPhaseValidation(TestCase):
+    """Tests for Phase.clean() and effort_multiplier validators."""
+
+    def setUp(self):
+        self.sem = SemesterFactory()
+        self.dev = DeveloperProfileFactory()
+        self.proj = ProjectFactory()
+
+    def _phase(self, start, end, multiplier=1.0):
+        return Phase(
+            developer=self.dev,
+            project=self.proj,
+            semester=self.sem,
+            start_date=start,
+            end_date=end,
+            effort_multiplier=multiplier,
+        )
+
+    def test_clean_raises_if_end_before_start(self):
+        phase = self._phase(datetime.date(2026, 2, 10), datetime.date(2026, 2, 5))
+        with self.assertRaises(ValidationError):
+            phase.full_clean()
+
+    def test_clean_passes_when_end_equals_start(self):
+        phase = self._phase(datetime.date(2026, 2, 5), datetime.date(2026, 2, 5))
+        phase.full_clean()  # must not raise
+
+    def test_effort_multiplier_rejects_negative(self):
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=-0.1)
+        with self.assertRaises(ValidationError):
+            phase.full_clean()
+
+    def test_effort_multiplier_rejects_above_one(self):
+        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=1.5)
+        with self.assertRaises(ValidationError):
+            phase.full_clean()

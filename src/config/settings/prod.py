@@ -38,7 +38,16 @@ STORAGES = {
     },
 }
 
-ALLOWED_HOSTS = [config("DOMAIN_NAME", default="localhost"), "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [config("DOMAIN_NAME")]
+
+# HTTPS hardening — required for production deployment
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Use the correct host when building in docker
 DATABASES["default"]["HOST"] = "db"

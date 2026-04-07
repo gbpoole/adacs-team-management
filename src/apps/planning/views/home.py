@@ -1,5 +1,6 @@
 import datetime
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 
 from apps.planning.models import DeveloperProfile
@@ -11,14 +12,12 @@ from apps.planning.models import SemesterDeveloper
 from apps.users.models import Role
 
 
-class HomeView(TemplateView):
+class HomeView(LoginRequiredMixin, TemplateView):
     template_name = "pages/home.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         user = self.request.user
-        if not user.is_authenticated:
-            return ctx
 
         semester = Semester.get_current()
         ctx["semester"] = semester

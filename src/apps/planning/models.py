@@ -1,6 +1,8 @@
 import datetime
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Max
@@ -366,6 +368,10 @@ class Leave(models.Model):
     class Meta:
         ordering = ["start_date"]
 
+    def clean(self):
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": _("End date must not be before start date.")})
+
     def __str__(self):
         return f"{self.developer} {self.start_date}\u2013{self.end_date}"
 
@@ -426,10 +432,22 @@ class Phase(models.Model):
     )
     start_date = models.DateField()
     end_date = models.DateField()
-    effort_multiplier = models.FloatField(default=1.0)
+    effort_multiplier = models.FloatField(
+        default=1.0,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+    )
 
     class Meta:
         ordering = ["start_date"]
+        indexes = [
+            models.Index(fields=["developer", "semester"]),
+            models.Index(fields=["start_date", "end_date"]),
+            models.Index(fields=["lane", "start_date", "end_date"]),
+        ]
+
+    def clean(self):
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": _("End date must not be before start date.")})
 
     def save(self, *args, **kwargs):
         """Auto-assign a non-overlapping DeveloperLane if lane_id is not yet set."""

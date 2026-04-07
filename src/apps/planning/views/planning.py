@@ -46,6 +46,7 @@ class PlanningView(RoleRequiredMixin, TemplateView):
                     start_date__lte=weeks[-1] + datetime.timedelta(days=6),
                     end_date__gte=weeks[0],
                 ).select_related("developer", "project", "lane")
+                .prefetch_related("developer__leave_periods")
             )
         else:
             phases = []

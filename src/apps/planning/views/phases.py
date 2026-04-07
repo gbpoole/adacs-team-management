@@ -77,6 +77,8 @@ class PhaseUpdateView(RoleRequiredMixin, View):
             new_end = datetime.date.fromisoformat(request.POST.get("end_date", ""))
         except ValueError:
             return HttpResponse(status=400)
+        if new_end < new_start:
+            return HttpResponse(status=400)
         update_fields = ["start_date", "end_date"]
         lane_pk = request.POST.get("lane_pk")
         if lane_pk == "new":

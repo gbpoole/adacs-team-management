@@ -31,7 +31,7 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
             phase_qs = Phase.objects.filter(
                 start_date__lte=weeks[-1] + datetime.timedelta(days=6),
                 end_date__gte=weeks[0],
-            ).select_related("developer__user", "project")
+            ).select_related("developer__user", "project").prefetch_related("developer__leave_periods")
             if tag_filter:
                 phase_qs = phase_qs.filter(project__tags__name__in=tag_filter).distinct()
             phases = list(phase_qs)

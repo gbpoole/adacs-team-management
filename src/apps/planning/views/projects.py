@@ -57,7 +57,7 @@ class ProjectsView(RoleRequiredMixin, ListView):
             .values_list("project_id", "weeks_new", "weeks_carryover")
         }
         allocated_map: dict = {}
-        for phase in Phase.objects.filter(semester=semester).select_related("developer"):
+        for phase in Phase.objects.filter(semester=semester).select_related("developer").prefetch_related("developer__leave_periods"):
             allocated_map[phase.project_id] = allocated_map.get(phase.project_id, 0) + phase.effort_weeks()
 
         for project in ctx["projects"]:

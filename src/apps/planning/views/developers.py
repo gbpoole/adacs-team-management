@@ -49,7 +49,7 @@ class DevelopersView(RoleRequiredMixin, ListView):
 
         phases = Phase.objects.filter(
             semester=semester,
-        ).select_related("developer")
+        ).select_related("developer").prefetch_related("developer__leave_periods")
         effort_allocated = {}
         for phase in phases:
             effort_allocated[phase.developer_id] = (

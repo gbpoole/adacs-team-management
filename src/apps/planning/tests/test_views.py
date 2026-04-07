@@ -30,6 +30,18 @@ from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import SemesterType
 
 
+class HomeViewTests(TestCase):
+    def test_redirects_anonymous(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/", response["Location"])
+
+    def test_authenticated_can_access(self):
+        self.client.force_login(AdminUserFactory())
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+
+
 class DevelopersViewTests(TestCase):
     def setUp(self):
         self.url = reverse("planning:developers")
@@ -468,6 +480,15 @@ class PhaseUpdateViewTests(TestCase):
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, 400)
 
+    def test_end_before_start_returns_400(self):
+        self.client.force_login(self.admin)
+        data = dict(self.post_data, start_date="2026-02-09", end_date="2026-01-12")
+        original_start = self.phase.start_date
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 400)
+        self.phase.refresh_from_db()
+        self.assertEqual(self.phase.start_date, original_start)
+
     def test_updates_dates(self):
         self.client.force_login(self.admin)
         self.client.post(self.url, self.post_data)
@@ -724,6 +745,7 @@ class DeveloperDeleteViewTests(TestCase):
         self.client.force_login(PMUserFactory())
         response = self.client.post(reverse("planning:developer_delete", args=[profile.pk]), {})
         self.assertEqual(response.status_code, 204)
+        self.assertFalse(DeveloperProfile.objects.filter(pk=profile.pk).exists())
 
     def test_developer_denied(self):
         self.client.force_login(DeveloperUserFactory())
@@ -846,6 +868,7 @@ class ObserverDeleteViewTests(TestCase):
         self.client.force_login(PMUserFactory())
         response = self.client.post(reverse("planning:observer_delete", args=[profile.pk]), {})
         self.assertEqual(response.status_code, 204)
+        self.assertFalse(ObserverProfile.objects.filter(pk=profile.pk).exists())
 
     def test_developer_denied(self):
         self.client.force_login(DeveloperUserFactory())
@@ -968,6 +991,7 @@ class ProjectDeleteViewTests(TestCase):
         self.client.force_login(PMUserFactory())
         response = self.client.post(reverse("planning:project_delete", args=[project.pk]), {})
         self.assertEqual(response.status_code, 204)
+        self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
     def test_developer_denied(self):
         self.client.force_login(DeveloperUserFactory())
@@ -1123,7 +1147,56 @@ class LeaveDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Leave.objects.filter(pk=self.leave.pk).exists())
 
+    def test_pm_can_delete_confirms_db(self):
+        self.client.force_login(PMUserFactory())
+        self.client.post(self.url, {})
+        self.assertFalse(Leave.objects.filter(pk=self.leave.pk).exists())
+
     def test_observer_denied(self):
         self.client.force_login(ObserverUserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
+
+
+class LeaveUpdateViewTests(TestCase):
+    def setUp(self):
+        self.dev = DeveloperProfileFactory()
+        self.leave = LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 3, 2),
+            end_date=datetime.date(2026, 3, 6),
+        )
+        self.url = reverse("planning:leave_update", args=[self.leave.pk])
+        self.valid_data = {"start_date": "2026-03-09", "end_date": "2026-03-13"}
+
+    def test_developer_can_update_own_leave(self):
+        self.client.force_login(self.dev.user)
+        response = self.client.post(self.url, self.valid_data)
+        self.assertEqual(response.status_code, 204)
+        self.leave.refresh_from_db()
+        self.assertEqual(self.leave.start_date, datetime.date(2026, 3, 9))
+
+    def test_developer_cannot_update_others_leave(self):
+        other_dev = DeveloperProfileFactory()
+        self.client.force_login(other_dev.user)
+        response = self.client.post(self.url, self.valid_data)
+        self.assertEqual(response.status_code, 403)
+        self.leave.refresh_from_db()
+        self.assertEqual(self.leave.start_date, datetime.date(2026, 3, 2))
+
+    def test_pm_can_update_any_leave(self):
+        self.client.force_login(PMUserFactory())
+        response = self.client.post(self.url, self.valid_data)
+        self.assertEqual(response.status_code, 204)
+        self.leave.refresh_from_db()
+        self.assertEqual(self.leave.start_date, datetime.date(2026, 3, 9))
+
+    def test_observer_denied(self):
+        self.client.force_login(ObserverUserFactory())
+        response = self.client.post(self.url, self.valid_data)
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_date_returns_400(self):
+        self.client.force_login(PMUserFactory())
+        response = self.client.post(self.url, {"start_date": "not-a-date", "end_date": "2026-03-13"})
+        self.assertEqual(response.status_code, 400)
