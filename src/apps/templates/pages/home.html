@@ -37,16 +37,10 @@
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Developers" %}</div>
       <div class="stat-value text-2xl">{{ dev_count }}</div>
-      <div class="stat-desc mt-1">
-        <a href="{% url 'planning:developers' %}" class="btn btn-link btn-xs p-0 h-auto min-h-0">{% trans "View all" %} &rarr;</a>
-      </div>
     </div>
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Projects" %}</div>
       <div class="stat-value text-2xl">{{ project_count }}</div>
-      <div class="stat-desc mt-1">
-        <a href="{% url 'planning:projects' %}" class="btn btn-link btn-xs p-0 h-auto min-h-0">{% trans "View all" %} &rarr;</a>
-      </div>
     </div>
     <div class="stat bg-base-200 rounded-xl p-4">
       <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
@@ -58,14 +52,6 @@
       <div class="stat-value text-2xl">{{ total_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
       <div class="stat-desc text-xs">{% trans "across all phases" %}</div>
     </div>
-  </div>
-
-  <div class="flex flex-wrap gap-2 mb-6">
-    <a href="{% url 'planning:planning' %}" class="btn btn-primary btn-sm">{% trans "Planning Timeline" %}</a>
-    <a href="{% url 'planning:schedule' %}" class="btn btn-secondary btn-sm">{% trans "Schedule Timeline" %}</a>
-    <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-sm">{% trans "Leave" %}</a>
-    <a href="{% url 'planning:developers' %}" class="btn btn-outline btn-sm">{% trans "Developers" %}</a>
-    <a href="{% url 'planning:projects' %}" class="btn btn-outline btn-sm">{% trans "Projects" %}</a>
   </div>
 
   {% if upcoming_leave %}
@@ -189,9 +175,6 @@
   <div class="stat bg-base-200 rounded-xl p-4 w-64 mb-6">
     <div class="stat-title text-xs">{% trans "Projects You Can View" %}</div>
     <div class="stat-value text-2xl">{{ my_project_count|default:"0" }}</div>
-    <div class="stat-desc mt-1">
-      <a href="{% url 'planning:projects' %}" class="btn btn-link btn-xs p-0 h-auto min-h-0">{% trans "View projects" %} &rarr;</a>
-    </div>
   </div>
 
   {% endif %}
