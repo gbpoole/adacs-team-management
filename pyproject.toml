@@ -13,7 +13,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.14"
 
 # Argon2 provides better password hashing algorithms. See the django docs:
 # https://docs.djangoproject.com/en/4.2/topics/auth/passwords/#using-argon2-with-django
@@ -106,7 +106,7 @@ exclude = [
 # Same as Django
 line-length = 88
 indent-width = 4
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
