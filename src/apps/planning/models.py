@@ -195,13 +195,7 @@ class Stream(models.Model):
 
 class Project(models.Model):
     tags = models.ManyToManyField(Tag, blank=True, related_name="projects")
-    stream = models.ForeignKey(
-        Stream,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="projects",
-    )
+    streams = models.ManyToManyField(Stream, blank=True, related_name="projects")
     colour = models.CharField(
         _("colour"),
         max_length=7,

@@ -25,7 +25,7 @@
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
           <th>{% trans "Name" %}</th>
-          <th>{% trans "Stream" %}</th>
+          <th>{% trans "Streams" %}</th>
           <th>{% trans "Tags" %}</th>
           <th class="text-right">{% trans "Effort Resourced (wks)" %}</th>
           <th class="text-right">{% trans "Effort Allocated (wks)" %}</th>
@@ -38,7 +38,7 @@
             onclick="openEditProject(this)"
             data-pk="{{ project.pk }}"
             data-name="{{ project.display_name }}"
-            data-stream="{{ project.stream|default:'' }}"
+            data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
             data-effort="{{ project.effort_resourced|default:'' }}"
             data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}>
           <td>
@@ -46,7 +46,11 @@
                   style="background-color: {{ project.colour }};"></span>
             {{ project.display_name }}
           </td>
-          <td>{{ project.stream|default:"—" }}</td>
+          <td>
+            {% for stream in project.streams.all %}
+            <span class="badge badge-outline badge-sm">{{ stream }}</span>
+            {% empty %}—{% endfor %}
+          </td>
           <td>
             {% for tag in project.tags.all %}
             <span class="badge badge-outline badge-sm">{{ tag }}</span>
@@ -81,20 +85,24 @@
         <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
         <input type="text" name="name" class="input input-bordered" required>
       </div>
-      <div class="flex gap-3 mb-3">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Stream" %}</label>
-          <input type="text" name="stream" list="stream-list" class="input input-bordered">
-          <datalist id="stream-list">
-            {% for stream in streams %}
-            <option value="{{ stream.name }}">
-            {% endfor %}
-          </datalist>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Streams" %}</label>
+        <div id="proj-stream-buttons" class="flex flex-wrap gap-2 mt-1">
+          {% for stream in streams %}
+          <label class="btn btn-sm btn-outline cursor-pointer">
+            <input type="checkbox" name="streams" value="{{ stream.name }}" class="hidden">
+            {{ stream.name }}
+          </label>
+          {% endfor %}
         </div>
-        <div class="form-control" style="width: 140px;">
-          <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
-          <input type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered">
+        <div class="flex gap-2 mt-2">
+          <input type="text" id="proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="projAddStream()">+ {% trans "Add" %}</button>
         </div>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
+        <input type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
       </div>
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Tags" %}</label>
@@ -127,10 +135,10 @@
     <p class="text-sm text-neutral-500 mb-4">
       {% trans "Tab-separated file with a header row. Columns:" %}
       <code class="text-xs bg-base-200 px-1 rounded">name</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">stream</code>,
+      <code class="text-xs bg-base-200 px-1 rounded">streams</code>,
       <code class="text-xs bg-base-200 px-1 rounded">effort_resourced</code>,
       <code class="text-xs bg-base-200 px-1 rounded">tags</code>
-      {% trans "(comma-separated tag names)" %}
+      {% trans "(comma-separated values for streams and tags)" %}
     </p>
     <form method="post" action="{% url 'planning:project_upload' %}" enctype="multipart/form-data">
       {% csrf_token %}
@@ -158,20 +166,24 @@
         <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
         <input id="edit-project-name" type="text" name="name" class="input input-bordered" required>
       </div>
-      <div class="flex gap-3 mb-3">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Stream" %}</label>
-          <input id="edit-project-stream" type="text" name="stream" list="edit-stream-list" class="input input-bordered">
-          <datalist id="edit-stream-list">
-            {% for stream in streams %}
-            <option value="{{ stream.name }}">
-            {% endfor %}
-          </datalist>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Streams" %}</label>
+        <div id="edit-proj-stream-buttons" class="flex flex-wrap gap-2 mt-1">
+          {% for stream in streams %}
+          <label class="btn btn-sm btn-outline cursor-pointer">
+            <input type="checkbox" name="streams" value="{{ stream.name }}" class="hidden">
+            {{ stream.name }}
+          </label>
+          {% endfor %}
         </div>
-        <div class="form-control" style="width: 140px;">
-          <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
-          <input id="edit-project-effort" type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered">
+        <div class="flex gap-2 mt-2">
+          <input type="text" id="edit-proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="editProjAddStream()">+ {% trans "Add" %}</button>
         </div>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
+        <input id="edit-project-effort" type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
       </div>
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Tags" %}</label>
@@ -200,7 +212,7 @@
 {% endif %}
 
 <script>
-function initTagButtons(containerId) {
+function initCheckboxButtons(containerId) {
   document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(function (cb) {
     var label = cb.closest('label');
     function sync() {
@@ -212,10 +224,10 @@ function initTagButtons(containerId) {
   });
 }
 
-function addTagButton(containerId, name) {
+function addCheckboxButton(containerId, fieldName, name) {
   if (!name) return;
   var container = document.getElementById(containerId);
-  var existing = container.querySelector('input[name="tags"][value="' + name.replace(/"/g, '\\"') + '"]');
+  var existing = container.querySelector('input[name="' + fieldName + '"][value="' + name.replace(/"/g, '\\"') + '"]');
   if (existing) {
     existing.checked = true;
     existing.dispatchEvent(new Event('change'));
@@ -224,7 +236,7 @@ function addTagButton(containerId, name) {
   var label = document.createElement('label');
   label.className = 'btn btn-sm btn-primary cursor-pointer';
   var cb = document.createElement('input');
-  cb.type = 'checkbox'; cb.name = 'tags'; cb.value = name; cb.checked = true; cb.className = 'hidden';
+  cb.type = 'checkbox'; cb.name = fieldName; cb.value = name; cb.checked = true; cb.className = 'hidden';
   cb.addEventListener('change', function () {
     label.classList.toggle('btn-primary', cb.checked);
     label.classList.toggle('btn-outline', !cb.checked);
@@ -234,40 +246,68 @@ function addTagButton(containerId, name) {
   container.appendChild(label);
 }
 
-function projAddTag() {
-  var input = document.getElementById('proj-new-tag');
-  addTagButton('proj-tag-buttons', input.value.trim());
+function projAddStream() {
+  var input = document.getElementById('proj-new-stream');
+  addCheckboxButton('proj-stream-buttons', 'streams', input.value.trim());
   input.value = '';
   input.focus();
 }
+
+function projAddTag() {
+  var input = document.getElementById('proj-new-tag');
+  addCheckboxButton('proj-tag-buttons', 'tags', input.value.trim());
+  input.value = '';
+  input.focus();
+}
+
+document.getElementById('proj-new-stream').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); projAddStream(); }
+});
 
 document.getElementById('proj-new-tag').addEventListener('keydown', function (e) {
   if (e.key === 'Enter') { e.preventDefault(); projAddTag(); }
 });
 
-initTagButtons('proj-tag-buttons');
+initCheckboxButtons('proj-stream-buttons');
+initCheckboxButtons('proj-tag-buttons');
 
 {% if can_edit %}
-function editProjAddTag() {
-  var input = document.getElementById('edit-proj-new-tag');
-  addTagButton('edit-proj-tag-buttons', input.value.trim());
+function editProjAddStream() {
+  var input = document.getElementById('edit-proj-new-stream');
+  addCheckboxButton('edit-proj-stream-buttons', 'streams', input.value.trim());
   input.value = '';
   input.focus();
 }
+
+function editProjAddTag() {
+  var input = document.getElementById('edit-proj-new-tag');
+  addCheckboxButton('edit-proj-tag-buttons', 'tags', input.value.trim());
+  input.value = '';
+  input.focus();
+}
+
+document.getElementById('edit-proj-new-stream').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); editProjAddStream(); }
+});
 
 document.getElementById('edit-proj-new-tag').addEventListener('keydown', function (e) {
   if (e.key === 'Enter') { e.preventDefault(); editProjAddTag(); }
 });
 
-initTagButtons('edit-proj-tag-buttons');
+initCheckboxButtons('edit-proj-stream-buttons');
+initCheckboxButtons('edit-proj-tag-buttons');
 
 function openEditProject(row) {
   var pk = row.dataset.pk;
+  var streams = row.dataset.streams ? row.dataset.streams.split(',') : [];
   var tags = row.dataset.tags ? row.dataset.tags.split(',') : [];
   document.getElementById('edit-project-id').value = pk;
   document.getElementById('edit-project-name').value = row.dataset.name;
-  document.getElementById('edit-project-stream').value = row.dataset.stream;
   document.getElementById('edit-project-effort').value = row.dataset.effort;
+  document.querySelectorAll('#edit-proj-stream-buttons input[type="checkbox"]').forEach(function (cb) {
+    cb.checked = streams.indexOf(cb.value) !== -1;
+    cb.dispatchEvent(new Event('change'));
+  });
   document.querySelectorAll('#edit-proj-tag-buttons input[type="checkbox"]').forEach(function (cb) {
     cb.checked = tags.indexOf(cb.value) !== -1;
     cb.dispatchEvent(new Event('change'));

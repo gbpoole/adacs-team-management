@@ -19,6 +19,7 @@ from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
 
+from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
 from ._csv_import import _upload_error
 from ._csv_import import _validate_project_rows
@@ -31,9 +32,7 @@ class ProjectsView(RoleRequiredMixin, ListView):
     allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER, Role.OBSERVER)
 
     def get_queryset(self):
-        qs = Project.objects.prefetch_related("tags", "semester_names").select_related(
-            "stream",
-        )
+        qs = Project.objects.prefetch_related("tags", "streams", "semester_names")
         user = self.request.user
         if user.role == Role.OBSERVER:
             try:
@@ -76,11 +75,11 @@ class ProjectCreateView(RoleRequiredMixin, View):
         if not name:
             return redirect("planning:projects")
         semester = Semester.get_current()
-        stream_name = request.POST.get("stream", "").strip()
-        stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
-        project = Project(stream=stream)
+        project = Project()
         project.save()
         ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
+        stream_names = request.POST.getlist("streams")
+        project.streams.set(_get_or_create_streams(stream_names))
         tag_names = request.POST.getlist("tags")
         if tag_names:
             project.tags.set(_get_or_create_tags(tag_names))
@@ -108,11 +107,11 @@ class ProjectUploadView(RoleRequiredMixin, View):
         with transaction.atomic():
             for row in rows:
                 name = row["name"].strip()
-                stream_name = row.get("stream", "").strip()
-                stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
-                project = Project(stream=stream)
+                project = Project()
                 project.save()
                 ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
+                stream_names = [s.strip() for s in row.get("streams", "").split(",") if s.strip()]
+                project.streams.set(_get_or_create_streams(stream_names))
                 tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
                 if tag_names:
                     project.tags.set(_get_or_create_tags(tag_names))
@@ -137,9 +136,8 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             psn, _ = ProjectSemesterName.objects.get_or_create(project=project, semester=semester)
             psn.name = name
             psn.save(update_fields=["name"])
-        stream_name = request.POST.get("stream", "").strip()
-        project.stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
-        project.save(update_fields=["stream"])
+        stream_names = request.POST.getlist("streams")
+        project.streams.set(_get_or_create_streams(stream_names))
         tag_names = request.POST.getlist("tags")
         project.tags.set(_get_or_create_tags(tag_names))
         effort_str = request.POST.get("effort_resourced", "").strip()

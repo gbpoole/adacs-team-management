@@ -57,9 +57,9 @@ class ProjectAllocationInline(admin.TabularInline):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["__str__", "stream", "colour"]
-    list_filter = ["stream", "tags"]
-    filter_horizontal = ["tags"]
+    list_display = ["__str__", "colour"]
+    list_filter = ["streams", "tags"]
+    filter_horizontal = ["streams", "tags"]
     inlines = [ProjectSemesterNameInline, ProjectAllocationInline]
     search_fields = ["semester_names__name"]
 

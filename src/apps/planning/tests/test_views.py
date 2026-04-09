@@ -878,7 +878,7 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.admin = AdminUserFactory()
         self.post_data = {
             "name": "New Project",
-            "stream": "Engineering",
+            "streams": "Engineering",
             "effort_resourced": "10",
         }
 
@@ -916,7 +916,6 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.url = reverse("planning:project_edit", args=[self.project.pk])
         self.post_data = {
             "name": "New Name",
-            "stream": "",
             "effort_resourced": "15",
         }
 
@@ -1232,15 +1231,20 @@ class ProjectUploadViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_upload_creates_project(self):
-        self._post([{"name": "Uploaded Project", "stream": "Engineering", "tags": "", "effort_resourced": "8"}])
+        self._post([{"name": "Uploaded Project", "streams": "Engineering", "tags": "", "effort_resourced": "8"}])
         self.assertTrue(ProjectSemesterName.objects.filter(name="Uploaded Project").exists())
 
+    def test_upload_assigns_streams(self):
+        self._post([{"name": "Stream Project", "streams": "Engineering", "tags": "", "effort_resourced": ""}])
+        psn = ProjectSemesterName.objects.get(name="Stream Project")
+        self.assertTrue(psn.project.streams.filter(name="Engineering").exists())
+
     def test_upload_creates_allocation(self):
-        self._post([{"name": "Alloc Project", "stream": "", "tags": "", "effort_resourced": "5"}])
+        self._post([{"name": "Alloc Project", "streams": "", "tags": "", "effort_resourced": "5"}])
         psn = ProjectSemesterName.objects.get(name="Alloc Project")
         self.assertTrue(ProjectAllocation.objects.filter(project=psn.project, weeks_new=5).exists())
 
     def test_upload_invalid_name_returns_redirect_with_error(self):
         before = Project.objects.count()
-        self._post([{"name": "", "stream": "", "tags": "", "effort_resourced": ""}])
+        self._post([{"name": "", "streams": "", "tags": "", "effort_resourced": ""}])
         self.assertEqual(Project.objects.count(), before)

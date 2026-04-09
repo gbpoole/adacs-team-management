@@ -91,7 +91,6 @@ class ProjectFactory(DjangoModelFactory):
     class Meta:
         model = Project
 
-    stream = factory.SubFactory(StreamFactory)
     colour = ""  # triggers auto-assign
 
 

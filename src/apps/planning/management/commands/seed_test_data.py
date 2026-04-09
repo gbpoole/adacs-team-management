@@ -3,7 +3,7 @@ Management command to populate the database with realistic test data.
 
 Seed data is driven by TSV files in src/data/seed/:
   developers.tsv  — columns: email, name, organisation, emoji, effort_available, tags
-  projects.tsv    — columns: name, stream, tags
+  projects.tsv    — columns: name, streams (comma-sep), tags
   observers.tsv   — columns: email, name, organisation, project_access (comma-sep project names)
 
 Random phases and leave periods are generated on top of that fixed data.
@@ -65,6 +65,10 @@ def _read_tsv(path):
 
 def _get_or_create_tags(names):
     return [Tag.objects.get_or_create(name=n)[0] for n in names if n.strip()]
+
+
+def _get_or_create_streams(names):
+    return [Stream.objects.get_or_create(name=n)[0] for n in names if n.strip()]
 
 
 class Command(BaseCommand):
@@ -139,7 +143,7 @@ class Command(BaseCommand):
                 user.set_password("testpass123")
                 user.save()
             profile, _ = DeveloperProfile.objects.get_or_create(user=user)
-            tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+            tag_names = [t.strip() for t in (row.get("tags") or "").split(",") if t.strip()]
             if tag_names:
                 profile.tags.set(_get_or_create_tags(tag_names))
             effort_str = row.get("effort_available", "").strip()
@@ -159,17 +163,17 @@ class Command(BaseCommand):
             name = row.get("name", "").strip()
             if not name:
                 continue
-            stream_name = row.get("stream", "").strip()
-            stream = Stream.objects.get_or_create(name=stream_name)[0] if stream_name else None
             existing = ProjectSemesterName.objects.filter(name=name, semester__in=[sem_a, sem_b]).first()
             if existing:
                 project = existing.project
             else:
-                project = Project(stream=stream)
+                project = Project()
                 project.save()
                 ProjectSemesterName.objects.get_or_create(project=project, semester=sem_a, defaults={"name": name})
                 ProjectSemesterName.objects.get_or_create(project=project, semester=sem_b, defaults={"name": name})
-            tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+            stream_names = [s.strip() for s in (row.get("streams") or "").split(",") if s.strip()]
+            project.streams.set(_get_or_create_streams(stream_names))
+            tag_names = [t.strip() for t in (row.get("tags") or "").split(",") if t.strip()]
             if tag_names:
                 project.tags.set(_get_or_create_tags(tag_names))
             for sem in [sem_a, sem_b]:

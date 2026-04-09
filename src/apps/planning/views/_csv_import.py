@@ -3,11 +3,16 @@ from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from django.shortcuts import redirect
 
+from apps.planning.models import Stream
 from apps.planning.models import Tag
 
 
 def _get_or_create_tags(names):
     return [Tag.objects.get_or_create(name=n)[0] for n in names if n.strip()]
+
+
+def _get_or_create_streams(names):
+    return [Stream.objects.get_or_create(name=n)[0] for n in names if n.strip()]
 
 
 _email_validator = EmailValidator()
