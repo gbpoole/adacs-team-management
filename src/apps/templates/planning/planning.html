@@ -27,9 +27,31 @@
       {% if selected_tags %}<a href="{% url 'planning:planning' %}" class="btn btn-sm btn-ghost ml-2">{% trans "Reset" %}</a>{% endif %}
     </form>
     <script>
-      document.querySelectorAll('#tag-filter-form input[name="tags"]').forEach(function (cb) {
-        cb.addEventListener('change', function () { document.getElementById('tag-filter-form').submit(); });
-      });
+      (function () {
+        var STORAGE_KEY = 'planning_tag_filter';
+        var form = document.getElementById('tag-filter-form');
+        var urlTags = new URLSearchParams(window.location.search).getAll('tags');
+        if (urlTags.length > 0) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(urlTags)); } catch (e) {}
+        } else {
+          try {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            if (saved.length > 0) {
+              var p = new URLSearchParams();
+              saved.forEach(function (t) { p.append('tags', t); });
+              window.location.replace(window.location.pathname + '?' + p.toString());
+              return;
+            }
+          } catch (e) {}
+        }
+        form.querySelectorAll('input[name="tags"]').forEach(function (cb) {
+          cb.addEventListener('change', function () { form.submit(); });
+        });
+        var reset = form.querySelector('a.btn-ghost');
+        if (reset) reset.addEventListener('click', function () {
+          try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        });
+      })();
     </script>
     {% endif %}
   </div>
