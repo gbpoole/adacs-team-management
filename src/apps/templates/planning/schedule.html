@@ -108,13 +108,15 @@
                     style="background-color: {{ row.project.colour }};"></span>
               {{ row.project.display_name }}
             </td>
-            <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1 text-sm text-neutral-400">—</td>
+            <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1">
+              <span class="text-xs italic text-neutral-400 tracking-wide">{% trans "Unscheduled" %}</span>
+            </td>
             <td colspan="{{ weeks|length }}" class="border-l border-base-200 h-8"></td>
           </tr>
           {% endfor %}
         {% empty %}
         <tr>
-          <td colspan="{{ weeks|length|add:2 }}" class="text-center text-neutral-500 p-4">{% trans "No phases found in this date range." %}</td>
+          <td colspan="{{ weeks|length|add:2 }}" class="text-center text-neutral-500 p-4">{% trans "No projects found." %}</td>
         </tr>
         {% endfor %}
       </tbody>

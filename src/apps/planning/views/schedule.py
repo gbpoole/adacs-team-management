@@ -39,16 +39,13 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
             phases = []
 
         project_dev_phases: dict = defaultdict(lambda: defaultdict(list))
-        project_ids = set()
         for phase in phases:
             project_dev_phases[phase.project_id][phase.developer_id].append(phase)
-            project_ids.add(phase.project_id)
 
-        projects = list(
-            Project.objects.filter(pk__in=project_ids)
-            .prefetch_related("semester_names")
-            .order_by("id")
-        )
+        project_qs = Project.objects.prefetch_related("semester_names").order_by("id")
+        if tag_filter:
+            project_qs = project_qs.filter(tags__name__in=tag_filter).distinct()
+        projects = list(project_qs)
 
         project_rows = []
         for project in projects:
