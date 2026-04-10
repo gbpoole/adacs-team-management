@@ -6,7 +6,7 @@ in test and dev are required
 """
 
 from .base import *  # noqa: F403
-from decouple import config
+from decouple import config, Csv
 
 DEBUG = False
 
@@ -48,6 +48,11 @@ SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default=f"https://{config('DOMAIN_NAME')},http://localhost:8000,http://localhost",
+    cast=Csv(),
+)
 
 # Use the correct host when building in docker
 DATABASES["default"]["HOST"] = "db"
