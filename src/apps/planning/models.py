@@ -328,6 +328,18 @@ ObserverProfile.add_to_class(
     ),
 )
 
+ObserverProfile.add_to_class(
+    "stream_access",
+    models.ManyToManyField(
+        Stream,
+        blank=True,
+        related_name="observer_access",
+        help_text=_(
+            "Streams this observer can view. All projects in these streams are accessible.",
+        ),
+    ),
+)
+
 
 # ---------------------------------------------------------------------------
 # SemesterDeveloper — effort available per developer per semester  (FR-09)

@@ -30,12 +30,18 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
 
         is_observer = user.role == Role.OBSERVER and not user.is_superuser
 
-        # Determine accessible project PKs for observers
+        # Determine accessible project PKs for observers (direct + via stream access)
         accessible_project_pks = None
         if is_observer:
             try:
+                profile = user.observer_profile
                 accessible_project_pks = set(
-                    user.observer_profile.project_access.values_list("pk", flat=True)
+                    profile.project_access.values_list("pk", flat=True)
+                )
+                accessible_project_pks |= set(
+                    Project.objects.filter(
+                        streams__in=profile.stream_access.all()
+                    ).values_list("pk", flat=True)
                 )
             except ObserverProfile.DoesNotExist:
                 accessible_project_pks = set()

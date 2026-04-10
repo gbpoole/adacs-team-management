@@ -25,6 +25,7 @@
           <th>{% trans "Email" %}</th>
           <th>{% trans "Organisation" %}</th>
           <th>{% trans "Project Access" %}</th>
+          <th>{% trans "Stream Access" %}</th>
         </tr>
       </thead>
       <tbody>
@@ -36,7 +37,8 @@
             data-email="{{ obs.user.email }}"
             data-organisation="{{ obs.user.organisation|default:'' }}"
             data-emoji="{{ obs.user.emoji|default:'' }}"
-            data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
+            data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-streams="{% for s in obs.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
           <td>{% if obs.user.emoji %}{{ obs.user.emoji }} {% endif %}{{ obs.user.name|default:"—" }}</td>
           <td>{{ obs.user.email }}</td>
           <td>{{ obs.user.organisation|default:"—" }}</td>
@@ -45,10 +47,15 @@
             <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
             {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
           </td>
+          <td>
+            {% for name, colour in obs.stream_pills %}
+            <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
+            {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
+          </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="4" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
+          <td colspan="5" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -80,17 +87,30 @@
           <input type="text" name="emoji" class="input input-bordered" maxlength="10">
         </div>
       </div>
-      {% if all_projects %}
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Project Access" %}</label>
-        <select name="project_access" multiple class="select select-bordered h-40">
-          {% for project in all_projects %}
-          <option value="{{ project.pk }}">{{ project.display_name }}</option>
-          {% endfor %}
-        </select>
-        <span class="label-text-alt mt-1 text-neutral-400">{% trans "Hold Ctrl/Cmd to select multiple" %}</span>
+      <div class="flex gap-3 mb-4">
+        {% if all_projects %}
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Project Access" %}</label>
+          <select name="project_access" multiple class="select select-bordered h-36">
+            {% for project in all_projects %}
+            <option value="{{ project.pk }}">{{ project.display_name }}</option>
+            {% endfor %}
+          </select>
+          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+        </div>
+        {% endif %}
+        {% if all_streams %}
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Stream Access" %}</label>
+          <select name="stream_access" multiple class="select select-bordered h-36">
+            {% for stream in all_streams %}
+            <option value="{{ stream.pk }}">{{ stream.name }}</option>
+            {% endfor %}
+          </select>
+          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-observer-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
@@ -125,17 +145,30 @@
           <input id="edit-observer-emoji" type="text" name="emoji" class="input input-bordered" maxlength="10">
         </div>
       </div>
-      {% if all_projects %}
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Project Access" %}</label>
-        <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-40">
-          {% for project in all_projects %}
-          <option value="{{ project.pk }}">{{ project.display_name }}</option>
-          {% endfor %}
-        </select>
-        <span class="label-text-alt mt-1 text-neutral-400">{% trans "Hold Ctrl/Cmd to select multiple" %}</span>
+      <div class="flex gap-3 mb-4">
+        {% if all_projects %}
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Project Access" %}</label>
+          <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-36">
+            {% for project in all_projects %}
+            <option value="{{ project.pk }}">{{ project.display_name }}</option>
+            {% endfor %}
+          </select>
+          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+        </div>
+        {% endif %}
+        {% if all_streams %}
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Stream Access" %}</label>
+          <select id="edit-observer-streams" name="stream_access" multiple class="select select-bordered h-36">
+            {% for stream in all_streams %}
+            <option value="{{ stream.pk }}">{{ stream.name }}</option>
+            {% endfor %}
+          </select>
+          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
       <div class="modal-action">
         <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteObserver()">{% trans "Delete" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('observer-edit-modal').close()">{% trans "Cancel" %}</button>
@@ -150,15 +183,22 @@
 function openEditObserver(row) {
   var pk = row.dataset.pk;
   var projectPks = row.dataset.projects ? row.dataset.projects.split(',') : [];
+  var streamPks = row.dataset.streams ? row.dataset.streams.split(',') : [];
   document.getElementById('edit-observer-id').value = pk;
   document.getElementById('edit-observer-email').value = row.dataset.email;
   document.getElementById('edit-observer-name').value = row.dataset.name;
   document.getElementById('edit-observer-organisation').value = row.dataset.organisation;
   document.getElementById('edit-observer-emoji').value = row.dataset.emoji;
-  var sel = document.getElementById('edit-observer-projects');
-  if (sel) {
-    Array.from(sel.options).forEach(function (opt) {
+  var projSel = document.getElementById('edit-observer-projects');
+  if (projSel) {
+    Array.from(projSel.options).forEach(function (opt) {
       opt.selected = projectPks.indexOf(opt.value) !== -1;
+    });
+  }
+  var streamSel = document.getElementById('edit-observer-streams');
+  if (streamSel) {
+    Array.from(streamSel.options).forEach(function (opt) {
+      opt.selected = streamPks.indexOf(opt.value) !== -1;
     });
   }
   document.getElementById('observer-edit-form').action = '/planning/observers/' + pk + '/edit/';
