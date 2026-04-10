@@ -33,7 +33,7 @@
             {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
             <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
             {% endif %}
-            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
+            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'observer' or request.user.is_superuser %}
             <li><a href="{% url 'planning:planning' %}">{% translate "Planning" %}</a></li>
             <li><a href="{% url 'planning:schedule' %}">{% translate "Schedule" %}</a></li>
             {% endif %}
@@ -78,7 +78,7 @@
           {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
           <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
           {% endif %}
-          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
+          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'observer' or request.user.is_superuser %}
           <li><a href="{% url 'planning:planning' %}">{% translate "Planning" %}</a></li>
           <li><a href="{% url 'planning:schedule' %}">{% translate "Schedule" %}</a></li>
           {% endif %}

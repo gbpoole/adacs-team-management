@@ -4,9 +4,11 @@ from collections import defaultdict
 from django.views.generic import TemplateView
 
 from apps.planning.models import DeveloperProfile
+from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import Semester
+from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
 
@@ -17,15 +19,29 @@ from ._timeline import _week_starts
 
 class ScheduleView(RoleRequiredMixin, TemplateView):
     template_name = "planning/schedule.html"
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.ADMIN, Role.PM, Role.OBSERVER)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        user = self.request.user
         semester = Semester.get_current()
 
         weeks = _week_starts(semester.start_date, semester.end_date)
 
-        tag_filter = self.request.GET.getlist("tags")
+        is_observer = user.role == Role.OBSERVER and not user.is_superuser
+
+        # Determine accessible project PKs for observers
+        accessible_project_pks = None
+        if is_observer:
+            try:
+                accessible_project_pks = set(
+                    user.observer_profile.project_access.values_list("pk", flat=True)
+                )
+            except ObserverProfile.DoesNotExist:
+                accessible_project_pks = set()
+
+        tag_filter = [] if is_observer else self.request.GET.getlist("tags")
+        stream_filter = [] if is_observer else self.request.GET.getlist("streams")
 
         if weeks:
             phase_qs = Phase.objects.filter(
@@ -34,6 +50,8 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
             ).select_related("developer__user", "project").prefetch_related("developer__leave_periods")
             if tag_filter:
                 phase_qs = phase_qs.filter(project__tags__name__in=tag_filter).distinct()
+            if stream_filter:
+                phase_qs = phase_qs.filter(project__streams__name__in=stream_filter).distinct()
             phases = list(phase_qs)
         else:
             phases = []
@@ -45,6 +63,10 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
         project_qs = Project.objects.prefetch_related("semester_names").order_by("id")
         if tag_filter:
             project_qs = project_qs.filter(tags__name__in=tag_filter).distinct()
+        if stream_filter:
+            project_qs = project_qs.filter(streams__name__in=stream_filter).distinct()
+        if is_observer and accessible_project_pks is not None:
+            project_qs = project_qs.filter(pk__in=accessible_project_pks)
         projects = list(project_qs)
 
         project_rows = []
@@ -91,6 +113,9 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
         ctx["weeks"] = weeks
         ctx["project_rows"] = project_rows
         ctx["semester"] = semester
-        ctx["all_tags"] = Tag.objects.all()
+        ctx["is_observer"] = is_observer
+        ctx["all_tags"] = Tag.objects.all() if not is_observer else []
+        ctx["all_streams"] = Stream.objects.all() if not is_observer else []
         ctx["selected_tags"] = tag_filter
+        ctx["selected_streams"] = stream_filter
         return ctx

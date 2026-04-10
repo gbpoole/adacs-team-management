@@ -13,46 +13,94 @@
       </div>
     </div>
 
-    {# Controls #}
-    {% if all_tags %}
-    <form id="tag-filter-form" method="get" class="flex flex-wrap gap-2 items-center mb-3">
-      <span class="text-xs text-neutral-500 mr-1">{% trans "Filter:" %}</span>
-      {% for tag in all_tags %}
-      <label class="btn btn-sm {% if tag.name in selected_tags %}btn-primary{% else %}btn-outline{% endif %} cursor-pointer">
-        <input type="checkbox" name="tags" value="{{ tag.name }}" class="hidden"
-               {% if tag.name in selected_tags %}checked{% endif %}>
-        {{ tag.name }}
-      </label>
-      {% endfor %}
-      {% if selected_tags %}<a href="{% url 'planning:planning' %}" class="btn btn-sm btn-ghost ml-2">{% trans "Reset" %}</a>{% endif %}
+    {# Controls — hidden for observers #}
+    {% if not is_observer %}
+    {% if all_tags or all_streams %}
+    <form id="filter-form" method="get" class="mb-3 flex flex-col gap-1.5">
+      {% if all_tags %}
+      <div class="flex items-start gap-2">
+        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <button type="button" data-group="tags" data-action="all"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
+          <button type="button" data-group="tags" data-action="none"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
+          {% for tag in all_tags %}
+          <label class="cursor-pointer select-none">
+            <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
+                   {% if tag.name in selected_tags %}checked{% endif %}>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
+                         {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                  style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
+              {{ tag.name }}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if all_streams %}
+      <div class="flex items-start gap-2">
+        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <button type="button" data-group="streams" data-action="all"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
+          <button type="button" data-group="streams" data-action="none"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
+          {% for stream in all_streams %}
+          <label class="cursor-pointer select-none">
+            <input type="checkbox" name="streams" value="{{ stream.name }}" class="sr-only"
+                   {% if stream.name in selected_streams %}checked{% endif %}>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
+                         {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                  style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }}; border-color: {{ stream.colour }};{% endif %}">
+              {{ stream.name }}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </form>
     <script>
       (function () {
-        var STORAGE_KEY = 'planning_tag_filter';
-        var form = document.getElementById('tag-filter-form');
-        var urlTags = new URLSearchParams(window.location.search).getAll('tags');
-        if (urlTags.length > 0) {
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(urlTags)); } catch (e) {}
+        var STORAGE_KEY = 'planning_filter';
+        var form = document.getElementById('filter-form');
+        var params = new URLSearchParams(window.location.search);
+        var urlTags = params.getAll('tags');
+        var urlStreams = params.getAll('streams');
+        if (urlTags.length > 0 || urlStreams.length > 0) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: urlTags, streams: urlStreams})); } catch (e) {}
         } else {
           try {
-            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            if (saved.length > 0) {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            if (saved && (saved.tags && saved.tags.length > 0 || saved.streams && saved.streams.length > 0)) {
               var p = new URLSearchParams();
-              saved.forEach(function (t) { p.append('tags', t); });
+              (saved.tags || []).forEach(function (t) { p.append('tags', t); });
+              (saved.streams || []).forEach(function (s) { p.append('streams', s); });
               window.location.replace(window.location.pathname + '?' + p.toString());
               return;
             }
           } catch (e) {}
         }
-        form.querySelectorAll('input[name="tags"]').forEach(function (cb) {
+        form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
           cb.addEventListener('change', function () { form.submit(); });
         });
-        var reset = form.querySelector('a.btn-ghost');
-        if (reset) reset.addEventListener('click', function () {
-          try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        form.querySelectorAll('button[data-group]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var group = btn.dataset.group;
+            var selectAll = btn.dataset.action === 'all';
+            form.querySelectorAll('input[name="' + group + '"]').forEach(function (cb) {
+              cb.checked = selectAll;
+            });
+            var anyChecked = Array.from(form.querySelectorAll('input[type="checkbox"]')).some(function (cb) { return cb.checked; });
+            if (!anyChecked) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} }
+            form.submit();
+          });
         });
       })();
     </script>
+    {% endif %}
     {% endif %}
   </div>
 

@@ -233,7 +233,7 @@ class PlanningViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm"], denied=["developer", "observer"])
+        self.assertRoleAccess(self.url, allowed=["admin", "pm", "observer"], denied=["developer"])
 
     def test_context_contains_developer_rows(self):
         sem = Semester.get_current()
@@ -282,7 +282,7 @@ class ScheduleViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm"], denied=["developer", "observer"])
+        self.assertRoleAccess(self.url, allowed=["admin", "pm", "observer"], denied=["developer"])
 
     def _make_phase_in_current_semester(self, multiplier):
         sem = Semester.get_current()
