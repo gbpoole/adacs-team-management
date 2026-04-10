@@ -24,6 +24,14 @@ from .views import ProjectUpdateView
 from .views import ProjectUploadView
 from .views import ProjectsView
 from .views import ScheduleView
+from .views import StreamCreateView
+from .views import StreamDeleteView
+from .views import StreamsView
+from .views import StreamUpdateView
+from .views import TagCreateView
+from .views import TagDeleteView
+from .views import TagsView
+from .views import TagUpdateView
 
 app_name = "planning"
 
@@ -52,4 +60,12 @@ urlpatterns = [
     path("phase/<int:pk>/delete/", PhaseDeleteView.as_view(), name="phase_delete"),
     path("phase/<int:pk>/update/", PhaseUpdateView.as_view(), name="phase_update"),
     path("phase/<int:pk>/edit/", PhaseEditView.as_view(), name="phase_edit"),
+    path("tags/", TagsView.as_view(), name="tags"),
+    path("tags/add/", TagCreateView.as_view(), name="tag_add"),
+    path("tags/<int:pk>/edit/", TagUpdateView.as_view(), name="tag_edit"),
+    path("tags/<int:pk>/delete/", TagDeleteView.as_view(), name="tag_delete"),
+    path("streams/", StreamsView.as_view(), name="streams"),
+    path("streams/add/", StreamCreateView.as_view(), name="stream_add"),
+    path("streams/<int:pk>/edit/", StreamUpdateView.as_view(), name="stream_edit"),
+    path("streams/<int:pk>/delete/", StreamDeleteView.as_view(), name="stream_delete"),
 ]

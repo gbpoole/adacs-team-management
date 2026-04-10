@@ -17,6 +17,7 @@ from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
+from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.planning.tests.factories import AdminUserFactory
 from apps.planning.tests.factories import DeveloperLaneFactory
@@ -1248,3 +1249,139 @@ class ProjectUploadViewTests(PlanningTestCase):
         before = Project.objects.count()
         self._post([{"name": "", "streams": "", "tags": "", "effort_resourced": ""}])
         self.assertEqual(Project.objects.count(), before)
+
+
+# ---------------------------------------------------------------------------
+# Tags management views
+# ---------------------------------------------------------------------------
+
+
+class TagsViewTests(PlanningTestCase):
+    def setUp(self):
+        self.pm = PMUserFactory()
+        self.url = reverse("planning:tags")
+
+    def test_pm_can_get_list(self):
+        self.client.force_login(self.pm)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_role_access(self):
+        self.assertRoleAccess(self.url, method="get", denied=["developer", "observer"])
+
+    def test_create_tag_with_name_and_colour(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:tag_add"), {"name": "new-tag", "colour": "#4E79A7"})
+        tag = Tag.objects.get(name="new-tag")
+        self.assertEqual(tag.colour, "#4E79A7")
+
+    def test_create_tag_auto_assigns_colour_when_not_provided(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:tag_add"), {"name": "auto-colour-tag", "colour": ""})
+        tag = Tag.objects.get(name="auto-colour-tag")
+        self.assertTrue(tag.colour)
+
+    def test_rename_tag_preserves_pk(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:tag_add"), {"name": "original", "colour": "#4E79A7"})
+        tag = Tag.objects.get(name="original")
+        original_pk = tag.pk
+        self.client.post(reverse("planning:tag_edit", args=[tag.pk]), {"name": "renamed", "colour": "#4E79A7"})
+        tag.refresh_from_db()
+        self.assertEqual(tag.name, "renamed")
+        self.assertEqual(tag.pk, original_pk)
+
+    def test_update_colour(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:tag_add"), {"name": "colour-test", "colour": "#4E79A7"})
+        tag = Tag.objects.get(name="colour-test")
+        self.client.post(reverse("planning:tag_edit", args=[tag.pk]), {"name": "colour-test", "colour": "#E15759"})
+        tag.refresh_from_db()
+        self.assertEqual(tag.colour, "#E15759")
+
+    def test_delete_tag(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:tag_add"), {"name": "to-delete", "colour": "#4E79A7"})
+        tag = Tag.objects.get(name="to-delete")
+        self.client.post(reverse("planning:tag_delete", args=[tag.pk]))
+        self.assertFalse(Tag.objects.filter(pk=tag.pk).exists())
+
+    def test_developer_cannot_access(self):
+        from apps.planning.tests.factories import DeveloperUserFactory
+        self.client.force_login(DeveloperUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_observer_cannot_access(self):
+        from apps.planning.tests.factories import ObserverUserFactory
+        self.client.force_login(ObserverUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Streams management views
+# ---------------------------------------------------------------------------
+
+
+class StreamsViewTests(PlanningTestCase):
+    def setUp(self):
+        self.pm = PMUserFactory()
+        self.url = reverse("planning:streams")
+
+    def test_pm_can_get_list(self):
+        self.client.force_login(self.pm)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_role_access(self):
+        self.assertRoleAccess(self.url, method="get", denied=["developer", "observer"])
+
+    def test_create_stream_with_name_and_colour(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:stream_add"), {"name": "new-stream", "colour": "#76B7B2"})
+        stream = Stream.objects.get(name="new-stream")
+        self.assertEqual(stream.colour, "#76B7B2")
+
+    def test_create_stream_auto_assigns_colour_when_not_provided(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:stream_add"), {"name": "auto-colour-stream", "colour": ""})
+        stream = Stream.objects.get(name="auto-colour-stream")
+        self.assertTrue(stream.colour)
+
+    def test_rename_stream_preserves_pk(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:stream_add"), {"name": "original-stream", "colour": "#76B7B2"})
+        stream = Stream.objects.get(name="original-stream")
+        original_pk = stream.pk
+        self.client.post(reverse("planning:stream_edit", args=[stream.pk]), {"name": "renamed-stream", "colour": "#76B7B2"})
+        stream.refresh_from_db()
+        self.assertEqual(stream.name, "renamed-stream")
+        self.assertEqual(stream.pk, original_pk)
+
+    def test_update_colour(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:stream_add"), {"name": "stream-colour-test", "colour": "#76B7B2"})
+        stream = Stream.objects.get(name="stream-colour-test")
+        self.client.post(reverse("planning:stream_edit", args=[stream.pk]), {"name": "stream-colour-test", "colour": "#59A14F"})
+        stream.refresh_from_db()
+        self.assertEqual(stream.colour, "#59A14F")
+
+    def test_delete_stream(self):
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:stream_add"), {"name": "stream-to-delete", "colour": "#76B7B2"})
+        stream = Stream.objects.get(name="stream-to-delete")
+        self.client.post(reverse("planning:stream_delete", args=[stream.pk]))
+        self.assertFalse(Stream.objects.filter(pk=stream.pk).exists())
+
+    def test_developer_cannot_access(self):
+        from apps.planning.tests.factories import DeveloperUserFactory
+        self.client.force_login(DeveloperUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_observer_cannot_access(self):
+        from apps.planning.tests.factories import ObserverUserFactory
+        self.client.force_login(ObserverUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)

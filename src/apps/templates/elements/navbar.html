@@ -27,6 +27,8 @@
             <li><a href="{% url 'planning:projects' %}">{% translate "Projects" %}</a></li>
             {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
             <li><a href="{% url 'planning:observers' %}">{% translate "Observers" %}</a></li>
+            <li><a href="{% url 'planning:tags' %}">{% translate "Tags" %}</a></li>
+            <li><a href="{% url 'planning:streams' %}">{% translate "Streams" %}</a></li>
             {% endif %}
             {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
             <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
@@ -70,6 +72,8 @@
           <li><a href="{% url 'planning:projects' %}">{% translate "Projects" %}</a></li>
           {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
           <li><a href="{% url 'planning:observers' %}">{% translate "Observers" %}</a></li>
+          <li><a href="{% url 'planning:tags' %}">{% translate "Tags" %}</a></li>
+          <li><a href="{% url 'planning:streams' %}">{% translate "Streams" %}</a></li>
           {% endif %}
           {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
           <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>

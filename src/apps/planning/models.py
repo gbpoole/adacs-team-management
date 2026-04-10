@@ -56,12 +56,17 @@ def _assign_colour_if_blank(instance, model_class) -> None:
 
 class Tag(models.Model):
     name = models.CharField(_("name"), max_length=100, unique=True)
+    colour = models.CharField(_("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True)
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        _assign_colour_if_blank(self, Tag)
+        super().save(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -180,12 +185,17 @@ class Stream(models.Model):
     """Named stream (work category) for grouping projects."""
 
     name = models.CharField(_("name"), max_length=100, unique=True)
+    colour = models.CharField(_("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True)
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        _assign_colour_if_blank(self, Stream)
+        super().save(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "Streams" %}{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-4rem)] flex flex-col">
+  <div class="shrink-0 px-6 pt-6 pb-4">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">{% trans "Streams" %}</h1>
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-stream-modal').showModal()">+ {% trans "Add Stream" %}</button>
+    </div>
+  </div>
+
+  <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr class="bg-base-100 sticky top-0 z-10">
+          <th>{% trans "Colour" %}</th>
+          <th>{% trans "Name" %}</th>
+          <th class="text-right">{% trans "Projects" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stream in streams %}
+        <tr class="cursor-pointer hover:bg-base-200"
+            onclick="openEditStream(this)"
+            data-pk="{{ stream.pk }}"
+            data-name="{{ stream.name }}"
+            data-colour="{{ stream.colour }}">
+          <td>
+            <span class="inline-block w-5 h-5 rounded-full border border-base-300"
+                  style="background-color: {{ stream.colour }};"></span>
+          </td>
+          <td>{{ stream.name }}</td>
+          <td class="text-right">{{ stream.project_count }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="text-center text-neutral-500">{% trans "No streams found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Add Stream modal #}
+<dialog id="add-stream-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Add Stream" %}</h3>
+    <form method="post" action="{% url 'planning:stream_add' %}">
+      {% csrf_token %}
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
+        <input type="text" name="name" class="input input-bordered" required>
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Colour" %}</label>
+        <div class="flex flex-wrap gap-3 mt-1" id="add-colour-swatches">
+          {% for hex, label in colour_palette %}
+          <label class="cursor-pointer" title="{{ label }}">
+            <input type="radio" name="colour" value="{{ hex }}" class="sr-only">
+            <span class="colour-swatch inline-block w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-all"
+                  style="background-color: {{ hex }};"></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-stream-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+{# Edit Stream modal #}
+<dialog id="edit-stream-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Edit Stream" %}</h3>
+    <form id="edit-stream-form" method="post" action="">
+      {% csrf_token %}
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
+        <input id="edit-stream-name" type="text" name="name" class="input input-bordered" required>
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Colour" %}</label>
+        <div class="flex flex-wrap gap-3 mt-1" id="edit-colour-swatches">
+          {% for hex, label in colour_palette %}
+          <label class="cursor-pointer" title="{{ label }}">
+            <input type="radio" name="colour" value="{{ hex }}" class="sr-only">
+            <span class="colour-swatch inline-block w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-all"
+                  style="background-color: {{ hex }};"></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteStream()">{% trans "Delete" %}</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-stream-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+<script>
+function initColourSwatches(containerId) {
+  document.querySelectorAll('#' + containerId + ' input[type="radio"]').forEach(function (radio) {
+    var swatch = radio.nextElementSibling;
+    function sync() {
+      swatch.style.outline = radio.checked ? '2px solid currentColor' : 'none';
+      swatch.style.outlineOffset = radio.checked ? '2px' : '0';
+    }
+    sync();
+    radio.addEventListener('change', function () {
+      document.querySelectorAll('#' + containerId + ' .colour-swatch').forEach(function (s) {
+        s.style.outline = 'none';
+      });
+      swatch.style.outline = '2px solid currentColor';
+      swatch.style.outlineOffset = '2px';
+    });
+  });
+}
+
+function selectColourSwatch(containerId, hex) {
+  document.querySelectorAll('#' + containerId + ' input[type="radio"]').forEach(function (radio) {
+    radio.checked = (radio.value === hex);
+    var swatch = radio.nextElementSibling;
+    swatch.style.outline = radio.checked ? '2px solid currentColor' : 'none';
+    swatch.style.outlineOffset = radio.checked ? '2px' : '0';
+  });
+}
+
+initColourSwatches('add-colour-swatches');
+initColourSwatches('edit-colour-swatches');
+
+function openEditStream(row) {
+  var pk = row.dataset.pk;
+  document.getElementById('edit-stream-name').value = row.dataset.name;
+  document.getElementById('edit-stream-form').action = '/planning/streams/' + pk + '/edit/';
+  document.getElementById('edit-stream-form').dataset.pk = pk;
+  selectColourSwatch('edit-colour-swatches', row.dataset.colour);
+  document.getElementById('edit-stream-modal').showModal();
+}
+
+document.getElementById('edit-stream-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  fetch(this.action, { method: 'POST', body: new FormData(this) })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+});
+
+function confirmDeleteStream() {
+  var pk = document.getElementById('edit-stream-form').dataset.pk;
+  if (!pk || !confirm('{% trans "Delete this stream? This cannot be undone." %}')) return;
+  document.getElementById('edit-stream-modal').close();
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  var body = new FormData();
+  body.append('csrfmiddlewaretoken', csrf);
+  fetch('/planning/streams/' + pk + '/delete/', { method: 'POST', body: body })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+}
+</script>
+{% endblock %}

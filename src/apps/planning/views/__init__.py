@@ -23,6 +23,14 @@ from .projects import ProjectsView
 from .projects import ProjectUpdateView
 from .projects import ProjectUploadView
 from .schedule import ScheduleView
+from .streams import StreamCreateView
+from .streams import StreamDeleteView
+from .streams import StreamsView
+from .streams import StreamUpdateView
+from .tags import TagCreateView
+from .tags import TagDeleteView
+from .tags import TagsView
+from .tags import TagUpdateView
 
 __all__ = [
     "DeveloperCreateView",
@@ -50,4 +58,12 @@ __all__ = [
     "ProjectUploadView",
     "ProjectsView",
     "ScheduleView",
+    "StreamCreateView",
+    "StreamDeleteView",
+    "StreamsView",
+    "StreamUpdateView",
+    "TagCreateView",
+    "TagDeleteView",
+    "TagsView",
+    "TagUpdateView",
 ]
