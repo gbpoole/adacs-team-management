@@ -43,10 +43,16 @@ def _next_colour(used_colours: set[str]) -> str:
 
 
 def _assign_colour_if_blank(instance, model_class) -> None:
-    """Auto-assign the next unused palette colour if instance.colour is empty."""
+    """Auto-assign the next unused palette colour if instance.colour is empty.
+    Once all palette colours are in use, cycles by count so every colour gets
+    used equally rather than repeating the first colour indefinitely."""
     if not instance.colour:
         used = set(model_class.objects.exclude(pk=instance.pk).values_list("colour", flat=True))
-        instance.colour = _next_colour(used)
+        if len(used) < len(COLOUR_PALETTE):
+            instance.colour = _next_colour(used)
+        else:
+            count = model_class.objects.exclude(pk=instance.pk).count()
+            instance.colour = COLOUR_PALETTE[count % len(COLOUR_PALETTE)][0]
 
 
 # ---------------------------------------------------------------------------

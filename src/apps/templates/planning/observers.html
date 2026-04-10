@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n planning_extras %}
 
 {% block title %} — {% trans "Observers" %}{% endblock %}
 
@@ -41,8 +41,8 @@
           <td>{{ obs.user.email }}</td>
           <td>{{ obs.user.organisation|default:"—" }}</td>
           <td>
-            {% for name in obs.project_display_names %}
-            <span class="badge badge-outline badge-sm">{{ name }}</span>
+            {% for name, colour in obs.project_pills %}
+            <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
             {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
           </td>
         </tr>

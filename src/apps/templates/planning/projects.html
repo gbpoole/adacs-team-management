@@ -48,16 +48,12 @@
           </td>
           <td>
             {% for stream in project.streams.all %}
-            <span class="badge badge-outline badge-sm">
-              <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{ stream.colour }};"></span>{{ stream }}
-            </span>
+            <span class="badge badge-sm" style="background-color: {{ stream.colour }}; color: white; border-color: {{ stream.colour }};">{{ stream }}</span>
             {% empty %}—{% endfor %}
           </td>
           <td>
             {% for tag in project.tags.all %}
-            <span class="badge badge-outline badge-sm">
-              <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{ tag.colour }};"></span>{{ tag }}
-            </span>
+            <span class="badge badge-sm" style="background-color: {{ tag.colour }}; color: white; border-color: {{ tag.colour }};">{{ tag }}</span>
             {% empty %}—{% endfor %}
           </td>
           <td class="text-right">{{ project.effort_resourced|wks }}</td>
