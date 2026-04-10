@@ -394,6 +394,16 @@ class Leave(models.Model):
         if self.end_date and self.start_date and self.end_date < self.start_date:
             raise ValidationError({"end_date": _("End date must not be before start date.")})
 
+    def duration_weeks(self) -> float:
+        """Number of working days (Mon–Fri) in the leave period, expressed as weeks (÷5)."""
+        work_days = 0
+        day = self.start_date
+        while day <= self.end_date:
+            if day.weekday() < 5:
+                work_days += 1
+            day += datetime.timedelta(days=1)
+        return round(work_days / 5, 2)
+
     def __str__(self):
         return f"{self.developer} {self.start_date}\u2013{self.end_date}"
 
