@@ -77,6 +77,10 @@ class DevelopersView(RoleRequiredMixin, ListView):
         for dev in ctx["developers"]:
             dev.effort_available = effort_map.get(dev.pk)
             dev.effort_allocated = round(effort_allocated.get(dev.pk, 0), 2)
+            if dev.effort_available is not None:
+                dev.effort_unallocated = round(float(dev.effort_available) - dev.effort_allocated, 2)
+            else:
+                dev.effort_unallocated = None
         return ctx
 
 

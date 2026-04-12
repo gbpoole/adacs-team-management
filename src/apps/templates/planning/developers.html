@@ -21,14 +21,22 @@
   </div>
 
   <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table class="table table-zebra w-full">
+    <table id="dev-table" class="table table-zebra w-full">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
-          <th>{% trans "Name" %}</th>
-          <th>{% trans "Organisation" %}</th>
+          <th class="cursor-pointer select-none" onclick="sortDevTable('name')" data-col="name">
+            {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
           <th>{% trans "Tags" %}</th>
-          <th class="text-right">{% trans "Effort Available (wks)" %}</th>
-          <th class="text-right">{% trans "Effort Allocated (wks)" %}</th>
+          <th class="text-right cursor-pointer select-none" onclick="sortDevTable('available')" data-col="available">
+            {% trans "Available (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="text-right cursor-pointer select-none" onclick="sortDevTable('allocated')" data-col="allocated">
+            {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="text-right cursor-pointer select-none" onclick="sortDevTable('unallocated')" data-col="unallocated">
+            {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -41,13 +49,16 @@
             data-organisation="{{ dev.user.organisation|default:'' }}"
             data-emoji="{{ dev.user.emoji|default:'' }}"
             data-effort="{{ dev.effort_available|default:'' }}"
-            data-tags="{% for tag in dev.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}>
+            data-tags="{% for tag in dev.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
+            data-sort-name="{{ dev.user.name|default:dev.user.email|lower }}"
+            data-sort-available="{{ dev.effort_available|default:'' }}"
+            data-sort-allocated="{{ dev.effort_allocated }}"
+            data-sort-unallocated="{{ dev.effort_unallocated|default:'' }}">
           <td>
             <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
                   style="background-color: {{ dev.colour }};"></span>
             {% if dev.user.emoji %}{{ dev.user.emoji }} {% endif %}{{ dev.user.name|default:dev.user.email }}
           </td>
-          <td>{{ dev.user.organisation|default:"—" }}</td>
           <td>
             {% for tag in dev.tags.all %}
             <span class="badge badge-sm" style="background-color: {{ tag.colour }}; color: white; border-color: {{ tag.colour }};">{{ tag }}</span>
@@ -59,6 +70,9 @@
             {% if dev.effort_available and dev.effort_allocated > dev.effort_available %}
             <span class="ml-1 tooltip" data-tip="{% trans 'Over-allocated' %}">⚠</span>
             {% endif %}
+          </td>
+          <td class="text-right{% if dev.effort_unallocated is not None and dev.effort_unallocated < 0 %} text-error font-bold{% endif %}">
+            {{ dev.effort_unallocated|wks }}
           </td>
         </tr>
         {% empty %}
@@ -224,6 +238,47 @@
 {% endif %}
 
 <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+<script>
+var _sortCol = 'name', _sortAsc = true;
+
+function sortDevTable(col) {
+  if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = col === 'name'; }
+  var tbody = document.querySelector('#dev-table tbody');
+  var rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
+  rows.sort(function (a, b) {
+    var av = a.dataset['sort' + col.charAt(0).toUpperCase() + col.slice(1)] || '';
+    var bv = b.dataset['sort' + col.charAt(0).toUpperCase() + col.slice(1)] || '';
+    var an = parseFloat(av), bn = parseFloat(bv);
+    var numeric = col !== 'name';
+    var cmp;
+    if (numeric) {
+      // empty (no data) always sorts last
+      if (av === '' && bv === '') { cmp = 0; }
+      else if (av === '') { cmp = 1; }
+      else if (bv === '') { cmp = -1; }
+      else { cmp = an - bn; }
+    } else {
+      cmp = av.localeCompare(bv);
+    }
+    return _sortAsc ? cmp : -cmp;
+  });
+  rows.forEach(function (r) { tbody.appendChild(r); });
+  // Update header icons
+  document.querySelectorAll('#dev-table th[data-col]').forEach(function (th) {
+    var icon = th.querySelector('.sort-icon');
+    if (th.dataset.col === _sortCol) {
+      icon.textContent = _sortAsc ? '▲' : '▼';
+      icon.classList.remove('text-neutral-400');
+    } else {
+      icon.textContent = '⇅';
+      icon.classList.add('text-neutral-400');
+    }
+  });
+}
+
+// Default sort: name ascending on load
+sortDevTable('name');
+</script>
 <script>
 function initTagButtons(containerId) {
   document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(function (cb) {
