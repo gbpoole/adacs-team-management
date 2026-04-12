@@ -47,11 +47,15 @@ class DevelopersView(RoleRequiredMixin, ListView):
     allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
 
     def get_queryset(self):
-        return (
+        qs = (
             DeveloperProfile.objects.select_related("user")
             .prefetch_related("tags")
             .order_by("user__name", "user__email")
         )
+        tag_filter = self.request.GET.getlist("tags")
+        if tag_filter:
+            qs = qs.filter(tags__name__in=tag_filter).distinct()
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -59,6 +63,7 @@ class DevelopersView(RoleRequiredMixin, ListView):
         ctx["semester"] = semester
         ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
+        ctx["selected_tags"] = self.request.GET.getlist("tags")
 
         records = SemesterDeveloper.objects.filter(semester=semester).values_list(
             "developer_id", "effort_available",

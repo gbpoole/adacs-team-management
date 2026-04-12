@@ -20,6 +20,63 @@
     </div>
   </div>
 
+  {% if all_tags %}
+  <div class="shrink-0 px-6 pb-3">
+    <form id="filter-form" method="get" class="flex items-start gap-2">
+      <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+      <div class="flex flex-wrap gap-1.5 items-center">
+        <button type="button" data-group="tags" data-action="all"
+                class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
+        <button type="button" data-group="tags" data-action="none"
+                class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
+        {% for tag in all_tags %}
+        <label class="cursor-pointer select-none">
+          <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
+                 {% if tag.name in selected_tags %}checked{% endif %}>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
+                       {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
+            {{ tag.name }}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </form>
+    <script>
+      (function () {
+        var STORAGE_KEY = 'developers_filter';
+        var form = document.getElementById('filter-form');
+        var params = new URLSearchParams(window.location.search);
+        var urlTags = params.getAll('tags');
+        if (urlTags.length > 0) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: urlTags})); } catch (e) {}
+        } else {
+          try {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            if (saved && saved.tags && saved.tags.length > 0) {
+              var p = new URLSearchParams();
+              saved.tags.forEach(function (t) { p.append('tags', t); });
+              window.location.replace(window.location.pathname + '?' + p.toString());
+              return;
+            }
+          } catch (e) {}
+        }
+        form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+          cb.addEventListener('change', function () { form.submit(); });
+        });
+        form.querySelectorAll('button[data-group]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var selectAll = btn.dataset.action === 'all';
+            form.querySelectorAll('input[name="tags"]').forEach(function (cb) { cb.checked = selectAll; });
+            if (!selectAll) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} }
+            form.submit();
+          });
+        });
+      })();
+    </script>
+  </div>
+  {% endif %}
+
   <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
     <table id="dev-table" class="table table-zebra w-full">
       <thead>
