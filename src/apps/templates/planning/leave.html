@@ -4,15 +4,31 @@
 {% block title %} — {% trans "Leave" %}{% endblock %}
 
 {% block content %}
+<script>
+  // Restore "Show Past" state from localStorage
+  (function () {
+    {% if not show_past %}
+    try {
+      if (localStorage.getItem('leave_show_past') === '1') {
+        window.location.replace('?show_past=1');
+      }
+    } catch (e) {}
+    {% else %}
+    try { localStorage.setItem('leave_show_past', '1'); } catch (e) {}
+    {% endif %}
+  })();
+</script>
 <div class="h-[calc(100vh-4rem)] flex flex-col">
   <div class="shrink-0 px-6 pt-6">
     <div class="flex items-center justify-between mb-4">
       <h1 class="text-2xl font-bold">{% trans "Leave" %}</h1>
       <div class="flex gap-2">
         {% if show_past %}
-        <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-sm">{% trans "Hide Past" %}</a>
+        <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-sm"
+           onclick="try{localStorage.removeItem('leave_show_past')}catch(e){}">{% trans "Hide Past" %}</a>
         {% else %}
-        <a href="?show_past=1" class="btn btn-outline btn-sm">{% trans "Show Past" %}</a>
+        <a href="?show_past=1" class="btn btn-outline btn-sm"
+           onclick="try{localStorage.setItem('leave_show_past','1')}catch(e){}">{% trans "Show Past" %}</a>
         {% endif %}
       </div>
     </div>
@@ -182,6 +198,7 @@ function confirmDeleteLeave() {
 
 <script>
 (function () {
+  var SORT_KEY = 'leave_sort';
   var _sortCol = null, _sortAsc = true;
 
   function cmpRows(a, b, col, asc) {
@@ -245,6 +262,7 @@ function confirmDeleteLeave() {
         icon.classList.add('text-neutral-400');
       }
     });
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({col: _sortCol, asc: _sortAsc})); } catch (e) {}
   }
 
   function sortLeaveTable(col) {
@@ -252,8 +270,12 @@ function confirmDeleteLeave() {
     applySort();
   }
 
-  // Initial display: start date ascending (soonest upcoming first), future before past
+  // Restore saved sort or default to start date ascending
   _sortCol = 'start'; _sortAsc = true;
+  try {
+    var saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+    if (saved && saved.col) { _sortCol = saved.col; _sortAsc = saved.asc; }
+  } catch (e) {}
   applySort();
 
   window.sortLeaveTable = sortLeaveTable;

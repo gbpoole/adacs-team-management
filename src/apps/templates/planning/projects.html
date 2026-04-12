@@ -313,43 +313,55 @@
 {% endif %}
 
 <script>
-var _sortCol = 'name', _sortAsc = true;
+(function () {
+  var SORT_KEY = 'projects_sort';
+  var _sortCol = 'name', _sortAsc = true;
 
-function sortProjTable(col) {
-  if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = col === 'name'; }
-  var tbody = document.querySelector('#proj-table tbody');
-  var rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
-  rows.sort(function (a, b) {
-    var av = a.dataset['sort' + col.charAt(0).toUpperCase() + col.slice(1)] || '';
-    var bv = b.dataset['sort' + col.charAt(0).toUpperCase() + col.slice(1)] || '';
-    var numeric = col !== 'name';
-    var cmp;
-    if (numeric) {
-      var an = parseFloat(av), bn = parseFloat(bv);
-      if (av === '' && bv === '') { cmp = 0; }
-      else if (av === '') { cmp = 1; }
-      else if (bv === '') { cmp = -1; }
-      else { cmp = an - bn; }
-    } else {
-      cmp = av.localeCompare(bv);
-    }
-    return _sortAsc ? cmp : -cmp;
-  });
-  rows.forEach(function (r) { tbody.appendChild(r); });
-  document.querySelectorAll('#proj-table th[data-col]').forEach(function (th) {
-    var icon = th.querySelector('.sort-icon');
-    if (th.dataset.col === _sortCol) {
-      icon.textContent = _sortAsc ? '▲' : '▼';
-      icon.classList.remove('text-neutral-400');
-    } else {
-      icon.textContent = '⇅';
-      icon.classList.add('text-neutral-400');
-    }
-  });
-}
+  function applyProjSort() {
+    var tbody = document.querySelector('#proj-table tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
+    rows.sort(function (a, b) {
+      var av = a.dataset['sort' + _sortCol.charAt(0).toUpperCase() + _sortCol.slice(1)] || '';
+      var bv = b.dataset['sort' + _sortCol.charAt(0).toUpperCase() + _sortCol.slice(1)] || '';
+      var numeric = _sortCol !== 'name';
+      var cmp;
+      if (numeric) {
+        var an = parseFloat(av), bn = parseFloat(bv);
+        if (av === '' && bv === '') { cmp = 0; }
+        else if (av === '') { cmp = 1; }
+        else if (bv === '') { cmp = -1; }
+        else { cmp = an - bn; }
+      } else {
+        cmp = av.localeCompare(bv);
+      }
+      return _sortAsc ? cmp : -cmp;
+    });
+    rows.forEach(function (r) { tbody.appendChild(r); });
+    document.querySelectorAll('#proj-table th[data-col]').forEach(function (th) {
+      var icon = th.querySelector('.sort-icon');
+      if (th.dataset.col === _sortCol) {
+        icon.textContent = _sortAsc ? '▲' : '▼';
+        icon.classList.remove('text-neutral-400');
+      } else {
+        icon.textContent = '⇅';
+        icon.classList.add('text-neutral-400');
+      }
+    });
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({col: _sortCol, asc: _sortAsc})); } catch (e) {}
+  }
 
-// Default sort: name ascending on load
-sortProjTable('name');
+  window.sortProjTable = function (col) {
+    if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = col === 'name'; }
+    applyProjSort();
+  };
+
+  // Restore saved sort or default to name ascending
+  try {
+    var saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+    if (saved && saved.col) { _sortCol = saved.col; _sortAsc = saved.asc; }
+  } catch (e) {}
+  applyProjSort();
+})();
 
 function initCheckboxButtons(containerId) {
   document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(function (cb) {
