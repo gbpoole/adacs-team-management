@@ -18,11 +18,16 @@
   </div>
 
   <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table class="table table-zebra w-full">
+    <table class="table table-zebra" style="width: auto; min-width: 100%;">
+      <colgroup>
+        <col style="width: 180px;">
+        <col style="width: 180px;">
+        <col style="width: 50%;">
+        <col style="width: 50%;">
+      </colgroup>
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
           <th>{% trans "Name" %}</th>
-          <th>{% trans "Email" %}</th>
           <th>{% trans "Organisation" %}</th>
           <th>{% trans "Project Access" %}</th>
           <th>{% trans "Stream Access" %}</th>
@@ -39,7 +44,6 @@
             data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
             data-streams="{% for s in obs.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
           <td>{{ obs.user.name|default:"—" }}</td>
-          <td>{{ obs.user.email }}</td>
           <td>{{ obs.user.organisation|default:"—" }}</td>
           <td>
             {% for name, colour in obs.project_pills %}
@@ -54,7 +58,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="5" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
+          <td colspan="4" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
         </tr>
         {% endfor %}
       </tbody>
