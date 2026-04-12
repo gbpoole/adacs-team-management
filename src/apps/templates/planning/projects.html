@@ -89,8 +89,14 @@
             }
           } catch (e) {}
         }
+        function submitFilter() {
+          var tags = Array.from(form.querySelectorAll('input[name="tags"]:checked')).map(function (cb) { return cb.value; });
+          var streams = Array.from(form.querySelectorAll('input[name="streams"]:checked')).map(function (cb) { return cb.value; });
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: tags, streams: streams})); } catch (e) {}
+          form.submit();
+        }
         form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-          cb.addEventListener('change', function () { form.submit(); });
+          cb.addEventListener('change', submitFilter);
         });
         form.querySelectorAll('button[data-group]').forEach(function (btn) {
           btn.addEventListener('click', function () {
@@ -99,9 +105,7 @@
             form.querySelectorAll('input[name="' + group + '"]').forEach(function (cb) {
               cb.checked = selectAll;
             });
-            var anyChecked = Array.from(form.querySelectorAll('input[type="checkbox"]')).some(function (cb) { return cb.checked; });
-            if (!anyChecked) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} }
-            form.submit();
+            submitFilter();
           });
         });
       })();
