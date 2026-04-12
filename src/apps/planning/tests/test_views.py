@@ -664,7 +664,6 @@ class DeveloperCreateViewTests(PlanningTestCase):
             "email": "newdev@example.com",
             "name": "New Developer",
             "organisation": "ADACS",
-            "emoji": "",
         }
 
     def test_role_access(self):
@@ -701,7 +700,6 @@ class DeveloperUpdateViewTests(PlanningTestCase):
         self.post_data = {
             "name": "Updated Name",
             "organisation": "Updated Org",
-            "emoji": "",
         }
 
     def test_role_access(self):
@@ -771,7 +769,6 @@ class ObserverCreateViewTests(PlanningTestCase):
             "email": "newobs@example.com",
             "name": "New Observer",
             "organisation": "External",
-            "emoji": "",
         }
 
     def test_role_access(self):
@@ -802,7 +799,6 @@ class ObserverUpdateViewTests(PlanningTestCase):
         self.post_data = {
             "name": "Updated Observer",
             "organisation": "Updated Org",
-            "emoji": "",
         }
 
     def test_admin_can_update(self):
@@ -1193,16 +1189,16 @@ class DeveloperUploadViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_upload_creates_developer(self):
-        self._post([{"email": "upload@example.com", "name": "Upload Dev", "organisation": "", "emoji": "", "tags": "", "effort_available": ""}])
+        self._post([{"email": "upload@example.com", "name": "Upload Dev", "organisation": "", "tags": "", "effort_available": ""}])
         self.assertTrue(DeveloperProfile.objects.filter(user__email="upload@example.com").exists())
 
     def test_upload_sets_effort(self):
-        self._post([{"email": "effort@example.com", "name": "Effort Dev", "organisation": "", "emoji": "", "tags": "", "effort_available": "12"}])
+        self._post([{"email": "effort@example.com", "name": "Effort Dev", "organisation": "", "tags": "", "effort_available": "12"}])
         profile = DeveloperProfile.objects.get(user__email="effort@example.com")
         self.assertTrue(SemesterDeveloper.objects.filter(developer=profile, effort_available=12).exists())
 
     def test_upload_invalid_email_returns_redirect_with_error(self):
-        response = self._post([{"email": "not-an-email", "name": "Bad", "organisation": "", "emoji": "", "tags": "", "effort_available": ""}])
+        response = self._post([{"email": "not-an-email", "name": "Bad", "organisation": "", "tags": "", "effort_available": ""}])
         self.assertEqual(response.status_code, 302)
         self.assertFalse(DeveloperProfile.objects.filter(user__email="not-an-email").exists())
 

@@ -37,7 +37,6 @@ class User(AbstractUser):
         default=Role.DEVELOPER,
     )
     organisation = CharField(_("Organisation"), max_length=255, blank=True)
-    emoji = CharField(_("Emoji"), max_length=10, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

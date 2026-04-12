@@ -103,7 +103,6 @@ class DeveloperCreateView(RoleRequiredMixin, View):
                 "name": request.POST.get("name", "").strip(),
                 "role": Role.DEVELOPER,
                 "organisation": request.POST.get("organisation", "").strip(),
-                "emoji": request.POST.get("emoji", "").strip(),
             },
         )
         profile, _ = DeveloperProfile.objects.get_or_create(user=user)
@@ -135,7 +134,6 @@ class DeveloperUploadView(RoleRequiredMixin, View):
                         "name": row.get("name", "").strip(),
                         "role": Role.DEVELOPER,
                         "organisation": row.get("organisation", "").strip(),
-                        "emoji": row.get("emoji", "").strip(),
                     },
                 )
                 profile, _ = DeveloperProfile.objects.get_or_create(user=user)

@@ -26,23 +26,6 @@
                class="input input-bordered w-full">
       </div>
 
-      <div class="form-control mb-6">
-        <label class="label label-text">{% trans "Emoji" %}</label>
-        <input type="hidden" name="emoji" id="profile-emoji-value" value="{{ form.emoji.value|default:'' }}">
-        <div class="flex items-center gap-2">
-          <button type="button" id="profile-emoji-btn"
-                  class="btn btn-outline btn-sm font-normal"
-                  onclick="toggleEmojiPicker('profile')">
-            <span id="profile-emoji-preview">{{ form.emoji.value|default:"😀" }}</span> {% trans "Pick emoji" %}
-          </button>
-          <button type="button" class="btn btn-ghost btn-xs text-neutral-400"
-                  onclick="clearEmoji('profile')">✕ {% trans "Clear" %}</button>
-        </div>
-        <div id="profile-picker-wrap" style="display:none; margin-top: 4px;">
-          <emoji-picker id="profile-picker" class="light"></emoji-picker>
-        </div>
-      </div>
-
       <div class="flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm">{% trans "Update" %}</button>
       </div>
@@ -50,27 +33,4 @@
   </div>
 </div>
 
-<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
-<script>
-function toggleEmojiPicker(prefix) {
-  var wrap = document.getElementById(prefix + '-picker-wrap');
-  wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
-}
-
-function clearEmoji(prefix) {
-  document.getElementById(prefix + '-emoji-value').value = '';
-  document.getElementById(prefix + '-emoji-preview').textContent = '😀';
-}
-
-function setupPicker(prefix) {
-  document.getElementById(prefix + '-picker').addEventListener('emoji-click', function (e) {
-    var emoji = e.detail.unicode;
-    document.getElementById(prefix + '-emoji-value').value = emoji;
-    document.getElementById(prefix + '-emoji-preview').textContent = emoji;
-    document.getElementById(prefix + '-picker-wrap').style.display = 'none';
-  });
-}
-
-setupPicker('profile');
-</script>
 {% endblock %}

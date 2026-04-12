@@ -104,7 +104,6 @@
             data-name="{{ dev.user.name|default:'' }}"
             data-email="{{ dev.user.email }}"
             data-organisation="{{ dev.user.organisation|default:'' }}"
-            data-emoji="{{ dev.user.emoji|default:'' }}"
             data-effort="{{ dev.effort_available|default:'' }}"
             data-tags="{% for tag in dev.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
             data-sort-name="{{ dev.user.name|default:dev.user.email|lower }}"
@@ -114,7 +113,7 @@
           <td>
             <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
                   style="background-color: {{ dev.colour }};"></span>
-            {% if dev.user.emoji %}{{ dev.user.emoji }} {% endif %}{{ dev.user.name|default:dev.user.email }}
+            {{ dev.user.name|default:dev.user.email }}
           </td>
           <td>
             {% for tag in dev.tags.all %}
@@ -162,19 +161,6 @@
         <input type="text" name="organisation" class="input input-bordered">
       </div>
       <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Emoji" %}</label>
-        <input type="hidden" name="emoji" id="add-dev-emoji-value" value="">
-        <div class="flex items-center gap-2">
-          <button type="button" class="btn btn-outline btn-sm font-normal" onclick="toggleEmojiPicker('add-dev')">
-            <span id="add-dev-emoji-preview"></span>{% trans "Pick emoji" %}
-          </button>
-          <button type="button" class="btn btn-ghost btn-xs text-neutral-400" onclick="clearEmoji('add-dev')">✕ {% trans "Clear" %}</button>
-        </div>
-        <div id="add-dev-picker-wrap" style="display:none; margin-top:4px;">
-          <emoji-picker id="add-dev-picker" class="light"></emoji-picker>
-        </div>
-      </div>
-      <div class="form-control mb-3">
         <label class="label label-text">{% trans "Effort Available (wks)" %}</label>
         <input type="number" name="effort_available" min="0" step="0.5" class="input input-bordered">
       </div>
@@ -212,7 +198,6 @@
       <code class="text-xs bg-base-200 px-1 rounded">email</code>,
       <code class="text-xs bg-base-200 px-1 rounded">name</code>,
       <code class="text-xs bg-base-200 px-1 rounded">organisation</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">emoji</code>,
       <code class="text-xs bg-base-200 px-1 rounded">effort_available</code>,
       <code class="text-xs bg-base-200 px-1 rounded">tags</code>
       {% trans "(comma-separated tag names)" %}
@@ -252,19 +237,6 @@
         <input id="edit-developer-organisation" type="text" name="organisation" class="input input-bordered">
       </div>
       <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Emoji" %}</label>
-        <input type="hidden" name="emoji" id="edit-dev-emoji-value" value="">
-        <div class="flex items-center gap-2">
-          <button type="button" class="btn btn-outline btn-sm font-normal" onclick="toggleEmojiPicker('edit-dev')">
-            <span id="edit-dev-emoji-preview"></span>{% trans "Pick emoji" %}
-          </button>
-          <button type="button" class="btn btn-ghost btn-xs text-neutral-400" onclick="clearEmoji('edit-dev')">✕ {% trans "Clear" %}</button>
-        </div>
-        <div id="edit-dev-picker-wrap" style="display:none; margin-top:4px;">
-          <emoji-picker id="edit-dev-picker" class="light"></emoji-picker>
-        </div>
-      </div>
-      <div class="form-control mb-3">
         <label class="label label-text">{% trans "Effort Available (wks)" %}</label>
         <input id="edit-developer-effort" type="number" name="effort_available" min="0" step="0.5" class="input input-bordered">
       </div>
@@ -294,7 +266,6 @@
 </dialog>
 {% endif %}
 
-<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 <script>
 var _sortCol = 'name', _sortAsc = true;
 
@@ -401,13 +372,10 @@ initTagButtons('edit-dev-tag-buttons');
 function openEditDeveloper(row) {
   var pk = row.dataset.pk;
   var tags = row.dataset.tags ? row.dataset.tags.split(',') : [];
-  var emoji = row.dataset.emoji || '';
   document.getElementById('edit-developer-id').value = pk;
   document.getElementById('edit-developer-email').value = row.dataset.email;
   document.getElementById('edit-developer-name').value = row.dataset.name;
   document.getElementById('edit-developer-organisation').value = row.dataset.organisation;
-  document.getElementById('edit-dev-emoji-value').value = emoji;
-  document.getElementById('edit-dev-emoji-preview').textContent = emoji ? emoji + '\u00a0' : '';
   document.getElementById('edit-developer-effort').value = row.dataset.effort;
   document.querySelectorAll('#edit-dev-tag-buttons input[type="checkbox"]').forEach(function (cb) {
     cb.checked = tags.indexOf(cb.value) !== -1;
@@ -416,37 +384,6 @@ function openEditDeveloper(row) {
   document.getElementById('developer-edit-form').action = '/planning/developers/' + pk + '/edit/';
   document.getElementById('developer-edit-modal').showModal();
 }
-
-function toggleEmojiPicker(prefix) {
-  var wrap = document.getElementById(prefix + '-picker-wrap');
-  wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
-}
-
-function clearEmoji(prefix) {
-  document.getElementById(prefix + '-emoji-value').value = '';
-  document.getElementById(prefix + '-emoji-preview').textContent = '';
-}
-
-function setupPicker(prefix) {
-  var picker = document.getElementById(prefix + '-picker');
-  if (!picker) return;
-  picker.addEventListener('emoji-click', function (e) {
-    var emoji = e.detail.unicode;
-    document.getElementById(prefix + '-emoji-value').value = emoji;
-    document.getElementById(prefix + '-emoji-preview').textContent = emoji + '\u00a0';
-    document.getElementById(prefix + '-picker-wrap').style.display = 'none';
-  });
-}
-
-setupPicker('add-dev');
-setupPicker('edit-dev');
-
-document.getElementById('add-developer-modal').addEventListener('close', function () {
-  document.getElementById('add-dev-picker-wrap').style.display = 'none';
-});
-document.getElementById('developer-edit-modal').addEventListener('close', function () {
-  document.getElementById('edit-dev-picker-wrap').style.display = 'none';
-});
 
 document.getElementById('developer-edit-form').addEventListener('submit', function (e) {
   e.preventDefault();

@@ -2,7 +2,7 @@
 Management command to populate the database with realistic test data.
 
 Seed data is driven by TSV files in src/data/seed/:
-  developers.tsv  — columns: email, name, organisation, emoji, effort_available, tags
+  developers.tsv  — columns: email, name, organisation, effort_available, tags
   projects.tsv    — columns: name, streams (comma-sep), tags
   observers.tsv   — columns: email, name, organisation, project_access (comma-sep project names)
 
@@ -136,7 +136,6 @@ class Command(BaseCommand):
                     "name": row.get("name", "").strip(),
                     "role": Role.DEVELOPER,
                     "organisation": row.get("organisation", "").strip(),
-                    "emoji": row.get("emoji", "").strip(),
                 },
             )
             if created:

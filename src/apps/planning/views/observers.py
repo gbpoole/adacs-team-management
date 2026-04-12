@@ -66,7 +66,6 @@ class ObserverCreateView(RoleRequiredMixin, View):
                 "name": request.POST.get("name", "").strip(),
                 "role": Role.OBSERVER,
                 "organisation": request.POST.get("organisation", "").strip(),
-                "emoji": request.POST.get("emoji", "").strip(),
             },
         )
         obs, _ = ObserverProfile.objects.get_or_create(user=user)

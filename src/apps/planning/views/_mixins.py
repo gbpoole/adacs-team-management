@@ -9,8 +9,7 @@ def _get_next_url(request, default="/planning/planning/"):
 def _update_user_profile_fields(user, post):
     user.name = post.get("name", "").strip()
     user.organisation = post.get("organisation", "").strip()
-    user.emoji = post.get("emoji", "").strip()
-    user.save(update_fields=["name", "organisation", "emoji"])
+    user.save(update_fields=["name", "organisation"])
 
 
 class RoleRequiredMixin(LoginRequiredMixin):
