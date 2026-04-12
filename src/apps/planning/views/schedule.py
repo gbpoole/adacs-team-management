@@ -7,6 +7,7 @@ from apps.planning.models import DeveloperProfile
 from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
+from apps.planning.models import ProjectAllocation
 from apps.planning.models import Semester
 from apps.planning.models import Stream
 from apps.planning.models import Tag
@@ -75,6 +76,19 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
             project_qs = project_qs.filter(pk__in=accessible_project_pks)
         projects = list(project_qs)
 
+        resourced_map = {
+            pk: float(new + carryover)
+            for pk, new, carryover in ProjectAllocation.objects.filter(semester=semester)
+            .values_list("project_id", "weeks_new", "weeks_carryover")
+        }
+        allocated_map: dict = {}
+        for phase in (
+            Phase.objects.filter(semester=semester)
+            .select_related("developer")
+            .prefetch_related("developer__leave_periods")
+        ):
+            allocated_map[phase.project_id] = allocated_map.get(phase.project_id, 0) + phase.effort_weeks()
+
         project_rows = []
         for project in projects:
             project.display_name = project.name_for_semester(semester)
@@ -110,10 +124,16 @@ class ScheduleView(RoleRequiredMixin, TemplateView):
                 if dev_cells:
                     layers.append({"developer": dev, "cells": dev_cells})
 
+            effort_resourced = resourced_map.get(project.pk, 0)
+            effort_allocated = round(allocated_map.get(project.pk, 0), 2)
+            unscheduled = round(effort_resourced - effort_allocated, 2)
+
             project_rows.append({
                 "project": project,
                 "layers": layers,
                 "layer_count": max(1, len(layers)),
+                "status_rowspan": len(layers) + 1,
+                "unscheduled_weeks": unscheduled,
             })
 
         ctx["weeks"] = weeks
