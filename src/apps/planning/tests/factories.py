@@ -31,12 +31,6 @@ class UserFactory(DjangoModelFactory):
     password = factory.PostGenerationMethodCall("set_password", "testpassword")
 
 
-class AdminUserFactory(UserFactory):
-    role = Role.ADMIN
-    is_staff = True
-    is_superuser = True
-
-
 class PMUserFactory(UserFactory):
     role = Role.PM
 

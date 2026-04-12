@@ -11,7 +11,6 @@ from .managers import UserManager
 
 
 class Role(TextChoices):
-    ADMIN = "admin", _("Admin")
     PM = "pm", _("Project Manager")
     DEVELOPER = "developer", _("Developer")
     OBSERVER = "observer", _("Observer")

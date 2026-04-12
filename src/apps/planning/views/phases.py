@@ -20,7 +20,7 @@ from ._mixins import _get_next_url
 
 
 class PhaseCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         developer_id = request.POST.get("developer")
@@ -56,7 +56,7 @@ class PhaseCreateView(RoleRequiredMixin, View):
 
 
 class PhaseDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
@@ -67,7 +67,7 @@ class PhaseDeleteView(RoleRequiredMixin, View):
 
 
 class PhaseUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
@@ -107,7 +107,7 @@ class PhaseUpdateView(RoleRequiredMixin, View):
 
 
 class PhaseEditView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)

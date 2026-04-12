@@ -22,7 +22,7 @@ from ._timeline import _week_starts
 
 class PlanningView(RoleRequiredMixin, TemplateView):
     template_name = "planning/planning.html"
-    allowed_roles = (Role.ADMIN, Role.PM, Role.OBSERVER)
+    allowed_roles = (Role.PM, Role.OBSERVER)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -163,7 +163,7 @@ class PlanningView(RoleRequiredMixin, TemplateView):
         ctx["all_streams"] = Stream.objects.all() if not is_observer else []
         ctx["selected_tags"] = tag_filter
         ctx["selected_streams"] = stream_filter
-        ctx["can_edit"] = user.role in (Role.ADMIN, Role.PM) or user.is_superuser
+        ctx["can_edit"] = user.role == Role.PM or user.is_superuser
         ctx["projects"] = all_projects
         ctx["developers"] = devs
         return ctx

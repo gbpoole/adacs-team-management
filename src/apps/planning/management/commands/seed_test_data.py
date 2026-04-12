@@ -114,8 +114,8 @@ class Command(BaseCommand):
             User.objects.filter(role__in=[Role.DEVELOPER, Role.OBSERVER]).delete()
 
         self.stdout.write("Creating fixed seed accounts...")
-        self._create_seed_account("admin@adacs.org.au", "Admin User", Role.ADMIN, "admin1234", is_staff=True, is_superuser=True)
-        self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "pm1234")
+        self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "pm1234", is_staff=True, is_superuser=True)
+        self._create_seed_account("pm2@adacs.org.au", "PM User 2", Role.PM, "pm1234")
         self._create_seed_account("developer@adacs.org.au", "Developer User", Role.DEVELOPER, "developer1234")
 
         self.stdout.write("Creating semesters...")

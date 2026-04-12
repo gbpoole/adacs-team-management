@@ -19,7 +19,6 @@ from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import Stream
 from apps.planning.models import Tag
-from apps.planning.tests.factories import AdminUserFactory
 from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import DeveloperUserFactory
@@ -34,7 +33,6 @@ from apps.planning.tests.factories import SemesterType
 
 
 _ROLE_FACTORIES = {
-    "admin": AdminUserFactory,
     "pm": PMUserFactory,
     "developer": DeveloperUserFactory,
     "observer": ObserverUserFactory,
@@ -62,7 +60,7 @@ class HomeViewTests(TestCase):
         self.assertIn("/accounts/", response["Location"])
 
     def test_authenticated_can_access(self):
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
 
@@ -99,10 +97,10 @@ class HomeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["my_project_count"], 1)
 
-    def test_admin_sees_summary_counts(self):
+    def test_pm_sees_summary_counts(self):
         DeveloperProfileFactory()
         ProjectFactory()
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(reverse("home"))
         self.assertEqual(response.context["dev_count"], 1)
         self.assertEqual(response.context["project_count"], 1)
@@ -118,7 +116,7 @@ class DevelopersViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm", "developer"], denied=["observer"])
+        self.assertRoleAccess(self.url, allowed=["pm", "developer"], denied=["observer"])
 
     def test_shows_developer_in_table(self):
         dev_profile = DeveloperProfileFactory()
@@ -150,11 +148,11 @@ class ObserversViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm"], denied=["developer", "observer"])
+        self.assertRoleAccess(self.url, allowed=["pm"], denied=["developer", "observer"])
 
     def test_shows_observer_in_table(self):
         obs = ObserverProfileFactory()
-        admin = AdminUserFactory()
+        admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
         self.assertContains(response, obs.user.email)
@@ -165,7 +163,7 @@ class ObserversViewTests(PlanningTestCase):
         ProjectSemesterNameFactory(project=project, semester=semester, name="My Real Project")
         obs = ObserverProfileFactory()
         obs.project_access.add(project)
-        admin = AdminUserFactory()
+        admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
         self.assertContains(response, "My Real Project")
@@ -173,7 +171,7 @@ class ObserversViewTests(PlanningTestCase):
 
     def test_observer_with_no_projects_shows_none(self):
         ObserverProfileFactory()
-        admin = AdminUserFactory()
+        admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
         self.assertContains(response, "None")
@@ -189,7 +187,7 @@ class ProjectsViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm", "developer"])
+        self.assertRoleAccess(self.url, allowed=["pm", "developer"])
 
     def test_observer_sees_only_authorized_projects(self):
         project_visible = ProjectFactory()
@@ -233,7 +231,7 @@ class PlanningViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm", "observer"], denied=["developer"])
+        self.assertRoleAccess(self.url, allowed=["pm", "observer"], denied=["developer"])
 
     def test_context_contains_developer_rows(self):
         sem = Semester.get_current()
@@ -243,7 +241,7 @@ class PlanningViewTests(PlanningTestCase):
             developer=dev, project=project, semester=sem,
             start_date=sem.start_date, end_date=sem.start_date + datetime.timedelta(days=6),
         )
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         self.assertIn("developer_rows", response.context)
         pks = [row["developer"].pk for row in response.context["developer_rows"]]
@@ -263,7 +261,7 @@ class PlanningViewTests(PlanningTestCase):
                 developer=dev, project=ProjectFactory(), semester=sem,
                 start_date=sem.start_date, end_date=sem.start_date + datetime.timedelta(days=6),
             )
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(self.url + "?tags=python")
         pks = [row["developer"].pk for row in response.context["developer_rows"]]
         self.assertIn(dev_with.pk, pks)
@@ -282,7 +280,7 @@ class ScheduleViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm", "observer"], denied=["developer"])
+        self.assertRoleAccess(self.url, allowed=["pm", "observer"], denied=["developer"])
 
     def _make_phase_in_current_semester(self, multiplier):
         sem = Semester.get_current()
@@ -306,7 +304,7 @@ class ScheduleViewTests(PlanningTestCase):
 
     def test_effort_unfilled_pct_full_time(self):
         self._make_phase_in_current_semester(1.0)
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         phase = self._find_phase_in_context(response)
         self.assertIsNotNone(phase)
@@ -314,7 +312,7 @@ class ScheduleViewTests(PlanningTestCase):
 
     def test_effort_unfilled_pct_half_time(self):
         self._make_phase_in_current_semester(0.5)
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         phase = self._find_phase_in_context(response)
         self.assertIsNotNone(phase)
@@ -328,7 +326,7 @@ class ScheduleViewTests(PlanningTestCase):
 
 class PhaseViewTestCase(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.dev = DeveloperProfileFactory()
         self.sem = SemesterFactory()
         self.project = ProjectFactory()
@@ -344,7 +342,7 @@ class PhaseViewTestCase(PlanningTestCase):
 class PhaseCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:phase_add")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.semester = Semester.get_current()
         self.dev = DeveloperProfileFactory()
         self.project = ProjectFactory()
@@ -356,13 +354,8 @@ class PhaseCreateViewTests(PlanningTestCase):
             "effort_multiplier": "1.0",
         }
 
-    def test_admin_can_create(self):
-        self.client.force_login(self.admin)
-        self.client.post(self.url, self.post_data)
-        self.assertEqual(Phase.objects.count(), 1)
-
     def test_pm_can_create(self):
-        self.client.force_login(PMUserFactory())
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertEqual(Phase.objects.count(), 1)
 
@@ -379,7 +372,7 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertEqual(Phase.objects.count(), 0)
 
     def test_creates_phase_with_correct_fields(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         phase = Phase.objects.get()
         self.assertEqual(phase.developer, self.dev)
@@ -389,13 +382,13 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertAlmostEqual(phase.effort_multiplier, 1.0)
 
     def test_phase_gets_lane_assigned(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         phase = Phase.objects.get()
         self.assertIsNotNone(phase.lane_id)
 
     def test_overlapping_phase_gets_new_lane(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         overlapping_data = dict(self.post_data, start_date="2026-01-12", end_date="2026-02-09")
         self.client.post(self.url, overlapping_data)
@@ -404,7 +397,7 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertNotEqual(phases[0].lane_id, phases[1].lane_id)
 
     def test_lane_pk_new_requests_new_lane(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         # First phase — creates a lane
         self.client.post(self.url, self.post_data)
         first_lane = Phase.objects.first().lane
@@ -416,13 +409,13 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertNotEqual(second_phase.lane, first_lane)
 
     def test_redirects_to_next_url(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         data = dict(self.post_data, next="/planning/planning/")
         response = self.client.post(self.url, data)
         self.assertRedirects(response, "/planning/planning/", fetch_redirect_response=False)
 
     def test_invalid_date_returns_redirect_not_500(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="not-a-date")
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, 302)
@@ -433,11 +426,6 @@ class PhaseDeleteViewTests(PhaseViewTestCase):
     def setUp(self):
         super().setUp()
         self.url = reverse("planning:phase_delete", args=[self.phase.pk])
-
-    def test_admin_can_delete(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 302)
 
     def test_pm_can_delete(self):
         self.client.force_login(PMUserFactory())
@@ -451,13 +439,13 @@ class PhaseDeleteViewTests(PhaseViewTestCase):
         self.assertTrue(Phase.objects.filter(pk=self.phase.pk).exists())
 
     def test_deletes_phase(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertFalse(Phase.objects.filter(pk=self.phase.pk).exists())
 
     def test_empty_lane_deleted_after_delete(self):
         lane_pk = self.phase.lane_id
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertFalse(DeveloperLane.objects.filter(pk=lane_pk).exists())
 
@@ -469,7 +457,7 @@ class PhaseDeleteViewTests(PhaseViewTestCase):
             lane=self.phase.lane,
         )
         lane_pk = self.phase.lane_id
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertTrue(DeveloperLane.objects.filter(pk=lane_pk).exists())
 
@@ -485,8 +473,8 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
             "end_date": "2026-02-09",
         }
 
-    def test_admin_can_update(self):
-        self.client.force_login(self.admin)
+    def test_pm_can_update(self):
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 204)
 
@@ -496,18 +484,18 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_returns_204_not_redirect(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 204)
 
     def test_invalid_date_returns_400_not_500(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="not-a-date")
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, 400)
 
     def test_end_before_start_returns_400(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="2026-02-09", end_date="2026-01-12")
         original_start = self.phase.start_date
         response = self.client.post(self.url, data)
@@ -516,7 +504,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         self.assertEqual(self.phase.start_date, original_start)
 
     def test_updates_dates(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.phase.refresh_from_db()
         self.assertEqual(self.phase.start_date, datetime.date(2026, 1, 12))
@@ -524,7 +512,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
 
     def test_lane_pk_new_changes_developer(self):
         new_dev = DeveloperProfileFactory()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {
             **self.post_data,
             "lane_pk": "new",
@@ -542,7 +530,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         original_lane = phase2.lane
         # Move phase2 to overlap with self.phase
         url2 = reverse("planning:phase_update", args=[phase2.pk])
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(url2, {
             "start_date": "2026-01-12",
             "end_date": "2026-02-09",
@@ -555,7 +543,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         # phase is alone in its lane; change developer → old lane should be deleted
         new_dev = DeveloperProfileFactory()
         old_lane_pk = self.phase.lane_id
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {
             **self.post_data,
             "lane_pk": "new",
@@ -572,7 +560,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         )
         new_dev = DeveloperProfileFactory()
         old_lane_pk = self.phase.lane_id
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {
             **self.post_data,
             "lane_pk": "new",
@@ -596,8 +584,8 @@ class PhaseEditViewTests(PhaseViewTestCase):
             "effort_multiplier": "0.5",
         }
 
-    def test_admin_can_edit(self):
-        self.client.force_login(self.admin)
+    def test_pm_can_edit(self):
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 302)
 
@@ -607,7 +595,7 @@ class PhaseEditViewTests(PhaseViewTestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_updates_project_dates_multiplier(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.phase.refresh_from_db()
         self.assertEqual(self.phase.project, self.project2)
@@ -617,14 +605,14 @@ class PhaseEditViewTests(PhaseViewTestCase):
 
     def test_same_developer_keeps_lane(self):
         original_lane = self.phase.lane
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.phase.refresh_from_db()
         self.assertEqual(self.phase.lane, original_lane)
 
     def test_developer_change_assigns_new_lane(self):
         new_dev = DeveloperProfileFactory()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, dict(self.post_data, developer=new_dev.pk))
         self.phase.refresh_from_db()
         self.assertEqual(self.phase.developer, new_dev)
@@ -633,7 +621,7 @@ class PhaseEditViewTests(PhaseViewTestCase):
     def test_developer_change_deletes_empty_old_lane(self):
         old_lane_pk = self.phase.lane_id
         new_dev = DeveloperProfileFactory()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, dict(self.post_data, developer=new_dev.pk))
         self.assertFalse(DeveloperLane.objects.filter(pk=old_lane_pk).exists())
 
@@ -646,7 +634,7 @@ class PhaseEditViewTests(PhaseViewTestCase):
         )
         old_lane_pk = self.phase.lane_id
         new_dev = DeveloperProfileFactory()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, dict(self.post_data, developer=new_dev.pk))
         self.assertTrue(DeveloperLane.objects.filter(pk=old_lane_pk).exists())
 
@@ -659,7 +647,7 @@ class PhaseEditViewTests(PhaseViewTestCase):
 class DeveloperCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:developer_add")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.post_data = {
             "email": "newdev@example.com",
             "name": "New Developer",
@@ -669,24 +657,24 @@ class DeveloperCreateViewTests(PlanningTestCase):
     def test_role_access(self):
         self.assertRoleAccess(
             self.url, method="post",
-            allowed=["admin", "pm"], denied=["developer", "observer"],
+            allowed=["pm"], denied=["developer", "observer"],
             data=self.post_data,
         )
 
     def test_creates_user_and_profile(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(DeveloperProfile.objects.filter(user__email="newdev@example.com").exists())
 
     def test_empty_email_redirects_without_creating(self):
         before = DeveloperProfile.objects.count()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, {**self.post_data, "email": ""})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(DeveloperProfile.objects.count(), before)
 
     def test_sets_effort_available(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "effort_available": "20"})
         profile = DeveloperProfile.objects.get(user__email="newdev@example.com")
         self.assertTrue(SemesterDeveloper.objects.filter(developer=profile, effort_available=20).exists())
@@ -694,7 +682,7 @@ class DeveloperCreateViewTests(PlanningTestCase):
 
 class DeveloperUpdateViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.profile = DeveloperProfileFactory()
         self.url = reverse("planning:developer_edit", args=[self.profile.pk])
         self.post_data = {
@@ -705,19 +693,19 @@ class DeveloperUpdateViewTests(PlanningTestCase):
     def test_role_access(self):
         self.assertRoleAccess(
             self.url, method="post",
-            allowed=["admin", "pm"], denied=["developer"],
+            allowed=["pm"], denied=["developer"],
             data=self.post_data,
         )
 
     def test_updates_user_fields(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.profile.user.refresh_from_db()
         self.assertEqual(self.profile.user.name, "Updated Name")
         self.assertEqual(self.profile.user.organisation, "Updated Org")
 
     def test_updates_effort_available(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "effort_available": "18"})
         self.assertTrue(
             SemesterDeveloper.objects.filter(developer=self.profile, effort_available=18).exists()
@@ -726,14 +714,9 @@ class DeveloperUpdateViewTests(PlanningTestCase):
 
 class DeveloperDeleteViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.profile = DeveloperProfileFactory()
         self.url = reverse("planning:developer_delete", args=[self.profile.pk])
-
-    def test_admin_can_delete(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 204)
 
     def test_pm_can_delete(self):
         profile = DeveloperProfileFactory()
@@ -750,7 +733,7 @@ class DeveloperDeleteViewTests(PlanningTestCase):
     def test_deletes_profile_and_user(self):
         user_pk = self.profile.user_id
         profile_pk = self.profile.pk
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertFalse(DeveloperProfile.objects.filter(pk=profile_pk).exists())
         self.assertFalse(get_user_model().objects.filter(pk=user_pk).exists())
@@ -764,7 +747,7 @@ class DeveloperDeleteViewTests(PlanningTestCase):
 class ObserverCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:observer_add")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.post_data = {
             "email": "newobs@example.com",
             "name": "New Observer",
@@ -774,18 +757,18 @@ class ObserverCreateViewTests(PlanningTestCase):
     def test_role_access(self):
         self.assertRoleAccess(
             self.url, method="post",
-            allowed=["admin", "pm"], denied=["developer", "observer"],
+            allowed=["pm"], denied=["developer", "observer"],
             data=self.post_data,
         )
 
     def test_creates_user_and_profile(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(ObserverProfile.objects.filter(user__email="newobs@example.com").exists())
 
     def test_sets_project_access(self):
         project = ProjectFactory()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "project_access": [project.pk]})
         profile = ObserverProfile.objects.get(user__email="newobs@example.com")
         self.assertIn(project, profile.project_access.all())
@@ -793,7 +776,7 @@ class ObserverCreateViewTests(PlanningTestCase):
 
 class ObserverUpdateViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.profile = ObserverProfileFactory()
         self.url = reverse("planning:observer_edit", args=[self.profile.pk])
         self.post_data = {
@@ -801,8 +784,8 @@ class ObserverUpdateViewTests(PlanningTestCase):
             "organisation": "Updated Org",
         }
 
-    def test_admin_can_update(self):
-        self.client.force_login(self.admin)
+    def test_pm_can_update(self):
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 302)
 
@@ -812,7 +795,7 @@ class ObserverUpdateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_updates_user_fields(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.profile.user.refresh_from_db()
         self.assertEqual(self.profile.user.name, "Updated Observer")
@@ -820,28 +803,23 @@ class ObserverUpdateViewTests(PlanningTestCase):
 
     def test_updates_project_access(self):
         project = ProjectFactory()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "project_access": [project.pk]})
         self.assertIn(project, self.profile.project_access.all())
 
     def test_clears_project_access(self):
         project = ProjectFactory()
         self.profile.project_access.add(project)
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)  # no project_access in POST
         self.assertEqual(self.profile.project_access.count(), 0)
 
 
 class ObserverDeleteViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.profile = ObserverProfileFactory()
         self.url = reverse("planning:observer_delete", args=[self.profile.pk])
-
-    def test_admin_can_delete(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 204)
 
     def test_pm_can_delete(self):
         profile = ObserverProfileFactory()
@@ -858,7 +836,7 @@ class ObserverDeleteViewTests(PlanningTestCase):
     def test_deletes_profile_and_user(self):
         user_pk = self.profile.user_id
         profile_pk = self.profile.pk
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertFalse(ObserverProfile.objects.filter(pk=profile_pk).exists())
         self.assertFalse(get_user_model().objects.filter(pk=user_pk).exists())
@@ -872,7 +850,7 @@ class ObserverDeleteViewTests(PlanningTestCase):
 class ProjectCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:project_add")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.post_data = {
             "name": "New Project",
             "streams": "Engineering",
@@ -882,23 +860,23 @@ class ProjectCreateViewTests(PlanningTestCase):
     def test_role_access(self):
         self.assertRoleAccess(
             self.url, method="post",
-            allowed=["admin", "pm"], denied=["developer", "observer"],
+            allowed=["pm"], denied=["developer", "observer"],
             data=self.post_data,
         )
 
     def test_creates_project_with_semester_name(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(ProjectSemesterName.objects.filter(name="New Project").exists())
 
     def test_creates_allocation(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(ProjectAllocation.objects.filter(weeks_new=10).exists())
 
     def test_empty_name_redirects_without_creating(self):
         before = Project.objects.count()
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, {**self.post_data, "name": ""})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Project.objects.count(), before)
@@ -906,7 +884,7 @@ class ProjectCreateViewTests(PlanningTestCase):
 
 class ProjectUpdateViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.semester = SemesterFactory()
         self.project = ProjectFactory()
         ProjectSemesterNameFactory(project=self.project, semester=self.semester, name="Old Name")
@@ -916,8 +894,8 @@ class ProjectUpdateViewTests(PlanningTestCase):
             "effort_resourced": "15",
         }
 
-    def test_admin_can_update(self):
-        self.client.force_login(self.admin)
+    def test_pm_can_update(self):
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 302)
 
@@ -927,14 +905,14 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_updates_semester_name(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(
             ProjectSemesterName.objects.filter(project=self.project, name="New Name").exists()
         )
 
     def test_updates_allocation(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(
             ProjectAllocation.objects.filter(project=self.project, weeks_new=15).exists()
@@ -943,14 +921,9 @@ class ProjectUpdateViewTests(PlanningTestCase):
 
 class ProjectDeleteViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.project = ProjectFactory()
         self.url = reverse("planning:project_delete", args=[self.project.pk])
-
-    def test_admin_can_delete(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 204)
 
     def test_pm_can_delete(self):
         project = ProjectFactory()
@@ -966,7 +939,7 @@ class ProjectDeleteViewTests(PlanningTestCase):
 
     def test_deletes_project(self):
         pk = self.project.pk
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertFalse(Project.objects.filter(pk=pk).exists())
 
@@ -984,7 +957,7 @@ class LeaveViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["admin", "pm", "developer"], denied=["observer"])
+        self.assertRoleAccess(self.url, allowed=["pm", "developer"], denied=["observer"])
 
     def test_developer_sees_only_own_leave(self):
         dev1 = DeveloperProfileFactory()
@@ -999,12 +972,12 @@ class LeaveViewTests(PlanningTestCase):
         self.assertNotIn(leave2.pk, pks)
         self.assertEqual(len(pks), 1)
 
-    def test_admin_sees_all_leave(self):
+    def test_pm_sees_all_leave(self):
         dev1 = DeveloperProfileFactory()
         dev2 = DeveloperProfileFactory()
         leave1 = LeaveFactory(developer=dev1, end_date=datetime.date(2099, 3, 7))
         leave2 = LeaveFactory(developer=dev2, end_date=datetime.date(2099, 3, 14))
-        self.client.force_login(AdminUserFactory())
+        self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         pks = [lv.pk for lv in response.context["leave_periods"]]
         self.assertIn(leave1.pk, pks)
@@ -1014,19 +987,13 @@ class LeaveViewTests(PlanningTestCase):
 class LeaveCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:leave_add")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.dev = DeveloperProfileFactory()
         self.post_data = {
             "developer": self.dev.pk,
             "start_date": "2026-06-01",
             "end_date": "2026-06-07",
         }
-
-    def test_admin_can_create(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(self.url, self.post_data)
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(Leave.objects.count(), 1)
 
     def test_pm_can_create(self):
         self.client.force_login(PMUserFactory())
@@ -1055,14 +1022,14 @@ class LeaveCreateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_invalid_date_returns_redirect_not_500(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="not-a-date")
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Leave.objects.count(), 0)
 
     def test_end_before_start_returns_redirect(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="2026-06-07", end_date="2026-06-01")
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, 302)
@@ -1071,21 +1038,16 @@ class LeaveCreateViewTests(PlanningTestCase):
 
 class LeaveDeleteViewTests(PlanningTestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
         self.dev = DeveloperProfileFactory()
         self.leave = LeaveFactory(developer=self.dev)
         self.url = reverse("planning:leave_delete", args=[self.leave.pk])
 
-    def test_admin_can_delete(self):
-        self.client.force_login(self.admin)
+    def test_pm_can_delete(self):
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Leave.objects.filter(pk=self.leave.pk).exists())
-
-    def test_pm_can_delete(self):
-        self.client.force_login(PMUserFactory())
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 302)
 
     def test_developer_can_delete_own_leave(self):
         self.client.force_login(self.dev.user)
@@ -1172,19 +1134,19 @@ def _tsv_bytes(rows):
 class DeveloperUploadViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:developer_upload")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
 
     def _post(self, rows):
         from django.core.files.uploadedfile import SimpleUploadedFile
         f = SimpleUploadedFile("devs.tsv", _tsv_bytes(rows), content_type="text/plain")
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         return self.client.post(self.url, {"tsv_file": f})
 
     def test_role_access(self):
         self.assertRoleAccess(self.url, method="post", denied=["developer", "observer"])
 
     def test_missing_file_redirects(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 302)
 
@@ -1211,19 +1173,19 @@ class DeveloperUploadViewTests(PlanningTestCase):
 class ProjectUploadViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:project_upload")
-        self.admin = AdminUserFactory()
+        self.pm = PMUserFactory()
 
     def _post(self, rows):
         from django.core.files.uploadedfile import SimpleUploadedFile
         f = SimpleUploadedFile("projects.tsv", _tsv_bytes(rows), content_type="text/plain")
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         return self.client.post(self.url, {"tsv_file": f})
 
     def test_role_access(self):
         self.assertRoleAccess(self.url, method="post", denied=["developer", "observer"])
 
     def test_missing_file_redirects(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.pm)
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 302)
 

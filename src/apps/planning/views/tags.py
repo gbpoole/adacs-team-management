@@ -14,7 +14,7 @@ from ._mixins import RoleRequiredMixin
 class TagsView(RoleRequiredMixin, ListView):
     template_name = "planning/tags.html"
     context_object_name = "tags"
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def get_queryset(self):
         return Tag.objects.annotate(
@@ -29,7 +29,7 @@ class TagsView(RoleRequiredMixin, ListView):
 
 
 class TagCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         name = request.POST.get("name", "").strip()
@@ -42,7 +42,7 @@ class TagCreateView(RoleRequiredMixin, View):
 
 
 class TagUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         tag = get_object_or_404(Tag, pk=pk)
@@ -57,7 +57,7 @@ class TagUpdateView(RoleRequiredMixin, View):
 
 
 class TagDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         tag = get_object_or_404(Tag, pk=pk)

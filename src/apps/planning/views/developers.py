@@ -44,7 +44,7 @@ def _upsert_semester_developer(profile, effort_str):
 class DevelopersView(RoleRequiredMixin, ListView):
     template_name = "planning/developers.html"
     context_object_name = "developers"
-    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
+    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def get_queryset(self):
         qs = (
@@ -61,7 +61,7 @@ class DevelopersView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = Semester.get_current()
         ctx["semester"] = semester
-        ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
+        ctx["can_edit"] = self.request.user.role == Role.PM or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = self.request.GET.getlist("tags")
 
@@ -90,7 +90,7 @@ class DevelopersView(RoleRequiredMixin, ListView):
 
 
 class DeveloperCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         User = get_user_model()
@@ -114,7 +114,7 @@ class DeveloperCreateView(RoleRequiredMixin, View):
 
 
 class DeveloperUploadView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         f = request.FILES.get("tsv_file")
@@ -146,7 +146,7 @@ class DeveloperUploadView(RoleRequiredMixin, View):
 
 
 class DeveloperUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(DeveloperProfile, pk=pk)
@@ -158,7 +158,7 @@ class DeveloperUpdateView(RoleRequiredMixin, View):
 
 
 class DeveloperDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(DeveloperProfile, pk=pk)

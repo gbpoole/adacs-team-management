@@ -18,7 +18,7 @@ from ._mixins import _update_user_profile_fields
 class ObserversView(RoleRequiredMixin, ListView):
     template_name = "planning/observers.html"
     context_object_name = "observers"
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def get_queryset(self):
         return (
@@ -53,7 +53,7 @@ class ObserversView(RoleRequiredMixin, ListView):
 
 
 class ObserverCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         User = get_user_model()
@@ -75,7 +75,7 @@ class ObserverCreateView(RoleRequiredMixin, View):
 
 
 class ObserverUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(ObserverProfile, pk=pk)
@@ -86,7 +86,7 @@ class ObserverUpdateView(RoleRequiredMixin, View):
 
 
 class ObserverDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(ObserverProfile, pk=pk)

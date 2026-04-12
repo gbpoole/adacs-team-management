@@ -14,7 +14,7 @@ from ._mixins import RoleRequiredMixin
 class StreamsView(RoleRequiredMixin, ListView):
     template_name = "planning/streams.html"
     context_object_name = "streams"
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def get_queryset(self):
         return Stream.objects.annotate(
@@ -28,7 +28,7 @@ class StreamsView(RoleRequiredMixin, ListView):
 
 
 class StreamCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         name = request.POST.get("name", "").strip()
@@ -41,7 +41,7 @@ class StreamCreateView(RoleRequiredMixin, View):
 
 
 class StreamUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         stream = get_object_or_404(Stream, pk=pk)
@@ -56,7 +56,7 @@ class StreamUpdateView(RoleRequiredMixin, View):
 
 
 class StreamDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         stream = get_object_or_404(Stream, pk=pk)

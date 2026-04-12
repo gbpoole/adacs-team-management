@@ -30,7 +30,7 @@ class LeaveView(RoleRequiredMixin, ListView):
     model = Leave
     template_name = "planning/leave.html"
     context_object_name = "leave_periods"
-    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
+    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def get_queryset(self):
         qs = Leave.objects.select_related("developer__user").order_by("start_date")
@@ -47,7 +47,7 @@ class LeaveView(RoleRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         user = self.request.user
-        ctx["can_edit"] = user.role in (Role.ADMIN, Role.PM) or user.is_superuser
+        ctx["can_edit"] = user.role == Role.PM or user.is_superuser
         ctx["is_developer"] = user.role == Role.DEVELOPER and not user.is_superuser
         ctx["show_past"] = bool(self.request.GET.get("show_past"))
         ctx["developers"] = DeveloperProfile.objects.select_related("user").order_by("user__name")
@@ -60,7 +60,7 @@ class LeaveView(RoleRequiredMixin, ListView):
 
 
 class LeaveCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
+    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def post(self, request, *args, **kwargs):
         developer_id = request.POST.get("developer")
@@ -89,7 +89,7 @@ class LeaveCreateView(RoleRequiredMixin, View):
 
 
 class LeaveDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
+    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
@@ -100,7 +100,7 @@ class LeaveDeleteView(RoleRequiredMixin, View):
 
 
 class LeaveUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER)
+    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)

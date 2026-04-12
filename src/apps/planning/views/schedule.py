@@ -20,7 +20,7 @@ from ._timeline import _week_starts
 
 class ScheduleView(RoleRequiredMixin, TemplateView):
     template_name = "planning/schedule.html"
-    allowed_roles = (Role.ADMIN, Role.PM, Role.OBSERVER)
+    allowed_roles = (Role.PM, Role.OBSERVER)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

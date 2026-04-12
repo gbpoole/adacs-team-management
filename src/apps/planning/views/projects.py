@@ -29,7 +29,7 @@ from ._mixins import RoleRequiredMixin
 class ProjectsView(RoleRequiredMixin, ListView):
     template_name = "planning/projects.html"
     context_object_name = "projects"
-    allowed_roles = (Role.ADMIN, Role.PM, Role.DEVELOPER, Role.OBSERVER)
+    allowed_roles = (Role.PM, Role.DEVELOPER, Role.OBSERVER)
 
     def get_queryset(self):
         qs = Project.objects.prefetch_related("tags", "streams", "semester_names")
@@ -52,7 +52,7 @@ class ProjectsView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = Semester.get_current()
         ctx["semester"] = semester
-        ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
+        ctx["can_edit"] = self.request.user.role == Role.PM or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
         ctx["streams"] = Stream.objects.order_by("name")
         ctx["selected_tags"] = self.request.GET.getlist("tags")
@@ -76,7 +76,7 @@ class ProjectsView(RoleRequiredMixin, ListView):
 
 
 class ProjectCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         name = request.POST.get("name", "").strip()
@@ -101,7 +101,7 @@ class ProjectCreateView(RoleRequiredMixin, View):
 
 
 class ProjectUploadView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
         f = request.FILES.get("tsv_file")
@@ -134,7 +134,7 @@ class ProjectUploadView(RoleRequiredMixin, View):
 
 
 class ProjectUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         project = get_object_or_404(Project, pk=pk)
@@ -165,7 +165,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
 
 
 class ProjectDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.ADMIN, Role.PM)
+    allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         project = get_object_or_404(Project, pk=pk)

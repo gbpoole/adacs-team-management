@@ -25,7 +25,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
         in_30_days = today + datetime.timedelta(days=30)
         role = user.role
 
-        if role in (Role.ADMIN, Role.PM) or user.is_superuser:
+        if role == Role.PM or user.is_superuser:
             ctx["dev_count"] = DeveloperProfile.objects.count()
             ctx["project_count"] = Project.objects.count()
             records = SemesterDeveloper.objects.filter(semester=semester)

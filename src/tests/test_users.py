@@ -27,7 +27,7 @@ class TestUserManager(TestCase):
         user = User.objects.create_superuser(email="admin@example.com", password="adminpass")
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
-        self.assertEqual(user.role, "admin")
+        self.assertEqual(user.role, "pm")
 
     def test_create_superuser_is_staff_false_raises(self):
         User = get_user_model()
