@@ -40,6 +40,12 @@ class ProjectsView(RoleRequiredMixin, ListView):
                 qs = qs.filter(observer_access=profile)
             except ObserverProfile.DoesNotExist:
                 qs = qs.none()
+        tag_filter = self.request.GET.getlist("tags")
+        stream_filter = self.request.GET.getlist("streams")
+        if tag_filter:
+            qs = qs.filter(tags__name__in=tag_filter).distinct()
+        if stream_filter:
+            qs = qs.filter(streams__name__in=stream_filter).distinct()
         return qs.order_by("id")
 
     def get_context_data(self, **kwargs):
@@ -49,6 +55,8 @@ class ProjectsView(RoleRequiredMixin, ListView):
         ctx["can_edit"] = self.request.user.role in (Role.ADMIN, Role.PM) or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
         ctx["streams"] = Stream.objects.order_by("name")
+        ctx["selected_tags"] = self.request.GET.getlist("tags")
+        ctx["selected_streams"] = self.request.GET.getlist("streams")
 
         resourced_map = {
             pk: float(new + carryover)

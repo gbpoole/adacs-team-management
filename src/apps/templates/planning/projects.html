@@ -20,16 +20,113 @@
     </div>
   </div>
 
+  {% if all_tags or streams %}
+  <div class="shrink-0 px-6 pb-3">
+    <form id="filter-form" method="get" class="flex flex-col gap-1.5">
+      {% if all_tags %}
+      <div class="flex items-start gap-2">
+        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <button type="button" data-group="tags" data-action="all"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
+          <button type="button" data-group="tags" data-action="none"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
+          {% for tag in all_tags %}
+          <label class="cursor-pointer select-none">
+            <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
+                   {% if tag.name in selected_tags %}checked{% endif %}>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
+                         {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                  style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
+              {{ tag.name }}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if streams %}
+      <div class="flex items-start gap-2">
+        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <button type="button" data-group="streams" data-action="all"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
+          <button type="button" data-group="streams" data-action="none"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
+          {% for stream in streams %}
+          <label class="cursor-pointer select-none">
+            <input type="checkbox" name="streams" value="{{ stream.name }}" class="sr-only"
+                   {% if stream.name in selected_streams %}checked{% endif %}>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
+                         {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                  style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }}; border-color: {{ stream.colour }};{% endif %}">
+              {{ stream.name }}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </form>
+    <script>
+      (function () {
+        var STORAGE_KEY = 'projects_filter';
+        var form = document.getElementById('filter-form');
+        var params = new URLSearchParams(window.location.search);
+        var urlTags = params.getAll('tags');
+        var urlStreams = params.getAll('streams');
+        if (urlTags.length > 0 || urlStreams.length > 0) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: urlTags, streams: urlStreams})); } catch (e) {}
+        } else {
+          try {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            if (saved && (saved.tags && saved.tags.length > 0 || saved.streams && saved.streams.length > 0)) {
+              var p = new URLSearchParams();
+              (saved.tags || []).forEach(function (t) { p.append('tags', t); });
+              (saved.streams || []).forEach(function (s) { p.append('streams', s); });
+              window.location.replace(window.location.pathname + '?' + p.toString());
+              return;
+            }
+          } catch (e) {}
+        }
+        form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+          cb.addEventListener('change', function () { form.submit(); });
+        });
+        form.querySelectorAll('button[data-group]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var group = btn.dataset.group;
+            var selectAll = btn.dataset.action === 'all';
+            form.querySelectorAll('input[name="' + group + '"]').forEach(function (cb) {
+              cb.checked = selectAll;
+            });
+            var anyChecked = Array.from(form.querySelectorAll('input[type="checkbox"]')).some(function (cb) { return cb.checked; });
+            if (!anyChecked) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} }
+            form.submit();
+          });
+        });
+      })();
+    </script>
+  </div>
+  {% endif %}
+
   <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table class="table table-zebra w-full">
+    <table id="proj-table" class="table table-zebra w-full">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
-          <th>{% trans "Name" %}</th>
+          <th class="cursor-pointer select-none" onclick="sortProjTable('name')" data-col="name">
+            {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
           <th>{% trans "Streams" %}</th>
           <th>{% trans "Tags" %}</th>
-          <th class="text-right">{% trans "Effort Resourced (wks)" %}</th>
-          <th class="text-right">{% trans "Effort Allocated (wks)" %}</th>
-          <th class="text-right">{% trans "Discrepancy (wks)" %}</th>
+          <th class="text-right cursor-pointer select-none" onclick="sortProjTable('resourced')" data-col="resourced">
+            {% trans "Effort Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="text-right cursor-pointer select-none" onclick="sortProjTable('allocated')" data-col="allocated">
+            {% trans "Effort Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="text-right cursor-pointer select-none" onclick="sortProjTable('unallocated')" data-col="unallocated">
+            {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -40,7 +137,11 @@
             data-name="{{ project.display_name }}"
             data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
             data-effort="{{ project.effort_resourced|default:'' }}"
-            data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}>
+            data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
+            data-sort-name="{{ project.display_name|lower }}"
+            data-sort-resourced="{{ project.effort_resourced }}"
+            data-sort-allocated="{{ project.effort_allocated }}"
+            data-sort-unallocated="{{ project.effort_discrepancy }}">
           <td>
             <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
                   style="background-color: {{ project.colour }};"></span>
@@ -86,6 +187,10 @@
         <input type="text" name="name" class="input input-bordered" required>
       </div>
       <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
+        <input type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
+      </div>
+      <div class="form-control mb-3">
         <label class="label label-text">{% trans "Streams" %}</label>
         <div id="proj-stream-buttons" class="flex flex-wrap gap-2 mt-1">
           {% for stream in streams %}
@@ -99,10 +204,6 @@
           <input type="text" id="proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
           <button type="button" class="btn btn-sm btn-ghost" onclick="projAddStream()">+ {% trans "Add" %}</button>
         </div>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
-        <input type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
       </div>
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Tags" %}</label>
@@ -167,6 +268,10 @@
         <input id="edit-project-name" type="text" name="name" class="input input-bordered" required>
       </div>
       <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
+        <input id="edit-project-effort" type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
+      </div>
+      <div class="form-control mb-3">
         <label class="label label-text">{% trans "Streams" %}</label>
         <div id="edit-proj-stream-buttons" class="flex flex-wrap gap-2 mt-1">
           {% for stream in streams %}
@@ -180,10 +285,6 @@
           <input type="text" id="edit-proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
           <button type="button" class="btn btn-sm btn-ghost" onclick="editProjAddStream()">+ {% trans "Add" %}</button>
         </div>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
-        <input id="edit-project-effort" type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
       </div>
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Tags" %}</label>
@@ -212,6 +313,44 @@
 {% endif %}
 
 <script>
+var _sortCol = 'name', _sortAsc = true;
+
+function sortProjTable(col) {
+  if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = col === 'name'; }
+  var tbody = document.querySelector('#proj-table tbody');
+  var rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
+  rows.sort(function (a, b) {
+    var av = a.dataset['sort' + col.charAt(0).toUpperCase() + col.slice(1)] || '';
+    var bv = b.dataset['sort' + col.charAt(0).toUpperCase() + col.slice(1)] || '';
+    var numeric = col !== 'name';
+    var cmp;
+    if (numeric) {
+      var an = parseFloat(av), bn = parseFloat(bv);
+      if (av === '' && bv === '') { cmp = 0; }
+      else if (av === '') { cmp = 1; }
+      else if (bv === '') { cmp = -1; }
+      else { cmp = an - bn; }
+    } else {
+      cmp = av.localeCompare(bv);
+    }
+    return _sortAsc ? cmp : -cmp;
+  });
+  rows.forEach(function (r) { tbody.appendChild(r); });
+  document.querySelectorAll('#proj-table th[data-col]').forEach(function (th) {
+    var icon = th.querySelector('.sort-icon');
+    if (th.dataset.col === _sortCol) {
+      icon.textContent = _sortAsc ? '▲' : '▼';
+      icon.classList.remove('text-neutral-400');
+    } else {
+      icon.textContent = '⇅';
+      icon.classList.add('text-neutral-400');
+    }
+  });
+}
+
+// Default sort: name ascending on load
+sortProjTable('name');
+
 function initCheckboxButtons(containerId) {
   document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(function (cb) {
     var label = cb.closest('label');
