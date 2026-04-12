@@ -49,13 +49,23 @@
   </div>
 
   <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table class="table table-zebra w-full">
+    <table id="leave-table" class="table table-zebra w-full">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
-          {% if can_edit %}<th>{% trans "Developer" %}</th>{% endif %}
-          <th>{% trans "Start Date" %}</th>
-          <th>{% trans "End Date" %}</th>
-          <th class="text-right">{% trans "Duration (weeks)" %}</th>
+          {% if can_edit %}
+          <th class="cursor-pointer select-none" onclick="sortLeaveTable('name')" data-col="name">
+            {% trans "Developer" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          {% endif %}
+          <th class="cursor-pointer select-none" onclick="sortLeaveTable('start')" data-col="start">
+            {% trans "Start Date" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="cursor-pointer select-none" onclick="sortLeaveTable('end')" data-col="end">
+            {% trans "End Date" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="text-right cursor-pointer select-none" onclick="sortLeaveTable('duration')" data-col="duration">
+            {% trans "Duration (weeks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
           {% if can_edit or is_developer %}<th></th>{% endif %}
         </tr>
       </thead>
@@ -63,6 +73,8 @@
         {% for leave in leave_periods %}
         <tr data-start="{{ leave.start_date|date:'Y-m-d' }}"
             data-end="{{ leave.end_date|date:'Y-m-d' }}"
+            data-sort-name="{{ leave.developer.user.name|default:leave.developer.user.email|lower }}"
+            data-sort-duration="{{ leave.duration_weeks }}"
             onmouseenter="showLeaveCalendar(this, event)"
             onmouseleave="hideLeaveCalendar()"
             {% if can_edit or is_developer %}
@@ -85,6 +97,17 @@
       </tbody>
     </table>
   </div>
+
+  <style>
+    tr.leave-separator td {
+      padding: 3px 8px;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+  </style>
 </div>
 
 {# Floating calendar pop-up #}
@@ -156,6 +179,86 @@ function confirmDeleteLeave() {
 }
 </script>
 {% endif %}
+
+<script>
+(function () {
+  var _sortCol = null, _sortAsc = true;
+
+  function cmpRows(a, b, col, asc) {
+    var av, bv, cmp;
+    if (col === 'name') {
+      av = a.dataset.sortName || ''; bv = b.dataset.sortName || '';
+      cmp = av.localeCompare(bv);
+    } else if (col === 'start') {
+      av = a.dataset.start || ''; bv = b.dataset.start || '';
+      cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    } else if (col === 'end') {
+      av = a.dataset.end || ''; bv = b.dataset.end || '';
+      cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    } else {
+      av = parseFloat(a.dataset.sortDuration || '0');
+      bv = parseFloat(b.dataset.sortDuration || '0');
+      cmp = av - bv;
+    }
+    return asc ? cmp : -cmp;
+  }
+
+  function applySort() {
+    var tbody = document.querySelector('#leave-table tbody');
+    tbody.querySelectorAll('tr.leave-separator').forEach(function (r) { r.remove(); });
+
+    var rows = Array.from(tbody.querySelectorAll('tr[data-start]'));
+    var todayStr = new Date().toISOString().slice(0, 10);
+
+    rows.sort(function (a, b) { return cmpRows(a, b, _sortCol, _sortAsc); });
+
+    var futureRows = rows.filter(function (r) { return r.dataset.end >= todayStr; });
+    var pastRows   = rows.filter(function (r) { return r.dataset.end <  todayStr; });
+
+    // Style past rows with inline opacity (avoids any CSS specificity issues)
+    futureRows.forEach(function (r) { r.style.opacity = ''; });
+    pastRows.forEach(function (r) { r.style.opacity = '0.4'; });
+
+    // Append: future first, separator, past last
+    futureRows.forEach(function (r) { tbody.appendChild(r); });
+    if (futureRows.length > 0 && pastRows.length > 0) {
+      var colCount = document.querySelectorAll('#leave-table thead th').length;
+      var sep = document.createElement('tr');
+      sep.className = 'leave-separator';
+      var td = document.createElement('td');
+      td.colSpan = colCount;
+      td.textContent = '{% trans "Past" %}';
+      td.style.cssText = 'padding:3px 8px;text-align:center;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;pointer-events:none;';
+      sep.appendChild(td);
+      tbody.appendChild(sep);
+    }
+    pastRows.forEach(function (r) { tbody.appendChild(r); });
+
+    // Update header icons
+    document.querySelectorAll('#leave-table th[data-col]').forEach(function (th) {
+      var icon = th.querySelector('.sort-icon');
+      if (th.dataset.col === _sortCol) {
+        icon.textContent = _sortAsc ? '▲' : '▼';
+        icon.classList.remove('text-neutral-400');
+      } else {
+        icon.textContent = '⇅';
+        icon.classList.add('text-neutral-400');
+      }
+    });
+  }
+
+  function sortLeaveTable(col) {
+    if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = col === 'name'; }
+    applySort();
+  }
+
+  // Initial display: start date ascending (soonest upcoming first), future before past
+  _sortCol = 'start'; _sortAsc = true;
+  applySort();
+
+  window.sortLeaveTable = sortLeaveTable;
+})();
+</script>
 
 <script>
 var HIGHLIGHT_BG = '#4E79A7';
