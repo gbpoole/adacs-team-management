@@ -165,13 +165,14 @@
       <input type="hidden" name="next" value="{{ request.path }}">
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Year" %}</label>
-        <input type="number" name="year" min="2020" max="2099" class="input input-bordered" required>
+        <input type="number" name="year" min="2020" max="2099" class="input input-bordered" required
+               value="{{ next_semester_year }}">
       </div>
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Semester" %}</label>
         <select name="semester_type" class="select select-bordered">
-          <option value="A">A (Jan–Jun)</option>
-          <option value="B">B (Jul–Dec)</option>
+          <option value="A" {% if next_semester_type == "A" %}selected{% endif %}>A (Jan–Jun)</option>
+          <option value="B" {% if next_semester_type == "B" %}selected{% endif %}>B (Jul–Dec)</option>
         </select>
       </div>
       <div class="modal-action">
