@@ -8,7 +8,6 @@ from django.db import models
 from django.db.models import Max
 from django.utils.translation import gettext_lazy as _
 
-from apps.users.models import Role
 
 # ---------------------------------------------------------------------------
 # Colour palette
@@ -87,7 +86,6 @@ class DeveloperProfile(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="developer_profile",
-        limit_choices_to={"role": Role.DEVELOPER},
     )
     tags = models.ManyToManyField(Tag, blank=True, related_name="developers")
     colour = models.CharField(
@@ -121,7 +119,6 @@ class ObserverProfile(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="observer_profile",
-        limit_choices_to={"role": Role.OBSERVER},
     )
 
     class Meta:
@@ -369,8 +366,79 @@ class SemesterDeveloper(models.Model):
         unique_together = [("developer", "semester")]
         ordering = ["semester__year", "semester__semester_type"]
 
+    def clean(self):
+        if self.effort_available and float(self.effort_available) > 0:
+            # SemesterObserver is defined later in this module but available at call time.
+            if SemesterObserver.objects.filter(
+                user=self.developer.user, semester=self.semester,
+            ).exists():
+                raise ValidationError(
+                    f"Cannot assign developer capacity — {self.developer.user} already has "
+                    f"observer access for {self.semester}. Remove their observer access first.",
+                )
+
     def __str__(self):
         return f"{self.developer} - {self.semester} ({self.effort_available} wks)"
+
+
+# ---------------------------------------------------------------------------
+# SemesterObserver — semester-specific project/stream access  (FR-11)
+# ---------------------------------------------------------------------------
+
+
+class SemesterObserver(models.Model):
+    """Semester-specific observer access: which projects/streams a user can view."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="semester_observer_records",
+    )
+    semester = models.ForeignKey(
+        Semester,
+        on_delete=models.CASCADE,
+        related_name="observer_records",
+    )
+
+    class Meta:
+        unique_together = [("user", "semester")]
+        verbose_name = _("Semester Observer")
+        verbose_name_plural = _("Semester Observers")
+
+    def clean(self):
+        if SemesterDeveloper.objects.filter(
+            developer__user=self.user,
+            semester=self.semester,
+            effort_available__gt=0,
+        ).exists():
+            raise ValidationError(
+                f"Cannot assign observer access — {self.user} already has developer "
+                f"capacity for {self.semester}. Remove their developer effort first.",
+            )
+
+    def __str__(self):
+        return f"{self.user} observer {self.semester}"
+
+
+SemesterObserver.add_to_class(
+    "project_access",
+    models.ManyToManyField(
+        Project,
+        blank=True,
+        related_name="semester_observer_access",
+        help_text=_("Projects this observer can view for this semester."),
+    ),
+)
+
+SemesterObserver.add_to_class(
+    "stream_access",
+    models.ManyToManyField(
+        Stream,
+        blank=True,
+        related_name="semester_observer_stream_access",
+        help_text=_("Streams this observer can view for this semester."),
+    ),
+)
 
 
 # ---------------------------------------------------------------------------

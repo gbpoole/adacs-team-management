@@ -17,7 +17,11 @@ from .views import PhaseCreateView
 from .views import PhaseDeleteView
 from .views import PhaseEditView
 from .views import PhaseUpdateView
+from .views import PeopleView
+from .views import PersonUpdateView
 from .views import PlanningView
+from .views import SemesterCreateView
+from .views import SemesterSwitchView
 from .views import ProjectCreateView
 from .views import ProjectDeleteView
 from .views import ProjectUpdateView
@@ -54,6 +58,10 @@ urlpatterns = [
     path("leave/add/", LeaveCreateView.as_view(), name="leave_add"),
     path("leave/<int:pk>/delete/", LeaveDeleteView.as_view(), name="leave_delete"),
     path("leave/<int:pk>/update/", LeaveUpdateView.as_view(), name="leave_update"),
+    path("people/", PeopleView.as_view(), name="people"),
+    path("people/<int:pk>/edit/", PersonUpdateView.as_view(), name="person_edit"),
+    path("semester/switch/", SemesterSwitchView.as_view(), name="semester_switch"),
+    path("semester/add/", SemesterCreateView.as_view(), name="semester_add"),
     path("planning/", PlanningView.as_view(), name="planning"),
     path("schedule/", ScheduleView.as_view(), name="schedule"),
     path("phase/add/", PhaseCreateView.as_view(), name="phase_add"),

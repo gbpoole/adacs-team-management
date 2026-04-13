@@ -4,47 +4,47 @@ from collections import defaultdict
 from django.views.generic import TemplateView
 
 from apps.planning.models import DeveloperProfile
-from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
-from apps.planning.models import Semester
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
 
-from ._mixins import RoleRequiredMixin
+from ._mixins import PMOrObserverMixin
+from ._mixins import _is_semester_observer
+from ._semester import get_selected_semester
 from ._timeline import _coverage
 from ._timeline import _week_starts
 
 
-class ScheduleView(RoleRequiredMixin, TemplateView):
+class ScheduleView(PMOrObserverMixin, TemplateView):
     template_name = "planning/schedule.html"
-    allowed_roles = (Role.PM, Role.OBSERVER)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         user = self.request.user
-        semester = Semester.get_current()
+        semester = get_selected_semester(self.request)
 
         weeks = _week_starts(semester.start_date, semester.end_date)
 
-        is_observer = user.role == Role.OBSERVER and not user.is_superuser
+        is_observer = _is_semester_observer(user, semester) and not user.is_superuser and user.role != Role.PM
 
         # Determine accessible project PKs for observers (direct + via stream access)
         accessible_project_pks = None
         if is_observer:
-            try:
-                profile = user.observer_profile
+            from apps.planning.models import SemesterObserver
+            obs = SemesterObserver.objects.filter(user=user, semester=semester).first()
+            if obs:
                 accessible_project_pks = set(
-                    profile.project_access.values_list("pk", flat=True)
+                    obs.project_access.values_list("pk", flat=True)
                 )
                 accessible_project_pks |= set(
                     Project.objects.filter(
-                        streams__in=profile.stream_access.all()
+                        streams__in=obs.stream_access.all()
                     ).values_list("pk", flat=True)
                 )
-            except ObserverProfile.DoesNotExist:
+            else:
                 accessible_project_pks = set()
 
         tag_filter = [] if is_observer else self.request.GET.getlist("tags")

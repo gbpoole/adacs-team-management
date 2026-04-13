@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %} — {% trans "People" %}{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col">
+  <div class="shrink-0 px-6 pt-6 pb-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">{% trans "People" %}</h1>
+        <p class="text-sm text-neutral-500">{% trans "All users — semester-specific columns show data for" %} {{ semester }}</p>
+      </div>
+    </div>
+  </div>
+
+  {% if all_tags %}
+  <div class="shrink-0 px-6 pb-3">
+    <form id="filter-form" method="get" class="flex items-start gap-2">
+      <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+      <div class="flex flex-wrap gap-1.5 items-center">
+        <button type="button" data-group="tags" data-action="all"
+                class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
+        <button type="button" data-group="tags" data-action="none"
+                class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
+        {% for tag in all_tags %}
+        <label class="cursor-pointer select-none">
+          <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
+                 {% if tag.name in selected_tags %}checked{% endif %}>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
+                       {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
+            {{ tag.name }}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </form>
+    <script>
+      (function () {
+        var STORAGE_KEY = 'people_filter';
+        var form = document.getElementById('filter-form');
+        var params = new URLSearchParams(window.location.search);
+        var urlTags = params.getAll('tags');
+        if (urlTags.length > 0) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: urlTags})); } catch (e) {}
+        } else {
+          try {
+            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            if (saved && saved.tags && saved.tags.length > 0) {
+              var p = new URLSearchParams();
+              saved.tags.forEach(function (t) { p.append('tags', t); });
+              window.location.replace(window.location.pathname + '?' + p.toString());
+              return;
+            }
+          } catch (e) {}
+        }
+        function submitFilter() {
+          var tags = Array.from(form.querySelectorAll('input[name="tags"]:checked')).map(function (cb) { return cb.value; });
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: tags})); } catch (e) {}
+          form.submit();
+        }
+        form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+          cb.addEventListener('change', submitFilter);
+        });
+        form.querySelectorAll('button[data-group]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var selectAll = btn.dataset.action === 'all';
+            form.querySelectorAll('input[name="tags"]').forEach(function (cb) { cb.checked = selectAll; });
+            submitFilter();
+          });
+        });
+      })();
+    </script>
+  </div>
+  {% endif %}
+
+  <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+    <table id="people-table" class="table table-zebra w-full">
+      <colgroup>
+        <col style="width: 10rem"><!-- Name -->
+        <col style="width: 10rem"><!-- Organisation -->
+        <col style="width: 8rem"><!-- Effort -->
+        <col style="width: 18rem"><!-- Tags -->
+        <col style="width: 18rem"><!-- Project Access Restrictions -->
+        <col style="width: 18rem"><!-- Stream Access Restrictions -->
+      </colgroup>
+      <thead>
+        <tr class="bg-base-100 sticky top-0 z-10">
+          <th class="cursor-pointer select-none" onclick="sortPeopleTable('name')" data-col="name">
+            {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th class="cursor-pointer select-none" onclick="sortPeopleTable('organisation')" data-col="organisation">
+            {% trans "Organisation" %} <span class="sort-icon text-neutral-400">⇅</span>
+          </th>
+          <th>{% trans "Effort (wks)" %}</th>
+          <th>{% trans "Tags" %}</th>
+          <th>{% trans "Project Access Restrictions" %}</th>
+          <th>{% trans "Stream Access Restrictions" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for person in people %}
+        <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200"
+            onclick="openEditPerson(this)"
+            data-pk="{{ person.pk }}"
+            data-name="{{ person.name|default:'' }}"
+            data-email="{{ person.email }}"
+            data-organisation="{{ person.organisation|default:'' }}"{% endif %}
+            data-sort-name="{{ person.name|default:person.email|lower }}"
+            data-sort-organisation="{{ person.organisation|default:''|lower }}">
+          <td>{{ person.name|default:person.email }}</td>
+          <td>{{ person.organisation|default:"—" }}</td>
+          <td>
+            {% if person.semester_effort is not None %}{{ person.semester_effort }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% with profile=person.developer_profile %}
+            {% if profile %}
+              {% for tag in profile.tags.all %}
+              <span class="badge badge-sm" style="background-color: {{ tag.colour }}; color: white; border-color: {{ tag.colour }};">{{ tag }}</span>
+              {% empty %}—{% endfor %}
+            {% else %}—{% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% if person.semester_observer %}
+              {% for proj in person.semester_observer.project_access.all %}
+                <span class="badge badge-sm" style="background-color: {{ proj.colour }}; color: white; border-color: {{ proj.colour }};">{{ proj.display_name }}</span>
+              {% empty %}—{% endfor %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if person.semester_observer %}
+              {% for stream in person.semester_observer.stream_access.all %}
+                <span class="badge badge-sm" style="background-color: {{ stream.colour }}; color: white; border-color: {{ stream.colour }};">{{ stream.name }}</span>
+              {% empty %}—{% endfor %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-neutral-500">{% trans "No people found." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if can_edit %}
+<dialog id="person-edit-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Edit Person" %}</h3>
+    <form id="person-edit-form" method="post" action="">
+      {% csrf_token %}
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Email" %}</label>
+        <input id="edit-person-email" type="email" class="input input-bordered bg-base-200" readonly>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Name" %}</label>
+        <input id="edit-person-name" type="text" name="name" class="input input-bordered">
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Organisation" %}</label>
+        <input id="edit-person-organisation" type="text" name="organisation" class="input input-bordered">
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('person-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+{% endif %}
+
+<script>
+(function () {
+  var SORT_KEY = 'people_sort';
+  var _sortCol = 'name', _sortAsc = true;
+
+  function applySort() {
+    var tbody = document.querySelector('#people-table tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
+    rows.sort(function (a, b) {
+      var key = 'sort' + _sortCol.charAt(0).toUpperCase() + _sortCol.slice(1);
+      var av = a.dataset[key] || '';
+      var bv = b.dataset[key] || '';
+      var cmp = av.localeCompare(bv);
+      return _sortAsc ? cmp : -cmp;
+    });
+    rows.forEach(function (r) { tbody.appendChild(r); });
+    document.querySelectorAll('#people-table th[data-col]').forEach(function (th) {
+      var icon = th.querySelector('.sort-icon');
+      if (th.dataset.col === _sortCol) {
+        icon.textContent = _sortAsc ? '▲' : '▼';
+        icon.classList.remove('text-neutral-400');
+      } else {
+        icon.textContent = '⇅';
+        icon.classList.add('text-neutral-400');
+      }
+    });
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({col: _sortCol, asc: _sortAsc})); } catch (e) {}
+  }
+
+  window.sortPeopleTable = function (col) {
+    if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = true; }
+    applySort();
+  };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+    if (saved && saved.col) { _sortCol = saved.col; _sortAsc = saved.asc; }
+  } catch (e) {}
+  applySort();
+})();
+
+{% if can_edit %}
+function openEditPerson(row) {
+  document.getElementById('edit-person-email').value = row.dataset.email;
+  document.getElementById('edit-person-name').value = row.dataset.name;
+  document.getElementById('edit-person-organisation').value = row.dataset.organisation;
+  document.getElementById('person-edit-form').action = '/planning/people/' + row.dataset.pk + '/edit/';
+  document.getElementById('person-edit-modal').showModal();
+}
+
+document.getElementById('person-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  fetch(this.action, { method: 'POST', body: new FormData(this) })
+    .then(function () { window.location.reload(); })
+    .catch(function () { window.location.reload(); });
+});
+{% endif %}
+</script>
+{% endblock %}

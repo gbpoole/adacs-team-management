@@ -27,13 +27,13 @@ from django.db import transaction
 from apps.planning.models import AllocationType
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
-from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
+from apps.planning.models import SemesterObserver
 from apps.planning.models import SemesterType
 from apps.planning.models import Stream
 from apps.planning.models import Tag
@@ -105,18 +105,18 @@ class Command(BaseCommand):
             SemesterDeveloper.objects.all().delete()
             ProjectAllocation.objects.all().delete()
             ProjectSemesterName.objects.all().delete()
-            ObserverProfile.objects.all().delete()
+            SemesterObserver.objects.all().delete()
             DeveloperProfile.objects.all().delete()
             Project.objects.all().delete()
             Stream.objects.all().delete()
             Tag.objects.all().delete()
             Semester.objects.all().delete()
-            User.objects.filter(role__in=[Role.DEVELOPER, Role.OBSERVER]).delete()
+            User.objects.filter(role=Role.USER).delete()
 
         self.stdout.write("Creating fixed seed accounts...")
         self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "pm1234", is_staff=True, is_superuser=True)
         self._create_seed_account("pm2@adacs.org.au", "PM User 2", Role.PM, "pm1234")
-        self._create_seed_account("developer@adacs.org.au", "Developer User", Role.DEVELOPER, "developer1234")
+        self._create_seed_account("developer@adacs.org.au", "Developer User", Role.USER, "developer1234")
 
         self.stdout.write("Creating semesters...")
         seed_year = datetime.date.today().year
@@ -134,7 +134,7 @@ class Command(BaseCommand):
                 email=email,
                 defaults={
                     "name": row.get("name", "").strip(),
-                    "role": Role.DEVELOPER,
+                    "role": Role.USER,
                     "organisation": row.get("organisation", "").strip(),
                 },
             )
@@ -204,18 +204,19 @@ class Command(BaseCommand):
                 email=email,
                 defaults={
                     "name": row.get("name", "").strip(),
-                    "role": Role.OBSERVER,
+                    "role": Role.USER,
                     "organisation": row.get("organisation", "").strip(),
                 },
             )
             if created:
                 user.set_password("testpass123")
                 user.save()
-            obs, _ = ObserverProfile.objects.get_or_create(user=user)
             access_names = [n.strip() for n in row.get("project_access", "").split(",") if n.strip()]
             access_projects = [project_by_name[n] for n in access_names if n in project_by_name]
-            if access_projects:
-                obs.project_access.set(access_projects)
+            for sem in [sem_a, sem_b]:
+                obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=sem)
+                if access_projects:
+                    obs.project_access.set(access_projects)
             obs_count += 1
         self.stdout.write(f"  {obs_count} observers loaded.")
 

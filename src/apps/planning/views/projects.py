@@ -9,12 +9,11 @@ from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import ListView
 
-from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
-from apps.planning.models import Semester
+from apps.planning.models import SemesterObserver
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
@@ -23,22 +22,33 @@ from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
 from ._csv_import import _upload_error
 from ._csv_import import _validate_project_rows
+from ._mixins import PMOrParticipantMixin
 from ._mixins import RoleRequiredMixin
+from ._mixins import _is_semester_observer
+from ._semester import get_selected_semester
 
 
-class ProjectsView(RoleRequiredMixin, ListView):
+class ProjectsView(PMOrParticipantMixin, ListView):
     template_name = "planning/projects.html"
     context_object_name = "projects"
-    allowed_roles = (Role.PM, Role.DEVELOPER, Role.OBSERVER)
 
     def get_queryset(self):
         qs = Project.objects.prefetch_related("tags", "streams", "semester_names")
         user = self.request.user
-        if user.role == Role.OBSERVER:
-            try:
-                profile = user.observer_profile
-                qs = qs.filter(observer_access=profile)
-            except ObserverProfile.DoesNotExist:
+        semester = get_selected_semester(self.request)
+        if _is_semester_observer(user, semester) and not user.is_superuser and user.role != Role.PM:
+            obs_record = SemesterObserver.objects.filter(
+                user=user, semester=semester,
+            ).prefetch_related("project_access", "stream_access").first()
+            if obs_record:
+                direct_pks = set(obs_record.project_access.values_list("pk", flat=True))
+                stream_pks = set(
+                    Project.objects.filter(
+                        streams__in=obs_record.stream_access.all()
+                    ).values_list("pk", flat=True)
+                )
+                qs = qs.filter(pk__in=direct_pks | stream_pks)
+            else:
                 qs = qs.none()
         tag_filter = self.request.GET.getlist("tags")
         stream_filter = self.request.GET.getlist("streams")
@@ -50,7 +60,7 @@ class ProjectsView(RoleRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        semester = Semester.get_current()
+        semester = get_selected_semester(self.request)
         ctx["semester"] = semester
         ctx["can_edit"] = self.request.user.role == Role.PM or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
@@ -82,7 +92,7 @@ class ProjectCreateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if not name:
             return redirect("planning:projects")
-        semester = Semester.get_current()
+        semester = get_selected_semester(request)
         project = Project()
         project.save()
         ProjectSemesterName.objects.create(project=project, semester=semester, name=name)
@@ -111,7 +121,7 @@ class ProjectUploadView(RoleRequiredMixin, View):
         errors = _validate_project_rows(rows)
         if errors:
             return _upload_error(request, "projects", errors)
-        semester = Semester.get_current()
+        semester = get_selected_semester(request)
         with transaction.atomic():
             for row in rows:
                 name = row["name"].strip()
@@ -138,7 +148,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         project = get_object_or_404(Project, pk=pk)
-        semester = Semester.get_current()
+        semester = get_selected_semester(request)
         name = request.POST.get("name", "").strip()
         if name:
             psn, _ = ProjectSemesterName.objects.get_or_create(project=project, semester=semester)

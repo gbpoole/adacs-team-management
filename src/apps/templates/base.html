@@ -16,7 +16,7 @@
     <script src="{% static 'js/htmx.min.js' %}"></script>
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}" />
   </head>
-  <body class="h-full" hx-boost="true">
+  <body class="h-screen flex flex-col overflow-hidden" hx-boost="true">
     {% block body %}
       {% include 'elements/navbar.html' %}
       {# Display any messages #}
@@ -26,8 +26,10 @@
         {% endfor %}
       {% endif %}
       {# Main content block #}
-      {% block content %}
-      {% endblock content %}
+      <main class="flex-1 min-h-0 overflow-hidden">
+        {% block content %}
+        {% endblock content %}
+      </main>
     {% endblock body %}
   </body>
 </html>

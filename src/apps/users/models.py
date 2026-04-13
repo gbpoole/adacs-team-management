@@ -12,8 +12,7 @@ from .managers import UserManager
 
 class Role(TextChoices):
     PM = "pm", _("Project Manager")
-    DEVELOPER = "developer", _("Developer")
-    OBSERVER = "observer", _("Observer")
+    USER = "user", _("User")
 
 
 class User(AbstractUser):
@@ -33,7 +32,7 @@ class User(AbstractUser):
         _("Role"),
         max_length=20,
         choices=Role.choices,
-        default=Role.DEVELOPER,
+        default=Role.USER,
     )
     organisation = CharField(_("Organisation"), max_length=255, blank=True)
 

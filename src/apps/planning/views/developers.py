@@ -12,7 +12,6 @@ from django.views.generic import ListView
 
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
-from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import Tag
 from apps.users.models import Role
@@ -20,11 +19,13 @@ from apps.users.models import Role
 from ._csv_import import _get_or_create_tags
 from ._csv_import import _upload_error
 from ._csv_import import _validate_developer_rows
+from ._mixins import PMOrDeveloperMixin
 from ._mixins import RoleRequiredMixin
 from ._mixins import _update_user_profile_fields
+from ._semester import get_selected_semester
 
 
-def _upsert_semester_developer(profile, effort_str):
+def _upsert_semester_developer(profile, effort_str, semester):
     if not effort_str:
         return
     try:
@@ -33,7 +34,7 @@ def _upsert_semester_developer(profile, effort_str):
         return
     sd, created = SemesterDeveloper.objects.get_or_create(
         developer=profile,
-        semester=Semester.get_current(),
+        semester=semester,
         defaults={"effort_available": effort},
     )
     if not created:
@@ -41,10 +42,9 @@ def _upsert_semester_developer(profile, effort_str):
         sd.save(update_fields=["effort_available"])
 
 
-class DevelopersView(RoleRequiredMixin, ListView):
+class DevelopersView(PMOrDeveloperMixin, ListView):
     template_name = "planning/developers.html"
     context_object_name = "developers"
-    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def get_queryset(self):
         qs = (
@@ -59,7 +59,7 @@ class DevelopersView(RoleRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        semester = Semester.get_current()
+        semester = get_selected_semester(self.request)
         ctx["semester"] = semester
         ctx["can_edit"] = self.request.user.role == Role.PM or self.request.user.is_superuser
         ctx["all_tags"] = Tag.objects.all()
@@ -101,7 +101,7 @@ class DeveloperCreateView(RoleRequiredMixin, View):
             email=email,
             defaults={
                 "name": request.POST.get("name", "").strip(),
-                "role": Role.DEVELOPER,
+                "role": Role.USER,
                 "organisation": request.POST.get("organisation", "").strip(),
             },
         )
@@ -109,7 +109,10 @@ class DeveloperCreateView(RoleRequiredMixin, View):
         tag_names = request.POST.getlist("tags")
         if tag_names:
             profile.tags.set(_get_or_create_tags(tag_names))
-        _upsert_semester_developer(profile, request.POST.get("effort_available", "").strip())
+        _upsert_semester_developer(
+            profile, request.POST.get("effort_available", "").strip(),
+            get_selected_semester(request),
+        )
         return redirect("planning:developers")
 
 
@@ -125,6 +128,7 @@ class DeveloperUploadView(RoleRequiredMixin, View):
         if errors:
             return _upload_error(request, "developers", errors)
         User = get_user_model()
+        semester = get_selected_semester(request)
         with transaction.atomic():
             for row in rows:
                 email = row["email"].strip()
@@ -132,7 +136,7 @@ class DeveloperUploadView(RoleRequiredMixin, View):
                     email=email,
                     defaults={
                         "name": row.get("name", "").strip(),
-                        "role": Role.DEVELOPER,
+                        "role": Role.USER,
                         "organisation": row.get("organisation", "").strip(),
                     },
                 )
@@ -140,7 +144,7 @@ class DeveloperUploadView(RoleRequiredMixin, View):
                 tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
                 if tag_names:
                     profile.tags.set(_get_or_create_tags(tag_names))
-                _upsert_semester_developer(profile, row.get("effort_available", "").strip())
+                _upsert_semester_developer(profile, row.get("effort_available", "").strip(), semester)
         messages.success(request, f"{len(rows)} developer(s) uploaded successfully.")
         return redirect("planning:developers")
 
@@ -153,7 +157,10 @@ class DeveloperUpdateView(RoleRequiredMixin, View):
         _update_user_profile_fields(profile.user, request.POST)
         tag_names = request.POST.getlist("tags")
         profile.tags.set(_get_or_create_tags(tag_names))
-        _upsert_semester_developer(profile, request.POST.get("effort_available", "").strip())
+        _upsert_semester_developer(
+            profile, request.POST.get("effort_available", "").strip(),
+            get_selected_semester(request),
+        )
         return redirect("planning:developers")
 
 

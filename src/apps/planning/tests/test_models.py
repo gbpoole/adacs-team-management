@@ -10,8 +10,8 @@ from django.db.models import ProtectedError
 from apps.planning.models import COLOUR_PALETTE
 from apps.planning.models import DeveloperLane
 from apps.planning.models import Leave
-from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
+from apps.planning.models import SemesterObserver
 from apps.planning.models import Project
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
@@ -27,8 +27,8 @@ from apps.planning.models import _next_colour
 from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
-from apps.planning.tests.factories import ObserverProfileFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
+from apps.planning.tests.factories import SemesterObserverFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
@@ -509,13 +509,13 @@ class TestProjectColour(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# ObserverProfile.project_access M2M
+# SemesterObserver.project_access M2M
 # ---------------------------------------------------------------------------
 
 
-class TestObserverProjectAccess(TestCase):
+class TestSemesterObserverProjectAccess(TestCase):
     def setUp(self):
-        self.obs = ObserverProfileFactory()
+        self.obs = SemesterObserverFactory()
         self.project = ProjectFactory()
 
     def test_no_access_by_default(self):
@@ -758,3 +758,55 @@ class TestPhaseValidation(TestCase):
         phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=1.5)
         with self.assertRaises(ValidationError):
             phase.full_clean()
+
+
+# ---------------------------------------------------------------------------
+# SemesterDeveloper / SemesterObserver mutual exclusivity
+# ---------------------------------------------------------------------------
+
+
+class SemesterDeveloperValidationTests(TestCase):
+    def test_clean_raises_if_user_has_semester_observer(self):
+        dev = DeveloperProfileFactory()
+        sem = SemesterFactory()
+        SemesterObserverFactory(user=dev.user, semester=sem)
+        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=10)
+        with self.assertRaises(ValidationError):
+            sd.full_clean()
+
+    def test_clean_allows_zero_effort_when_observer_exists(self):
+        dev = DeveloperProfileFactory()
+        sem = SemesterFactory()
+        SemesterObserverFactory(user=dev.user, semester=sem)
+        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=0)
+        sd.full_clean()  # must not raise
+
+    def test_clean_allows_positive_effort_with_no_observer(self):
+        dev = DeveloperProfileFactory()
+        sem = SemesterFactory()
+        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=10)
+        sd.full_clean()  # must not raise
+
+
+class SemesterObserverValidationTests(TestCase):
+    def test_clean_raises_if_user_has_developer_with_positive_effort(self):
+        dev = DeveloperProfileFactory()
+        sem = SemesterFactory()
+        SemesterDeveloper.objects.create(developer=dev, semester=sem, effort_available=15)
+        obs = SemesterObserver(user=dev.user, semester=sem)
+        with self.assertRaises(ValidationError):
+            obs.full_clean()
+
+    def test_clean_allows_observer_when_developer_has_zero_effort(self):
+        dev = DeveloperProfileFactory()
+        sem = SemesterFactory()
+        SemesterDeveloper.objects.create(developer=dev, semester=sem, effort_available=0)
+        obs = SemesterObserver(user=dev.user, semester=sem)
+        obs.full_clean()  # must not raise
+
+    def test_clean_allows_observer_with_no_developer_record(self):
+        from apps.planning.tests.factories import UserFactory
+        user = UserFactory()
+        sem = SemesterFactory()
+        obs = SemesterObserver(user=user, semester=sem)
+        obs.full_clean()  # must not raise

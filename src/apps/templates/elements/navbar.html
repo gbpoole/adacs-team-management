@@ -2,8 +2,12 @@
 {% load static i18n %}
 
 <header class="sticky top-0 z-50 bg-base-100">
+
+  {# ── Primary navbar ─────────────────────────────────────────────────── #}
   <div class="navbar bg-base-100 text-lg font-semibold">
+
     <div class="navbar-start">
+      {# Mobile hamburger #}
       <div class="dropdown">
         <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
           <svg xmlns="http://www.w3.org/2000/svg"
@@ -16,43 +20,49 @@
         </div>
         <ul tabindex="0"
             class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
-          <li>
-            <a href="{% url 'home' %}">Home</a>
-          </li>
 
+          {# App-wide links #}
+          <li><a href="{% url 'home' %}">{% trans "Home" %}</a></li>
           {% if request.user.is_authenticated %}
-            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
-            <li><a href="{% url 'planning:developers' %}">{% translate "Developers" %}</a></li>
+            <li><a href="{% url 'planning:people' %}">{% trans "People" %}</a></li>
+            {% if request.user.role == 'pm' or request.user.is_superuser %}
+              <li><a href="{% url 'planning:tags' %}">{% trans "Tags" %}</a></li>
+              <li><a href="{% url 'planning:streams' %}">{% trans "Streams" %}</a></li>
             {% endif %}
-            <li><a href="{% url 'planning:projects' %}">{% translate "Projects" %}</a></li>
-            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
-            <li><a href="{% url 'planning:observers' %}">{% translate "Observers" %}</a></li>
-            <li><a href="{% url 'planning:tags' %}">{% translate "Tags" %}</a></li>
-            <li><a href="{% url 'planning:streams' %}">{% translate "Streams" %}</a></li>
+            {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
+              <li><a href="{% url 'planning:leave' %}">{% trans "Leave" %}</a></li>
             {% endif %}
-            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
-            <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
-            {% endif %}
-            {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'observer' or request.user.is_superuser %}
-            <li><a href="{% url 'planning:planning' %}">{% translate "Planning" %}</a></li>
-            <li><a href="{% url 'planning:schedule' %}">{% translate "Schedule" %}</a></li>
-            {% endif %}
-            <li>
-              <a href="{% url 'users:detail' request.user.pk %}">My Profile</a>
-            </li>
-            <li>
-              <a href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
-            </li>
+            <li><a href="{% url 'users:detail' request.user.pk %}">{% trans "My Profile" %}</a></li>
+            <li><a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a></li>
           {% else %}
             {% if ACCOUNT_ALLOW_REGISTRATION %}
-              <li>
-                <a href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
-              </li>
+              <li><a href="{% url 'account_signup' %}">{% trans "Sign Up" %}</a></li>
+            {% endif %}
+            <li><a href="{% url 'account_login' %}">{% trans "Log In" %}</a></li>
+          {% endif %}
+
+          {# Semester-specific links (with divider) #}
+          {% if request.user.is_authenticated and request.user.role == 'pm' or request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and user_is_semester_developer or request.user.is_authenticated and user_is_semester_observer %}
+            <li class="menu-title text-xs uppercase tracking-wide text-neutral-400 pt-2">{% trans "Semester" %}</li>
+            {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
+              <li><a href="{% url 'planning:developers' %}">{% trans "Developers" %}</a></li>
+            {% endif %}
+            {% if request.user.role == 'pm' or user_is_semester_developer or user_is_semester_observer or request.user.is_superuser %}
+              <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
+            {% endif %}
+            {% if request.user.role == 'pm' or request.user.is_superuser %}
+              <li><a href="{% url 'planning:observers' %}">{% trans "Observers" %}</a></li>
+            {% endif %}
+            {% if request.user.role == 'pm' or user_is_semester_observer or request.user.is_superuser %}
+              <li><a href="{% url 'planning:planning' %}">{% trans "Planning" %}</a></li>
+              <li><a href="{% url 'planning:schedule' %}">{% trans "Schedule" %}</a></li>
             {% endif %}
           {% endif %}
 
         </ul>
       </div>
+
+      {# Logo #}
       <a class="btn btn-ghost" href="{% url 'home' %}">
         <span class="sr-only">ADACS</span>
         <img class="h-7 w-auto mb-2"
@@ -60,54 +70,117 @@
              alt="ADACS logo" />
       </a>
     </div>
+
+    {# Desktop centre: app-wide links #}
     <div class="navbar-center hidden lg:flex">
       <ul class="menu menu-horizontal px-1">
-        <li>
-          <a href="{% url 'home' %}">Home</a>
-        </li>
+        <li><a href="{% url 'home' %}">{% trans "Home" %}</a></li>
         {% if request.user.is_authenticated %}
-          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
-          <li><a href="{% url 'planning:developers' %}">{% translate "Developers" %}</a></li>
+          <li><a href="{% url 'planning:people' %}">{% trans "People" %}</a></li>
+          {% if request.user.role == 'pm' or request.user.is_superuser %}
+            <li><a href="{% url 'planning:tags' %}">{% trans "Tags" %}</a></li>
+            <li><a href="{% url 'planning:streams' %}">{% trans "Streams" %}</a></li>
           {% endif %}
-          <li><a href="{% url 'planning:projects' %}">{% translate "Projects" %}</a></li>
-          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.is_superuser %}
-          <li><a href="{% url 'planning:observers' %}">{% translate "Observers" %}</a></li>
-          <li><a href="{% url 'planning:tags' %}">{% translate "Tags" %}</a></li>
-          <li><a href="{% url 'planning:streams' %}">{% translate "Streams" %}</a></li>
-          {% endif %}
-          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'developer' or request.user.is_superuser %}
-          <li><a href="{% url 'planning:leave' %}">{% translate "Leave" %}</a></li>
-          {% endif %}
-          {% if request.user.role == 'admin' or request.user.role == 'pm' or request.user.role == 'observer' or request.user.is_superuser %}
-          <li><a href="{% url 'planning:planning' %}">{% translate "Planning" %}</a></li>
-          <li><a href="{% url 'planning:schedule' %}">{% translate "Schedule" %}</a></li>
+          {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
+            <li><a href="{% url 'planning:leave' %}">{% trans "Leave" %}</a></li>
           {% endif %}
         {% endif %}
       </ul>
     </div>
+
+    {# Desktop right: user actions #}
     <div class="navbar-end hidden lg:flex">
       <ul class="menu menu-horizontal">
-
         {% if request.user.is_authenticated %}
-          {# URLs provided by django-allauth/account/urls.py #}
-          <li>
-            <a href="{% url 'users:detail' request.user.pk %}">My Profile</a>
-          </li>
-          <li>
-            <a href="{% url 'account_logout' %}">Sign Out</a>
-          </li>
+          <li><a href="{% url 'users:detail' request.user.pk %}">{% trans "My Profile" %}</a></li>
+          <li><a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a></li>
         {% else %}
           {% if ACCOUNT_ALLOW_REGISTRATION %}
-            <li>
-              <a class="hidden lg:flex" href="{% url 'account_signup' %}">Sign Up</a>
-            </li>
+            <li><a class="hidden lg:flex" href="{% url 'account_signup' %}">{% trans "Sign Up" %}</a></li>
           {% endif %}
-          <li>
-            <a href="{% url 'account_login' %}">Log in <span aria-hidden="true">&rarr;</span></a>
-          </li>
+          <li><a href="{% url 'account_login' %}">{% trans "Log in" %} <span aria-hidden="true">&rarr;</span></a></li>
         {% endif %}
-
       </ul>
     </div>
+
+  </div>{# /primary navbar #}
+
+  {# ── Secondary sub-bar: semester-specific links ──────────────────────── #}
+  {% if request.user.is_authenticated and request.user.role == 'pm' or request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and user_is_semester_developer or request.user.is_authenticated and user_is_semester_observer %}
+  <div class="hidden lg:flex items-center justify-center border-t border-base-200 bg-base-200 px-4 py-1 gap-4">
+
+    {# Semester selector #}
+    {% if all_semesters %}
+    <div class="flex items-center gap-1 shrink-0">
+      <span class="text-sm text-neutral-500 font-normal">{% trans "Semester:" %}</span>
+      <form method="post" action="{% url 'planning:semester_switch' %}" id="semester-switch-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <select name="semester" class="select select-sm select-bordered text-sm font-normal bg-base-100"
+                onchange="document.getElementById('semester-switch-form').submit()">
+          {% for sem in all_semesters %}
+          <option value="{{ sem.year }}{{ sem.semester_type }}"
+                  {% if sem == selected_semester %}selected{% endif %}>
+            {{ sem }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+      {% if request.user.role == 'pm' or request.user.is_superuser %}
+      <button class="btn btn-ghost btn-sm text-xs px-1" title="{% trans 'Add semester' %}"
+              onclick="document.getElementById('add-semester-modal').showModal()">＋</button>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Semester-specific nav links #}
+    <ul class="menu menu-horizontal px-0 text-sm font-semibold gap-0">
+      {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
+        <li><a href="{% url 'planning:developers' %}">{% trans "Developers" %}</a></li>
+      {% endif %}
+      {% if request.user.role == 'pm' or user_is_semester_developer or user_is_semester_observer or request.user.is_superuser %}
+        <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
+      {% endif %}
+      {% if request.user.role == 'pm' or request.user.is_superuser %}
+        <li><a href="{% url 'planning:observers' %}">{% trans "Observers" %}</a></li>
+      {% endif %}
+      {% if request.user.role == 'pm' or user_is_semester_observer or request.user.is_superuser %}
+        <li><a href="{% url 'planning:planning' %}">{% trans "Planning" %}</a></li>
+        <li><a href="{% url 'planning:schedule' %}">{% trans "Schedule" %}</a></li>
+      {% endif %}
+    </ul>
+
   </div>
+  {% endif %}{# /sub-bar #}
+
 </header>
+
+{% if request.user.is_authenticated %}
+{% if request.user.role == 'pm' or request.user.is_superuser %}
+<dialog id="add-semester-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">{% trans "Add Semester" %}</h3>
+    <form method="post" action="{% url 'planning:semester_add' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Year" %}</label>
+        <input type="number" name="year" min="2020" max="2099" class="input input-bordered" required>
+      </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Semester" %}</label>
+        <select name="semester_type" class="select select-bordered">
+          <option value="A">A (Jan–Jun)</option>
+          <option value="B">B (Jul–Dec)</option>
+        </select>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-semester-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+{% endif %}
+{% endif %}

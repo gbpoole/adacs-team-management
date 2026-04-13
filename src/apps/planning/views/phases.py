@@ -9,7 +9,6 @@ from django.views import View
 from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
-from apps.planning.models import Semester
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
 from apps.planning.models import _find_or_create_non_overlapping_lane
@@ -17,6 +16,7 @@ from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
 from ._mixins import _get_next_url
+from ._semester import get_selected_semester
 
 
 class PhaseCreateView(RoleRequiredMixin, View):
@@ -33,7 +33,7 @@ class PhaseCreateView(RoleRequiredMixin, View):
         except ValueError:
             messages.error(request, "Invalid date or effort value.")
             return redirect(next_url)
-        semester = Semester.get_current()
+        semester = get_selected_semester(request)
         developer = get_object_or_404(DeveloperProfile, pk=developer_id)
         lane_pk = request.POST.get("lane_pk")
         if lane_pk and lane_pk != "new":

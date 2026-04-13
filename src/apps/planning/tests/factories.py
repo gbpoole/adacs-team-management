@@ -6,8 +6,8 @@ from factory.django import DjangoModelFactory
 from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
-from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
+from apps.planning.models import SemesterObserver
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
@@ -26,21 +26,13 @@ class UserFactory(DjangoModelFactory):
 
     email = factory.Sequence(lambda n: f"user{n}@example.com")
     name = factory.Faker("name")
-    role = Role.DEVELOPER
+    role = Role.USER
     organisation = "ADACS"
     password = factory.PostGenerationMethodCall("set_password", "testpassword")
 
 
 class PMUserFactory(UserFactory):
     role = Role.PM
-
-
-class DeveloperUserFactory(UserFactory):
-    role = Role.DEVELOPER
-
-
-class ObserverUserFactory(UserFactory):
-    role = Role.OBSERVER
 
 
 class TagFactory(DjangoModelFactory):
@@ -61,15 +53,8 @@ class DeveloperProfileFactory(DjangoModelFactory):
     class Meta:
         model = DeveloperProfile
 
-    user = factory.SubFactory(DeveloperUserFactory)
+    user = factory.SubFactory(UserFactory)
     colour = ""  # triggers auto-assign in model.save()
-
-
-class ObserverProfileFactory(DjangoModelFactory):
-    class Meta:
-        model = ObserverProfile
-
-    user = factory.SubFactory(ObserverUserFactory)
 
 
 class SemesterFactory(DjangoModelFactory):
@@ -105,6 +90,14 @@ class ProjectAllocationFactory(DjangoModelFactory):
     semester = factory.SubFactory(SemesterFactory)
     weeks_new = 10
     weeks_carryover = 0
+
+
+class SemesterObserverFactory(DjangoModelFactory):
+    class Meta:
+        model = SemesterObserver
+
+    user = factory.SubFactory(UserFactory)
+    semester = factory.SubFactory(SemesterFactory)
 
 
 class SemesterDeveloperFactory(DjangoModelFactory):
@@ -144,3 +137,18 @@ class PhaseFactory(DjangoModelFactory):
     start_date = datetime.date(2026, 1, 5)
     end_date = datetime.date(2026, 2, 2)
     effort_multiplier = 1.0
+
+
+def make_semester_developer(semester=None):
+    """Create a User + DeveloperProfile + SemesterDeveloper for the given semester."""
+    sem = semester or Semester.get_current()
+    profile = DeveloperProfileFactory()
+    SemesterDeveloperFactory(developer=profile, semester=sem, effort_available=26)
+    return profile
+
+
+def make_semester_observer(semester=None):
+    """Create a User + SemesterObserver for the given semester."""
+    sem = semester or Semester.get_current()
+    user = UserFactory()
+    return SemesterObserverFactory(user=user, semester=sem)

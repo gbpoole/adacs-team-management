@@ -1,7 +1,9 @@
 """Integration tests for planning views."""
 import datetime
 
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import RequestFactory
 from django.test import TestCase
 from django.urls import reverse
 
@@ -10,8 +12,8 @@ from django.contrib.auth import get_user_model
 from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
-from apps.planning.models import ObserverProfile
 from apps.planning.models import Phase
+from apps.planning.models import SemesterObserver
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
@@ -21,21 +23,22 @@ from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
-from apps.planning.tests.factories import DeveloperUserFactory
 from apps.planning.tests.factories import LeaveFactory
-from apps.planning.tests.factories import ObserverProfileFactory
-from apps.planning.tests.factories import ObserverUserFactory
+from apps.planning.tests.factories import SemesterObserverFactory
 from apps.planning.tests.factories import PMUserFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import SemesterType
+from apps.planning.tests.factories import UserFactory
+from apps.planning.tests.factories import make_semester_developer
+from apps.planning.tests.factories import make_semester_observer
 
 
 _ROLE_FACTORIES = {
-    "pm": PMUserFactory,
-    "developer": DeveloperUserFactory,
-    "observer": ObserverUserFactory,
+    "pm": lambda: PMUserFactory(),
+    "developer": lambda: make_semester_developer().user,
+    "observer": lambda: make_semester_observer().user,
 }
 
 
@@ -65,7 +68,7 @@ class HomeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_developer_context_populated(self):
-        dev = DeveloperProfileFactory()
+        dev = make_semester_developer()
         self.client.force_login(dev.user)
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
@@ -79,17 +82,16 @@ class HomeViewTests(TestCase):
         response = self.client.get(reverse("home"))
         self.assertEqual(response.context["my_effort_available"], 15)
 
-    def test_developer_without_profile_shows_no_error(self):
-        # A user with role=DEVELOPER but no DeveloperProfile should still get 200
-        from apps.planning.tests.factories import DeveloperUserFactory
-        user = DeveloperUserFactory()
+    def test_user_without_profile_shows_no_error(self):
+        # A plain user with no DeveloperProfile should still get 200
+        user = UserFactory()
         self.client.force_login(user)
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("my_profile", response.context)
 
     def test_observer_project_count_in_context(self):
-        obs = ObserverProfileFactory()
+        obs = SemesterObserverFactory()
         project = ProjectFactory()
         obs.project_access.add(project)
         self.client.force_login(obs.user)
@@ -119,7 +121,7 @@ class DevelopersViewTests(PlanningTestCase):
         self.assertRoleAccess(self.url, allowed=["pm", "developer"], denied=["observer"])
 
     def test_shows_developer_in_table(self):
-        dev_profile = DeveloperProfileFactory()
+        dev_profile = make_semester_developer()
         self.client.force_login(dev_profile.user)
         response = self.client.get(self.url)
         # Template shows name when set, falling back to email
@@ -133,7 +135,7 @@ class DevelopersViewTests(PlanningTestCase):
         self.assertContains(response, "Add Developer")
 
     def test_developer_does_not_see_add_button(self):
-        dev_profile = DeveloperProfileFactory()
+        dev_profile = make_semester_developer()
         self.client.force_login(dev_profile.user)
         response = self.client.get(self.url)
         self.assertNotContains(response, "Add Developer")
@@ -151,7 +153,7 @@ class ObserversViewTests(PlanningTestCase):
         self.assertRoleAccess(self.url, allowed=["pm"], denied=["developer", "observer"])
 
     def test_shows_observer_in_table(self):
-        obs = ObserverProfileFactory()
+        obs = SemesterObserverFactory()
         admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
@@ -161,7 +163,7 @@ class ObserversViewTests(PlanningTestCase):
         semester = Semester.get_current()
         project = ProjectFactory()
         ProjectSemesterNameFactory(project=project, semester=semester, name="My Real Project")
-        obs = ObserverProfileFactory()
+        obs = SemesterObserverFactory(semester=semester)
         obs.project_access.add(project)
         admin = PMUserFactory()
         self.client.force_login(admin)
@@ -170,7 +172,7 @@ class ObserversViewTests(PlanningTestCase):
         self.assertNotContains(response, f"Project #{project.pk}")
 
     def test_observer_with_no_projects_shows_none(self):
-        ObserverProfileFactory()
+        SemesterObserverFactory()
         admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
@@ -199,7 +201,7 @@ class ProjectsViewTests(PlanningTestCase):
             project=project_hidden, semester=self.semester, name="Hidden Project",
         )
 
-        obs = ObserverProfileFactory()
+        obs = SemesterObserverFactory(semester=self.semester)
         obs.project_access.add(project_visible)
         self.client.force_login(obs.user)
 
@@ -213,7 +215,7 @@ class ProjectsViewTests(PlanningTestCase):
         ProjectSemesterNameFactory(
             project=project, semester=self.semester, name="My Project Name",
         )
-        user = DeveloperUserFactory()
+        user = make_semester_developer().user
         self.client.force_login(user)
         response = self.client.get(self.url)
         self.assertContains(response, "My Project Name")
@@ -360,13 +362,13 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertEqual(Phase.objects.count(), 1)
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Phase.objects.count(), 0)
 
     def test_observer_denied(self):
-        self.client.force_login(ObserverUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Phase.objects.count(), 0)
@@ -433,7 +435,7 @@ class PhaseDeleteViewTests(PhaseViewTestCase):
         self.assertFalse(Phase.objects.filter(pk=self.phase.pk).exists())
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Phase.objects.filter(pk=self.phase.pk).exists())
@@ -479,7 +481,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         self.assertEqual(response.status_code, 204)
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
@@ -590,7 +592,7 @@ class PhaseEditViewTests(PhaseViewTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
@@ -726,7 +728,7 @@ class DeveloperDeleteViewTests(PlanningTestCase):
         self.assertFalse(DeveloperProfile.objects.filter(pk=profile.pk).exists())
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
 
@@ -764,21 +766,21 @@ class ObserverCreateViewTests(PlanningTestCase):
     def test_creates_user_and_profile(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
-        self.assertTrue(ObserverProfile.objects.filter(user__email="newobs@example.com").exists())
+        self.assertTrue(SemesterObserver.objects.filter(user__email="newobs@example.com").exists())
 
     def test_sets_project_access(self):
         project = ProjectFactory()
         self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "project_access": [project.pk]})
-        profile = ObserverProfile.objects.get(user__email="newobs@example.com")
-        self.assertIn(project, profile.project_access.all())
+        obs = SemesterObserver.objects.get(user__email="newobs@example.com")
+        self.assertIn(project, obs.project_access.all())
 
 
 class ObserverUpdateViewTests(PlanningTestCase):
     def setUp(self):
         self.pm = PMUserFactory()
-        self.profile = ObserverProfileFactory()
-        self.url = reverse("planning:observer_edit", args=[self.profile.pk])
+        self.obs = SemesterObserverFactory()
+        self.url = reverse("planning:observer_edit", args=[self.obs.pk])
         self.post_data = {
             "name": "Updated Observer",
             "organisation": "Updated Org",
@@ -790,56 +792,57 @@ class ObserverUpdateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
     def test_updates_user_fields(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
-        self.profile.user.refresh_from_db()
-        self.assertEqual(self.profile.user.name, "Updated Observer")
-        self.assertEqual(self.profile.user.organisation, "Updated Org")
+        self.obs.user.refresh_from_db()
+        self.assertEqual(self.obs.user.name, "Updated Observer")
+        self.assertEqual(self.obs.user.organisation, "Updated Org")
 
     def test_updates_project_access(self):
         project = ProjectFactory()
         self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "project_access": [project.pk]})
-        self.assertIn(project, self.profile.project_access.all())
+        self.obs.refresh_from_db()
+        self.assertIn(project, self.obs.project_access.all())
 
     def test_clears_project_access(self):
         project = ProjectFactory()
-        self.profile.project_access.add(project)
+        self.obs.project_access.add(project)
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)  # no project_access in POST
-        self.assertEqual(self.profile.project_access.count(), 0)
+        self.assertEqual(self.obs.project_access.count(), 0)
 
 
 class ObserverDeleteViewTests(PlanningTestCase):
     def setUp(self):
         self.pm = PMUserFactory()
-        self.profile = ObserverProfileFactory()
-        self.url = reverse("planning:observer_delete", args=[self.profile.pk])
+        self.obs = SemesterObserverFactory()
+        self.url = reverse("planning:observer_delete", args=[self.obs.pk])
 
     def test_pm_can_delete(self):
-        profile = ObserverProfileFactory()
+        obs = SemesterObserverFactory()
         self.client.force_login(PMUserFactory())
-        response = self.client.post(reverse("planning:observer_delete", args=[profile.pk]), {})
+        response = self.client.post(reverse("planning:observer_delete", args=[obs.pk]), {})
         self.assertEqual(response.status_code, 204)
-        self.assertFalse(ObserverProfile.objects.filter(pk=profile.pk).exists())
+        self.assertFalse(SemesterObserver.objects.filter(pk=obs.pk).exists())
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
 
-    def test_deletes_profile_and_user(self):
-        user_pk = self.profile.user_id
-        profile_pk = self.profile.pk
+    def test_deletes_semester_observer_but_keeps_user(self):
+        user_pk = self.obs.user_id
+        obs_pk = self.obs.pk
         self.client.force_login(self.pm)
         self.client.post(self.url, {})
-        self.assertFalse(ObserverProfile.objects.filter(pk=profile_pk).exists())
-        self.assertFalse(get_user_model().objects.filter(pk=user_pk).exists())
+        self.assertFalse(SemesterObserver.objects.filter(pk=obs_pk).exists())
+        self.assertTrue(get_user_model().objects.filter(pk=user_pk).exists())
 
 
 # ---------------------------------------------------------------------------
@@ -900,7 +903,7 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
@@ -933,7 +936,7 @@ class ProjectDeleteViewTests(PlanningTestCase):
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
     def test_developer_denied(self):
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
 
@@ -960,8 +963,8 @@ class LeaveViewTests(PlanningTestCase):
         self.assertRoleAccess(self.url, allowed=["pm", "developer"], denied=["observer"])
 
     def test_developer_sees_only_own_leave(self):
-        dev1 = DeveloperProfileFactory()
-        dev2 = DeveloperProfileFactory()
+        dev1 = make_semester_developer()
+        dev2 = make_semester_developer()
         # Use a far-future end_date so leave is not filtered out by the "show past" default
         leave1 = LeaveFactory(developer=dev1, end_date=datetime.date(2099, 3, 7))
         leave2 = LeaveFactory(developer=dev2, end_date=datetime.date(2099, 3, 14))
@@ -1002,21 +1005,21 @@ class LeaveCreateViewTests(PlanningTestCase):
         self.assertEqual(Leave.objects.count(), 1)
 
     def test_observer_denied(self):
-        self.client.force_login(ObserverUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
     def test_developer_creates_leave_for_own_profile(self):
         # The view ignores the submitted developer_id and uses the logged-in
         # developer's own profile.
-        own_dev = DeveloperProfileFactory()
+        own_dev = make_semester_developer()
         self.client.force_login(own_dev.user)
         self.client.post(self.url, self.post_data)
         self.assertTrue(Leave.objects.filter(developer=own_dev).exists())
 
     def test_developer_without_profile_gets_403(self):
         # A user with role=DEVELOPER but no DeveloperProfile cannot create leave.
-        user = DeveloperUserFactory()
+        user = UserFactory()
         self.client.force_login(user)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
@@ -1039,7 +1042,7 @@ class LeaveCreateViewTests(PlanningTestCase):
 class LeaveDeleteViewTests(PlanningTestCase):
     def setUp(self):
         self.pm = PMUserFactory()
-        self.dev = DeveloperProfileFactory()
+        self.dev = make_semester_developer()
         self.leave = LeaveFactory(developer=self.dev)
         self.url = reverse("planning:leave_delete", args=[self.leave.pk])
 
@@ -1056,7 +1059,7 @@ class LeaveDeleteViewTests(PlanningTestCase):
         self.assertFalse(Leave.objects.filter(pk=self.leave.pk).exists())
 
     def test_developer_cannot_delete_others_leave(self):
-        other_dev = DeveloperProfileFactory()
+        other_dev = make_semester_developer()
         self.client.force_login(other_dev.user)
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
@@ -1068,14 +1071,14 @@ class LeaveDeleteViewTests(PlanningTestCase):
         self.assertFalse(Leave.objects.filter(pk=self.leave.pk).exists())
 
     def test_observer_denied(self):
-        self.client.force_login(ObserverUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
 
 
 class LeaveUpdateViewTests(PlanningTestCase):
     def setUp(self):
-        self.dev = DeveloperProfileFactory()
+        self.dev = make_semester_developer()
         self.leave = LeaveFactory(
             developer=self.dev,
             start_date=datetime.date(2026, 3, 2),
@@ -1092,7 +1095,7 @@ class LeaveUpdateViewTests(PlanningTestCase):
         self.assertEqual(self.leave.start_date, datetime.date(2026, 3, 9))
 
     def test_developer_cannot_update_others_leave(self):
-        other_dev = DeveloperProfileFactory()
+        other_dev = make_semester_developer()
         self.client.force_login(other_dev.user)
         response = self.client.post(self.url, self.valid_data)
         self.assertEqual(response.status_code, 403)
@@ -1107,7 +1110,7 @@ class LeaveUpdateViewTests(PlanningTestCase):
         self.assertEqual(self.leave.start_date, datetime.date(2026, 3, 9))
 
     def test_observer_denied(self):
-        self.client.force_login(ObserverUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.valid_data)
         self.assertEqual(response.status_code, 403)
 
@@ -1265,14 +1268,12 @@ class TagsViewTests(PlanningTestCase):
         self.assertFalse(Tag.objects.filter(pk=tag.pk).exists())
 
     def test_developer_cannot_access(self):
-        from apps.planning.tests.factories import DeveloperUserFactory
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
     def test_observer_cannot_access(self):
-        from apps.planning.tests.factories import ObserverUserFactory
-        self.client.force_login(ObserverUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
@@ -1333,13 +1334,332 @@ class StreamsViewTests(PlanningTestCase):
         self.assertFalse(Stream.objects.filter(pk=stream.pk).exists())
 
     def test_developer_cannot_access(self):
-        from apps.planning.tests.factories import DeveloperUserFactory
-        self.client.force_login(DeveloperUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
     def test_observer_cannot_access(self):
-        from apps.planning.tests.factories import ObserverUserFactory
-        self.client.force_login(ObserverUserFactory())
+        self.client.force_login(UserFactory())
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
+
+# ---------------------------------------------------------------------------
+# get_selected_semester helper
+# ---------------------------------------------------------------------------
+
+
+class GetSelectedSemesterTests(TestCase):
+    def _request(self, session=None):
+        factory = RequestFactory()
+        req = factory.get("/")
+        req.session = session or {}
+        return req
+
+    def test_returns_current_when_no_session(self):
+        from apps.planning.views._semester import get_selected_semester
+        result = get_selected_semester(self._request())
+        self.assertEqual(result, Semester.get_current())
+
+    def test_returns_session_semester_when_set(self):
+        from apps.planning.views._semester import get_selected_semester
+        sem_db = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        result = get_selected_semester(self._request({"selected_semester": "2026A"}))
+        self.assertEqual(result, sem_db)
+
+    def test_falls_back_on_nonexistent_code(self):
+        from apps.planning.views._semester import get_selected_semester
+        result = get_selected_semester(self._request({"selected_semester": "9999Z"}))
+        self.assertEqual(result, Semester.get_current())
+
+    def test_falls_back_on_malformed_code(self):
+        from apps.planning.views._semester import get_selected_semester
+        result = get_selected_semester(self._request({"selected_semester": "not-a-code"}))
+        self.assertEqual(result, Semester.get_current())
+
+    def test_falls_back_on_empty_string(self):
+        from apps.planning.views._semester import get_selected_semester
+        result = get_selected_semester(self._request({"selected_semester": ""}))
+        self.assertEqual(result, Semester.get_current())
+
+
+# ---------------------------------------------------------------------------
+# semester_context context processor
+# ---------------------------------------------------------------------------
+
+
+class SemesterContextProcessorTests(TestCase):
+    def _request(self, user=None, session=None):
+        factory = RequestFactory()
+        req = factory.get("/")
+        req.user = user or AnonymousUser()
+        req.session = session or {}
+        return req
+
+    def test_returns_empty_dict_for_anonymous(self):
+        from apps.planning.context_processors import semester_context
+        result = semester_context(self._request())
+        self.assertEqual(result, {})
+
+    def test_injects_selected_semester(self):
+        from apps.planning.context_processors import semester_context
+        result = semester_context(self._request(user=PMUserFactory()))
+        self.assertIn("selected_semester", result)
+        self.assertIsInstance(result["selected_semester"], Semester)
+
+    def test_injects_all_semesters(self):
+        from apps.planning.context_processors import semester_context
+        sem_a = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        sem_b = SemesterFactory(year=2026, semester_type=SemesterType.B)
+        result = semester_context(self._request(user=PMUserFactory()))
+        self.assertIn("all_semesters", result)
+        self.assertIn(sem_a, result["all_semesters"])
+        self.assertIn(sem_b, result["all_semesters"])
+
+    def test_respects_session_semester(self):
+        from apps.planning.context_processors import semester_context
+        sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        result = semester_context(
+            self._request(user=PMUserFactory(), session={"selected_semester": "2026A"})
+        )
+        self.assertEqual(result["selected_semester"], sem)
+
+    def test_semesters_ordered_by_year_type(self):
+        from apps.planning.context_processors import semester_context
+        sem_2026b = SemesterFactory(year=2026, semester_type=SemesterType.B)
+        sem_2026a = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        sem_2025b = SemesterFactory(year=2025, semester_type=SemesterType.B)
+        result = semester_context(self._request(user=PMUserFactory()))
+        sems = result["all_semesters"]
+        self.assertEqual(sems[0], sem_2025b)
+        self.assertEqual(sems[1], sem_2026a)
+        self.assertEqual(sems[2], sem_2026b)
+
+
+# ---------------------------------------------------------------------------
+# SemesterSwitchView
+# ---------------------------------------------------------------------------
+
+
+class SemesterSwitchViewTests(TestCase):
+    def test_requires_login(self):
+        response = self.client.post(reverse("planning:semester_switch"), {"semester": "2026A"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/", response["Location"])
+
+    def test_valid_code_sets_session(self):
+        SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.client.force_login(PMUserFactory())
+        self.client.post(reverse("planning:semester_switch"), {"semester": "2026A"})
+        self.assertEqual(self.client.session.get("selected_semester"), "2026A")
+
+    def test_invalid_code_ignored(self):
+        self.client.force_login(PMUserFactory())
+        self.client.post(reverse("planning:semester_switch"), {"semester": "9999Z"})
+        self.assertNotIn("selected_semester", self.client.session)
+
+    def test_malformed_code_ignored(self):
+        self.client.force_login(PMUserFactory())
+        self.client.post(reverse("planning:semester_switch"), {"semester": "invalid"})
+        self.assertNotIn("selected_semester", self.client.session)
+
+    def test_redirects_to_next_parameter(self):
+        SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.client.force_login(PMUserFactory())
+        response = self.client.post(
+            reverse("planning:semester_switch"),
+            {"semester": "2026A", "next": "/planning/schedule/"},
+        )
+        self.assertRedirects(response, "/planning/schedule/", fetch_redirect_response=False)
+
+    def test_redirects_to_default_when_no_next(self):
+        SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.client.force_login(PMUserFactory())
+        response = self.client.post(reverse("planning:semester_switch"), {"semester": "2026A"})
+        self.assertRedirects(response, "/planning/planning/", fetch_redirect_response=False)
+
+
+# ---------------------------------------------------------------------------
+# SemesterCreateView
+# ---------------------------------------------------------------------------
+
+
+class SemesterCreateViewTests(PlanningTestCase):
+    def test_role_access(self):
+        self.assertRoleAccess(
+            reverse("planning:semester_add"), method="post",
+            allowed=["pm"], denied=["developer", "observer"],
+            data={"year": "2027", "semester_type": "A"},
+        )
+
+    def test_creates_semester(self):
+        self.client.force_login(PMUserFactory())
+        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "A"})
+        self.assertTrue(Semester.objects.filter(year=2027, semester_type=SemesterType.A).exists())
+
+    def test_type_case_insensitive(self):
+        self.client.force_login(PMUserFactory())
+        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "a"})
+        self.assertTrue(Semester.objects.filter(year=2027, semester_type=SemesterType.A).exists())
+
+    def test_ignores_invalid_year(self):
+        self.client.force_login(PMUserFactory())
+        before = Semester.objects.count()
+        self.client.post(reverse("planning:semester_add"), {"year": "not-a-year", "semester_type": "A"})
+        self.assertEqual(Semester.objects.count(), before)
+
+    def test_ignores_invalid_type(self):
+        self.client.force_login(PMUserFactory())
+        before = Semester.objects.count()
+        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "C"})
+        self.assertEqual(Semester.objects.count(), before)
+
+    def test_idempotent(self):
+        self.client.force_login(PMUserFactory())
+        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "B"})
+        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "B"})
+        self.assertEqual(Semester.objects.filter(year=2027, semester_type=SemesterType.B).count(), 1)
+
+    def test_redirects_to_next(self):
+        self.client.force_login(PMUserFactory())
+        response = self.client.post(
+            reverse("planning:semester_add"),
+            {"year": "2027", "semester_type": "A", "next": "/planning/schedule/"},
+        )
+        self.assertRedirects(response, "/planning/schedule/", fetch_redirect_response=False)
+
+
+# ---------------------------------------------------------------------------
+# PeopleView
+# ---------------------------------------------------------------------------
+
+
+class PeopleViewTests(PlanningTestCase):
+    def setUp(self):
+        self.url = reverse("planning:people")
+
+    def test_redirects_anonymous(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_role_access(self):
+        self.assertRoleAccess(self.url, allowed=["pm", "developer", "observer"], denied=[])
+
+    def test_shows_all_users(self):
+        dev = DeveloperProfileFactory()
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertContains(response, dev.user.email)
+
+    def test_tag_filter_includes_only_matching(self):
+        tag = Tag.objects.create(name="python-pv")
+        dev_with = DeveloperProfileFactory()
+        dev_with.tags.add(tag)
+        dev_without = DeveloperProfileFactory()
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url + "?tags=python-pv")
+        self.assertContains(response, dev_with.user.email)
+        self.assertNotContains(response, dev_without.user.email)
+
+    def test_pm_sees_can_edit_true(self):
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertTrue(response.context["can_edit"])
+
+    def test_developer_sees_can_edit_false(self):
+        dev = make_semester_developer()
+        self.client.force_login(dev.user)
+        response = self.client.get(self.url)
+        self.assertFalse(response.context["can_edit"])
+
+    def test_context_has_all_tags(self):
+        tag = Tag.objects.create(name="tag-pv-ctx")
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertIn(tag, response.context["all_tags"])
+
+    def test_semester_agnostic(self):
+        dev = DeveloperProfileFactory()
+        SemesterFactory(year=2027, semester_type=SemesterType.B)
+        session = self.client.session
+        session["selected_semester"] = "2027B"
+        session.save()
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertContains(response, dev.user.email)
+
+
+# ---------------------------------------------------------------------------
+# PersonUpdateView
+# ---------------------------------------------------------------------------
+
+
+class PersonUpdateViewTests(PlanningTestCase):
+    def setUp(self):
+        self.pm = PMUserFactory()
+        self.dev = DeveloperProfileFactory()
+        self.url = reverse("planning:person_edit", args=[self.dev.user.pk])
+
+    def test_pm_can_update(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(self.url, {"name": "New Name", "organisation": "New Org"})
+        self.assertEqual(response.status_code, 302)
+        self.dev.user.refresh_from_db()
+        self.assertEqual(self.dev.user.name, "New Name")
+        self.assertEqual(self.dev.user.organisation, "New Org")
+
+    def test_developer_denied(self):
+        self.client.force_login(DeveloperProfileFactory().user)
+        response = self.client.post(self.url, {"name": "Hacked", "organisation": "Hacked"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_observer_denied(self):
+        obs = SemesterObserverFactory()
+        self.client.force_login(obs.user)
+        response = self.client.post(self.url, {"name": "Hacked", "organisation": "Hacked"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_redirects_to_people(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(self.url, {"name": "N", "organisation": "O"})
+        self.assertRedirects(response, reverse("planning:people"), fetch_redirect_response=False)
+
+
+# ---------------------------------------------------------------------------
+# ObserversView — semester filtering
+# ---------------------------------------------------------------------------
+
+
+class ObserversViewSemesterFilterTests(PlanningTestCase):
+    def test_shows_only_observers_for_selected_semester(self):
+        sem_a = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        sem_b = SemesterFactory(year=2026, semester_type=SemesterType.B)
+        obs_a = SemesterObserverFactory(semester=sem_a)
+        obs_b = SemesterObserverFactory(semester=sem_b)
+        self.client.force_login(PMUserFactory())
+        session = self.client.session
+        session["selected_semester"] = "2026A"
+        session.save()
+        response = self.client.get(reverse("planning:observers"))
+        pks = [o.pk for o in response.context["observers"]]
+        self.assertIn(obs_a.pk, pks)
+        self.assertNotIn(obs_b.pk, pks)
+
+    def test_uses_current_semester_when_session_unset(self):
+        sem_current = Semester.get_current()
+        obs_current = SemesterObserverFactory(semester=sem_current)
+        other_sem = SemesterFactory(year=1999, semester_type=SemesterType.A)
+        obs_other = SemesterObserverFactory(semester=other_sem)
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(reverse("planning:observers"))
+        pks = [o.pk for o in response.context["observers"]]
+        self.assertIn(obs_current.pk, pks)
+        self.assertNotIn(obs_other.pk, pks)
+
+    def test_context_contains_selected_semester(self):
+        sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.client.force_login(PMUserFactory())
+        session = self.client.session
+        session["selected_semester"] = "2026A"
+        session.save()
+        response = self.client.get(reverse("planning:observers"))
+        self.assertEqual(response.context["semester"], sem)

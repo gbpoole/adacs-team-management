@@ -12,12 +12,12 @@ from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.users.models import Role
 
-from ._mixins import RoleRequiredMixin
+from ._mixins import PMOrDeveloperMixin
 from ._mixins import _get_next_url
 
 
 def _check_leave_ownership(user, leave):
-    if user.role == Role.DEVELOPER and not user.is_superuser:
+    if user.role != Role.PM and not user.is_superuser:
         try:
             if leave.developer != user.developer_profile:
                 return HttpResponse(status=403)
@@ -26,16 +26,15 @@ def _check_leave_ownership(user, leave):
     return None
 
 
-class LeaveView(RoleRequiredMixin, ListView):
+class LeaveView(PMOrDeveloperMixin, ListView):
     model = Leave
     template_name = "planning/leave.html"
     context_object_name = "leave_periods"
-    allowed_roles = (Role.PM, Role.DEVELOPER)
 
     def get_queryset(self):
         qs = Leave.objects.select_related("developer__user").order_by("start_date")
         user = self.request.user
-        if user.role == Role.DEVELOPER and not user.is_superuser:
+        if user.role != Role.PM and not user.is_superuser:
             try:
                 qs = qs.filter(developer=user.developer_profile)
             except DeveloperProfile.DoesNotExist:
@@ -48,7 +47,7 @@ class LeaveView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         user = self.request.user
         ctx["can_edit"] = user.role == Role.PM or user.is_superuser
-        ctx["is_developer"] = user.role == Role.DEVELOPER and not user.is_superuser
+        ctx["is_developer"] = user.role != Role.PM and not user.is_superuser
         ctx["show_past"] = bool(self.request.GET.get("show_past"))
         ctx["developers"] = DeveloperProfile.objects.select_related("user").order_by("user__name")
         if ctx["is_developer"]:
@@ -59,13 +58,11 @@ class LeaveView(RoleRequiredMixin, ListView):
         return ctx
 
 
-class LeaveCreateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.PM, Role.DEVELOPER)
-
+class LeaveCreateView(PMOrDeveloperMixin, View):
     def post(self, request, *args, **kwargs):
         developer_id = request.POST.get("developer")
         user = request.user
-        if user.role == Role.DEVELOPER and not user.is_superuser:
+        if user.role != Role.PM and not user.is_superuser:
             try:
                 developer_id = user.developer_profile.pk
             except DeveloperProfile.DoesNotExist:
@@ -88,9 +85,7 @@ class LeaveCreateView(RoleRequiredMixin, View):
         return redirect(next_url)
 
 
-class LeaveDeleteView(RoleRequiredMixin, View):
-    allowed_roles = (Role.PM, Role.DEVELOPER)
-
+class LeaveDeleteView(PMOrDeveloperMixin, View):
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
         if denied := _check_leave_ownership(request.user, leave):
@@ -99,8 +94,7 @@ class LeaveDeleteView(RoleRequiredMixin, View):
         return redirect("planning:leave")
 
 
-class LeaveUpdateView(RoleRequiredMixin, View):
-    allowed_roles = (Role.PM, Role.DEVELOPER)
+class LeaveUpdateView(PMOrDeveloperMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)

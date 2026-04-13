@@ -12,6 +12,8 @@ from .observers import ObserverCreateView
 from .observers import ObserverDeleteView
 from .observers import ObserversView
 from .observers import ObserverUpdateView
+from .people import PeopleView
+from .people import PersonUpdateView
 from .phases import PhaseCreateView
 from .phases import PhaseDeleteView
 from .phases import PhaseEditView
@@ -23,6 +25,8 @@ from .projects import ProjectsView
 from .projects import ProjectUpdateView
 from .projects import ProjectUploadView
 from .schedule import ScheduleView
+from ._semester import SemesterCreateView
+from ._semester import SemesterSwitchView
 from .streams import StreamCreateView
 from .streams import StreamDeleteView
 from .streams import StreamsView
@@ -51,6 +55,8 @@ __all__ = [
     "PhaseDeleteView",
     "PhaseEditView",
     "PhaseUpdateView",
+    "PeopleView",
+    "PersonUpdateView",
     "PlanningView",
     "ProjectCreateView",
     "ProjectDeleteView",
@@ -58,6 +64,8 @@ __all__ = [
     "ProjectUploadView",
     "ProjectsView",
     "ScheduleView",
+    "SemesterCreateView",
+    "SemesterSwitchView",
     "StreamCreateView",
     "StreamDeleteView",
     "StreamsView",

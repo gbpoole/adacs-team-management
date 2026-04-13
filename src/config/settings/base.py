@@ -179,6 +179,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "apps.users.context_processors.allauth_settings",
+                "apps.planning.context_processors.semester_context",
             ],
         },
     },
