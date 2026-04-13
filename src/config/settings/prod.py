@@ -8,6 +8,8 @@ in test and dev are required
 from .base import *  # noqa: F403
 from decouple import config, Csv
 
+SILENCED_SYSTEM_CHECKS = ["django_recaptcha.recaptcha_test_key_error"]
+
 DEBUG = False
 
 # Fail if no SECRET_KEY is provided

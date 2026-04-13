@@ -48,7 +48,7 @@ User = get_user_model()
 DATA_DIR = Path(__file__).parents[4] / "data" / "seed"
 
 # ── Seed constants ────────────────────────────────────────────────────────────
-DEFAULT_EFFORT_WEEKS = 26
+DEFAULT_EFFORT_WEEKS = 20
 ALLOCATION_WEEK_OPTIONS = [10, 15, 20, 25, 30]
 MAX_LEAVE_DEVELOPERS = 6
 MAX_PHASE_PROJECTS = 10
@@ -146,6 +146,8 @@ class Command(BaseCommand):
                 profile.tags.set(_get_or_create_tags(tag_names))
             effort_str = row.get("effort_available", "").strip()
             effort = float(effort_str) if effort_str else DEFAULT_EFFORT_WEEKS
+            profile.base_effort_weeks = effort
+            profile.save()
             for sem in [sem_a, sem_b]:
                 SemesterDeveloper.objects.get_or_create(
                     developer=profile, semester=sem,

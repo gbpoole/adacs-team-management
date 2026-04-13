@@ -30,6 +30,7 @@ from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import SemesterType
+from apps.planning.tests.factories import TagFactory
 from apps.planning.tests.factories import UserFactory
 from apps.planning.tests.factories import make_semester_developer
 from apps.planning.tests.factories import make_semester_observer
@@ -1596,28 +1597,33 @@ class PersonUpdateViewTests(PlanningTestCase):
         self.dev = DeveloperProfileFactory()
         self.url = reverse("planning:person_edit", args=[self.dev.user.pk])
 
-    def test_pm_can_update(self):
+    def test_pm_can_update_effort(self):
         self.client.force_login(self.pm)
-        response = self.client.post(self.url, {"name": "New Name", "organisation": "New Org"})
+        response = self.client.post(self.url, {"base_effort_weeks": "18"})
         self.assertEqual(response.status_code, 302)
-        self.dev.user.refresh_from_db()
-        self.assertEqual(self.dev.user.name, "New Name")
-        self.assertEqual(self.dev.user.organisation, "New Org")
+        self.dev.refresh_from_db()
+        self.assertEqual(float(self.dev.base_effort_weeks), 18.0)
+
+    def test_pm_can_update_tags(self):
+        tag = TagFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {"base_effort_weeks": "20", "tags": [tag.pk]})
+        self.assertIn(tag, self.dev.tags.all())
 
     def test_developer_denied(self):
         self.client.force_login(DeveloperProfileFactory().user)
-        response = self.client.post(self.url, {"name": "Hacked", "organisation": "Hacked"})
+        response = self.client.post(self.url, {"base_effort_weeks": "10"})
         self.assertEqual(response.status_code, 403)
 
     def test_observer_denied(self):
         obs = SemesterObserverFactory()
         self.client.force_login(obs.user)
-        response = self.client.post(self.url, {"name": "Hacked", "organisation": "Hacked"})
+        response = self.client.post(self.url, {"base_effort_weeks": "10"})
         self.assertEqual(response.status_code, 403)
 
     def test_redirects_to_people(self):
         self.client.force_login(self.pm)
-        response = self.client.post(self.url, {"name": "N", "organisation": "O"})
+        response = self.client.post(self.url, {"base_effort_weeks": "20"})
         self.assertRedirects(response, reverse("planning:people"), fetch_redirect_response=False)
 
 

@@ -94,6 +94,12 @@ class DeveloperProfile(models.Model):
         choices=COLOUR_CHOICES,
         blank=True,
     )
+    base_effort_weeks = models.DecimalField(
+        _("base effort (weeks/semester)"),
+        max_digits=6,
+        decimal_places=2,
+        default=20,
+    )
 
     class Meta:
         verbose_name = _("Developer Profile")

@@ -52,3 +52,4 @@ TEST_OUTPUT_DIR = "./junit-reports/"
 
 # Don't use recaptcha
 USE_RECAPTCHA = False
+SILENCED_SYSTEM_CHECKS = ["django_recaptcha.recaptcha_test_key_error"]
