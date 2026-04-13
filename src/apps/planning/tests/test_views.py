@@ -750,11 +750,8 @@ class ObserverCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:observer_add")
         self.pm = PMUserFactory()
-        self.post_data = {
-            "email": "newobs@example.com",
-            "name": "New Observer",
-            "organisation": "External",
-        }
+        self.target_user = UserFactory()
+        self.post_data = {"user": self.target_user.pk}
 
     def test_role_access(self):
         self.assertRoleAccess(
@@ -766,13 +763,13 @@ class ObserverCreateViewTests(PlanningTestCase):
     def test_creates_user_and_profile(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
-        self.assertTrue(SemesterObserver.objects.filter(user__email="newobs@example.com").exists())
+        self.assertTrue(SemesterObserver.objects.filter(user=self.target_user).exists())
 
     def test_sets_project_access(self):
         project = ProjectFactory()
         self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "project_access": [project.pk]})
-        obs = SemesterObserver.objects.get(user__email="newobs@example.com")
+        obs = SemesterObserver.objects.get(user=self.target_user)
         self.assertIn(project, obs.project_access.all())
 
 

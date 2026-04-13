@@ -12,7 +12,7 @@
         <p class="text-sm text-neutral-500">{{ semester }}</p>
       </div>
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-observer-modal').showModal()">+ {% trans "Add Observer" %}</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-observer-modal').showModal()">+ {% trans "Add Observer Access" %}</button>
       </div>
     </div>
   </div>
@@ -66,23 +66,20 @@
   </div>
 </div>
 
-{# Add Observer modal #}
+{# Add Observer Access modal #}
 <dialog id="add-observer-modal" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Add Observer" %}</h3>
+    <h3 class="font-bold text-lg mb-4">{% trans "Add Observer Access" %}</h3>
     <form method="post" action="{% url 'planning:observer_add' %}">
       {% csrf_token %}
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Email" %} <span class="text-error">*</span></label>
-        <input type="email" name="email" class="input input-bordered" required>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %}</label>
-        <input type="text" name="name" class="input input-bordered">
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Organisation" %}</label>
-        <input type="text" name="organisation" class="input input-bordered">
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Person" %} <span class="text-error">*</span></label>
+        <select name="user" class="select select-bordered" required>
+          <option value="">{% trans "— select a person —" %}</option>
+          {% for u in available_users %}
+          <option value="{{ u.pk }}">{{ u.name|default:u.email }}{% if u.name %} ({{ u.email }}){% endif %}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="flex gap-3 mb-4">
         {% if all_projects %}

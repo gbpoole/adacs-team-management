@@ -1,4 +1,5 @@
 email	name	organisation	effort_available	tags
+developer@adacs.org.au	Developer User	ADACS	26	python,hpc
 alice@adacs.org.au	Alice Nguyen	ADACS	26	python,data-pipeline
 ben@adacs.org.au	Ben Carter	ADACS	26	hpc,gpu
 carmen@adacs.org.au	Carmen Silva	ADACS	26	python,visualisation

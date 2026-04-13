@@ -40,6 +40,13 @@ class ObserversView(RoleRequiredMixin, ListView):
             p.display_name = p.name_for_semester(semester)
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
+        existing_user_pks = set(
+            SemesterObserver.objects.filter(semester=semester).values_list("user_id", flat=True)
+        )
+        User = get_user_model()
+        ctx["available_users"] = list(
+            User.objects.exclude(pk__in=existing_user_pks).order_by("name", "email")
+        )
         project_map = {p.pk: p for p in all_projects}
         stream_map = {s.pk: s for s in ctx["all_streams"]}
         for obs in ctx["observers"]:
@@ -61,18 +68,14 @@ class ObserverCreateView(RoleRequiredMixin, View):
 
     def post(self, request, *args, **kwargs):
         User = get_user_model()
-        email = request.POST.get("email", "").strip()
-        if not email:
+        user_pk = request.POST.get("user", "").strip()
+        if not user_pk:
+            return redirect("planning:observers")
+        try:
+            user = User.objects.get(pk=user_pk)
+        except (User.DoesNotExist, ValueError):
             return redirect("planning:observers")
         semester = get_selected_semester(request)
-        user, _ = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "name": request.POST.get("name", "").strip(),
-                "role": Role.USER,
-                "organisation": request.POST.get("organisation", "").strip(),
-            },
-        )
         obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=semester)
         try:
             obs.full_clean()

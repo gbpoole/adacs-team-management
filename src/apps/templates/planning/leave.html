@@ -66,6 +66,13 @@
 
   <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
     <table id="leave-table" class="table table-zebra w-full">
+      <colgroup>
+        {% if can_edit %}<col><!-- Developer (flexible) -->{% endif %}
+        <col style="width: 10rem"><!-- Start Date -->
+        <col style="width: 10rem"><!-- End Date -->
+        <col style="width: 10rem"><!-- Duration -->
+        {% if can_edit or is_developer %}<col style="width: 3rem"><!-- Actions -->{% endif %}
+      </colgroup>
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
           {% if can_edit %}

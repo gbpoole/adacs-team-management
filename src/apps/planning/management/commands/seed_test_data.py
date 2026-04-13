@@ -111,12 +111,11 @@ class Command(BaseCommand):
             Stream.objects.all().delete()
             Tag.objects.all().delete()
             Semester.objects.all().delete()
-            User.objects.filter(role=Role.USER).delete()
+            User.objects.filter(role__in=[Role.USER, Role.PM]).delete()
 
         self.stdout.write("Creating fixed seed accounts...")
-        self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "pm1234", is_staff=True, is_superuser=True)
-        self._create_seed_account("pm2@adacs.org.au", "PM User 2", Role.PM, "pm1234")
-        self._create_seed_account("developer@adacs.org.au", "Developer User", Role.USER, "developer1234")
+        self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "testpass123", is_staff=True, is_superuser=True)
+        self._create_seed_account("developer@adacs.org.au", "Developer User", Role.USER, "testpass123")
 
         self.stdout.write("Creating semesters...")
         seed_year = datetime.date.today().year

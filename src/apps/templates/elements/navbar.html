@@ -47,11 +47,11 @@
             {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
               <li><a href="{% url 'planning:developers' %}">{% trans "Developers" %}</a></li>
             {% endif %}
-            {% if request.user.role == 'pm' or user_is_semester_developer or user_is_semester_observer or request.user.is_superuser %}
-              <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
-            {% endif %}
             {% if request.user.role == 'pm' or request.user.is_superuser %}
               <li><a href="{% url 'planning:observers' %}">{% trans "Observers" %}</a></li>
+            {% endif %}
+            {% if request.user.role == 'pm' or user_is_semester_developer or user_is_semester_observer or request.user.is_superuser %}
+              <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
             {% endif %}
             {% if request.user.role == 'pm' or user_is_semester_observer or request.user.is_superuser %}
               <li><a href="{% url 'planning:planning' %}">{% trans "Planning" %}</a></li>
@@ -138,11 +138,11 @@
       {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
         <li><a href="{% url 'planning:developers' %}">{% trans "Developers" %}</a></li>
       {% endif %}
-      {% if request.user.role == 'pm' or user_is_semester_developer or user_is_semester_observer or request.user.is_superuser %}
-        <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
-      {% endif %}
       {% if request.user.role == 'pm' or request.user.is_superuser %}
         <li><a href="{% url 'planning:observers' %}">{% trans "Observers" %}</a></li>
+      {% endif %}
+      {% if request.user.role == 'pm' or user_is_semester_developer or user_is_semester_observer or request.user.is_superuser %}
+        <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
       {% endif %}
       {% if request.user.role == 'pm' or user_is_semester_observer or request.user.is_superuser %}
         <li><a href="{% url 'planning:planning' %}">{% trans "Planning" %}</a></li>
