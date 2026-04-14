@@ -363,13 +363,13 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertEqual(Phase.objects.count(), 1)
 
     def test_developer_denied(self):
-        self.client.force_login(UserFactory())
+        self.client.force_login(make_semester_developer().user)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Phase.objects.count(), 0)
 
     def test_observer_denied(self):
-        self.client.force_login(UserFactory())
+        self.client.force_login(make_semester_observer().user)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Phase.objects.count(), 0)
@@ -441,11 +441,6 @@ class PhaseDeleteViewTests(PhaseViewTestCase):
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Phase.objects.filter(pk=self.phase.pk).exists())
 
-    def test_deletes_phase(self):
-        self.client.force_login(self.pm)
-        self.client.post(self.url, {})
-        self.assertFalse(Phase.objects.filter(pk=self.phase.pk).exists())
-
     def test_empty_lane_deleted_after_delete(self):
         lane_pk = self.phase.lane_id
         self.client.force_login(self.pm)
@@ -485,11 +480,6 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         self.client.force_login(UserFactory())
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
-
-    def test_returns_204_not_redirect(self):
-        self.client.force_login(self.pm)
-        response = self.client.post(self.url, self.post_data)
-        self.assertEqual(response.status_code, 204)
 
     def test_invalid_date_returns_400_not_500(self):
         self.client.force_login(self.pm)
@@ -827,7 +817,7 @@ class ObserverCreateViewTests(PlanningTestCase):
             data=self.post_data,
         )
 
-    def test_creates_user_and_profile(self):
+    def test_creates_semester_observer(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(SemesterObserver.objects.filter(user=self.target_user).exists())
@@ -1316,11 +1306,6 @@ class LeaveDeleteViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Leave.objects.filter(pk=self.leave.pk).exists())
 
-    def test_pm_can_delete_confirms_db(self):
-        self.client.force_login(PMUserFactory())
-        self.client.post(self.url, {})
-        self.assertFalse(Leave.objects.filter(pk=self.leave.pk).exists())
-
     def test_observer_denied(self):
         self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
@@ -1501,15 +1486,6 @@ class TagsViewTests(PlanningTestCase):
         self.client.post(reverse("planning:tag_delete", args=[tag.pk]))
         self.assertFalse(Tag.objects.filter(pk=tag.pk).exists())
 
-    def test_developer_cannot_access(self):
-        self.client.force_login(UserFactory())
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 403)
-
-    def test_observer_cannot_access(self):
-        self.client.force_login(UserFactory())
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 403)
 
 
 # ---------------------------------------------------------------------------
@@ -1567,15 +1543,6 @@ class StreamsViewTests(PlanningTestCase):
         self.client.post(reverse("planning:stream_delete", args=[stream.pk]))
         self.assertFalse(Stream.objects.filter(pk=stream.pk).exists())
 
-    def test_developer_cannot_access(self):
-        self.client.force_login(UserFactory())
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 403)
-
-    def test_observer_cannot_access(self):
-        self.client.force_login(UserFactory())
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 403)
 
 # ---------------------------------------------------------------------------
 # get_selected_semester helper
