@@ -306,7 +306,7 @@
       <button type="button" id="create-toggle-phase" class="join-item btn btn-sm btn-primary flex-1">{% trans "New Phase" %}</button>
       <button type="button" id="create-toggle-leave" class="join-item btn btn-sm btn-ghost flex-1">{% trans "New Leave" %}</button>
     </div>
-    <form id="phase-create-form" method="post" action="{% url 'planning:phase_add' %}">
+    <form id="phase-create-form" method="post" action="{% url 'planning:phase_add' %}" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <input type="hidden" id="phase-lane-pk" name="lane_pk" value="">
@@ -349,7 +349,7 @@
 <dialog id="phase-edit-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Edit Phase" %}</h3>
-    <form id="phase-edit-form" method="post" action="">
+    <form id="phase-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" id="edit-phase-id" name="_phase_id" value="">
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -396,7 +396,7 @@
 <dialog id="leave-edit-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
-    <form id="leave-edit-form" method="post" action="">
+    <form id="leave-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" id="edit-leave-id" name="_leave_id" value="">
       <div class="flex gap-3 mb-4">
