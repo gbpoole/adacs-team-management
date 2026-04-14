@@ -651,36 +651,89 @@ class DeveloperCreateViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:developer_add")
         self.pm = PMUserFactory()
-        self.post_data = {
-            "email": "newdev@example.com",
-            "name": "New Developer",
-            "organisation": "ADACS",
-        }
+        self.profile = DeveloperProfileFactory()
 
     def test_role_access(self):
         self.assertRoleAccess(
             self.url, method="post",
             allowed=["pm"], denied=["developer", "observer"],
-            data=self.post_data,
+            data={"user_pks": [self.profile.user.pk]},
         )
 
-    def test_creates_user_and_profile(self):
+    def test_adds_profile_to_semester(self):
         self.client.force_login(self.pm)
-        self.client.post(self.url, self.post_data)
-        self.assertTrue(DeveloperProfile.objects.filter(user__email="newdev@example.com").exists())
+        self.client.post(self.url, {"user_pks": [self.profile.user.pk]})
+        self.assertTrue(SemesterDeveloper.objects.filter(developer=self.profile).exists())
 
-    def test_empty_email_redirects_without_creating(self):
-        before = DeveloperProfile.objects.count()
+    def test_empty_pks_redirects_without_creating(self):
+        before = SemesterDeveloper.objects.count()
         self.client.force_login(self.pm)
-        response = self.client.post(self.url, {**self.post_data, "email": ""})
+        response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(DeveloperProfile.objects.count(), before)
+        self.assertEqual(SemesterDeveloper.objects.count(), before)
 
     def test_sets_effort_available(self):
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "effort_available": "20"})
-        profile = DeveloperProfile.objects.get(user__email="newdev@example.com")
-        self.assertTrue(SemesterDeveloper.objects.filter(developer=profile, effort_available=20).exists())
+        self.client.post(self.url, {"user_pks": [self.profile.user.pk]})
+        self.assertTrue(
+            SemesterDeveloper.objects.filter(
+                developer=self.profile,
+                effort_available=self.profile.base_effort_weeks,
+            ).exists()
+        )
+
+    def test_creates_profile_if_not_exists(self):
+        """Creating from a user with no DeveloperProfile creates one."""
+        user = UserFactory()
+        self.assertFalse(DeveloperProfile.objects.filter(user=user).exists())
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {"user_pks": [user.pk], f"effort_{user.pk}": "15"})
+        self.assertTrue(DeveloperProfile.objects.filter(user=user).exists())
+
+    def test_updates_base_effort_when_profile_created(self):
+        """effort_<pk> sets base_effort_weeks on newly created profile."""
+        user = UserFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {"user_pks": [user.pk], f"effort_{user.pk}": "18"})
+        profile = DeveloperProfile.objects.get(user=user)
+        self.assertEqual(float(profile.base_effort_weeks), 18.0)
+
+    def test_update_base_flag_updates_existing_profile(self):
+        """update_base_<pk> flag causes base_effort_weeks to be updated on existing profile."""
+        self.client.force_login(self.pm)
+        original_base = float(self.profile.base_effort_weeks)
+        new_effort = original_base + 5
+        self.client.post(self.url, {
+            "user_pks": [self.profile.user.pk],
+            f"effort_{self.profile.user.pk}": str(new_effort),
+            f"update_base_{self.profile.user.pk}": "1",
+        })
+        self.profile.refresh_from_db()
+        self.assertEqual(float(self.profile.base_effort_weeks), new_effort)
+
+    def test_no_update_base_flag_leaves_existing_profile_unchanged(self):
+        """Without update_base_<pk>, existing profile base_effort_weeks is not changed."""
+        self.client.force_login(self.pm)
+        original_base = float(self.profile.base_effort_weeks)
+        new_effort = original_base + 5
+        self.client.post(self.url, {
+            "user_pks": [self.profile.user.pk],
+            f"effort_{self.profile.user.pk}": str(new_effort),
+        })
+        self.profile.refresh_from_db()
+        self.assertEqual(float(self.profile.base_effort_weeks), original_base)
+
+    def test_seeds_semester_tags_from_base_tags(self):
+        """When a developer is added to a semester, their SemesterDeveloper gets the base tags."""
+        tag = Tag.objects.create(name="TestTag")
+        self.profile.tags.add(tag)
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {
+            "user_pks": [self.profile.user.pk],
+            f"effort_{self.profile.user.pk}": "20",
+        })
+        sd = SemesterDeveloper.objects.get(developer=self.profile)
+        self.assertIn(tag, sd.tags.all())
 
 
 class DeveloperUpdateViewTests(PlanningTestCase):
@@ -700,13 +753,6 @@ class DeveloperUpdateViewTests(PlanningTestCase):
             data=self.post_data,
         )
 
-    def test_updates_user_fields(self):
-        self.client.force_login(self.pm)
-        self.client.post(self.url, self.post_data)
-        self.profile.user.refresh_from_db()
-        self.assertEqual(self.profile.user.name, "Updated Name")
-        self.assertEqual(self.profile.user.organisation, "Updated Org")
-
     def test_updates_effort_available(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "effort_available": "18"})
@@ -721,25 +767,45 @@ class DeveloperDeleteViewTests(PlanningTestCase):
         self.profile = DeveloperProfileFactory()
         self.url = reverse("planning:developer_delete", args=[self.profile.pk])
 
-    def test_pm_can_delete(self):
+    def test_removes_from_semester_only(self):
         profile = DeveloperProfileFactory()
+        semester = Semester.get_current()
+        sd = SemesterDeveloper.objects.create(
+            developer=profile, semester=semester, effort_available=20,
+        )
         self.client.force_login(PMUserFactory())
         response = self.client.post(reverse("planning:developer_delete", args=[profile.pk]), {})
         self.assertEqual(response.status_code, 204)
-        self.assertFalse(DeveloperProfile.objects.filter(pk=profile.pk).exists())
+        self.assertFalse(SemesterDeveloper.objects.filter(pk=sd.pk).exists())
+        self.assertTrue(DeveloperProfile.objects.filter(pk=profile.pk).exists())
 
     def test_developer_denied(self):
         self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
 
-    def test_deletes_profile_and_user(self):
-        user_pk = self.profile.user_id
-        profile_pk = self.profile.pk
+    def test_removes_semester_developer_record(self):
+        semester = Semester.get_current()
+        sd = SemesterDeveloper.objects.create(
+            developer=self.profile, semester=semester, effort_available=20,
+        )
+        sd_pk = sd.pk
         self.client.force_login(self.pm)
         self.client.post(self.url, {})
-        self.assertFalse(DeveloperProfile.objects.filter(pk=profile_pk).exists())
-        self.assertFalse(get_user_model().objects.filter(pk=user_pk).exists())
+        self.assertFalse(SemesterDeveloper.objects.filter(pk=sd_pk).exists())
+
+    def test_profile_and_user_remain_after_removal(self):
+        """Removing a developer from a semester does not delete their profile or user account."""
+        profile = DeveloperProfileFactory()
+        semester = Semester.get_current()
+        SemesterDeveloper.objects.create(
+            developer=profile, semester=semester, effort_available=20,
+        )
+        self.client.force_login(self.pm)
+        self.client.post(reverse("planning:developer_delete", args=[profile.pk]), {})
+        self.assertTrue(DeveloperProfile.objects.filter(pk=profile.pk).exists())
+        User = get_user_model()
+        self.assertTrue(User.objects.filter(pk=profile.user.pk).exists())
 
 
 # ---------------------------------------------------------------------------
@@ -794,13 +860,6 @@ class ObserverUpdateViewTests(PlanningTestCase):
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
-    def test_updates_user_fields(self):
-        self.client.force_login(self.pm)
-        self.client.post(self.url, self.post_data)
-        self.obs.user.refresh_from_db()
-        self.assertEqual(self.obs.user.name, "Updated Observer")
-        self.assertEqual(self.obs.user.organisation, "Updated Org")
-
     def test_updates_project_access(self):
         project = ProjectFactory()
         self.client.force_login(self.pm)
@@ -822,25 +881,46 @@ class ObserverDeleteViewTests(PlanningTestCase):
         self.obs = SemesterObserverFactory()
         self.url = reverse("planning:observer_delete", args=[self.obs.pk])
 
-    def test_pm_can_delete(self):
+    def test_pm_can_revoke_access(self):
         obs = SemesterObserverFactory()
+        project = ProjectFactory()
+        obs.project_access.add(project)
         self.client.force_login(PMUserFactory())
         response = self.client.post(reverse("planning:observer_delete", args=[obs.pk]), {})
         self.assertEqual(response.status_code, 204)
-        self.assertFalse(SemesterObserver.objects.filter(pk=obs.pk).exists())
+        obs.refresh_from_db()
+        self.assertEqual(obs.project_access.count(), 0)
 
     def test_developer_denied(self):
         self.client.force_login(UserFactory())
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 403)
 
-    def test_deletes_semester_observer_but_keeps_user(self):
+    def test_revokes_access_keeps_observer_and_user(self):
         user_pk = self.obs.user_id
+        obs_pk = self.obs.pk
+        project = ProjectFactory()
+        self.obs.project_access.add(project)
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {})
+        self.assertTrue(SemesterObserver.objects.filter(pk=obs_pk).exists())
+        self.assertTrue(get_user_model().objects.filter(pk=user_pk).exists())
+        self.obs.refresh_from_db()
+        self.assertEqual(self.obs.project_access.count(), 0)
+
+    def test_semester_observer_record_persists_after_revoke(self):
+        """The SemesterObserver record itself is not deleted when access is revoked."""
+        project = ProjectFactory()
+        stream = Stream.objects.create(name="TestStream", colour="#aabbcc")
+        self.obs.project_access.add(project)
+        self.obs.stream_access.add(stream)
         obs_pk = self.obs.pk
         self.client.force_login(self.pm)
         self.client.post(self.url, {})
-        self.assertFalse(SemesterObserver.objects.filter(pk=obs_pk).exists())
-        self.assertTrue(get_user_model().objects.filter(pk=user_pk).exists())
+        self.assertTrue(SemesterObserver.objects.filter(pk=obs_pk).exists())
+        self.obs.refresh_from_db()
+        self.assertEqual(self.obs.project_access.count(), 0)
+        self.assertEqual(self.obs.stream_access.count(), 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1132,38 +1212,28 @@ def _tsv_bytes(rows):
     return (header + "\n" + body).encode("utf-8")
 
 
-class DeveloperUploadViewTests(PlanningTestCase):
+class DeveloperDownloadViewTests(PlanningTestCase):
     def setUp(self):
-        self.url = reverse("planning:developer_upload")
+        self.url = reverse("planning:developer_download")
         self.pm = PMUserFactory()
 
-    def _post(self, rows):
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        f = SimpleUploadedFile("devs.tsv", _tsv_bytes(rows), content_type="text/plain")
-        self.client.force_login(self.pm)
-        return self.client.post(self.url, {"tsv_file": f})
-
     def test_role_access(self):
-        self.assertRoleAccess(self.url, method="post", denied=["developer", "observer"])
+        self.assertRoleAccess(self.url, method="get", denied=["developer", "observer"])
 
-    def test_missing_file_redirects(self):
+    def test_returns_tsv_response(self):
+        profile = DeveloperProfileFactory()
+        semester = Semester.get_current()
+        SemesterDeveloper.objects.get_or_create(
+            developer=profile, semester=semester,
+            defaults={"effort_available": 20},
+        )
         self.client.force_login(self.pm)
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 302)
-
-    def test_upload_creates_developer(self):
-        self._post([{"email": "upload@example.com", "name": "Upload Dev", "organisation": "", "tags": "", "effort_available": ""}])
-        self.assertTrue(DeveloperProfile.objects.filter(user__email="upload@example.com").exists())
-
-    def test_upload_sets_effort(self):
-        self._post([{"email": "effort@example.com", "name": "Effort Dev", "organisation": "", "tags": "", "effort_available": "12"}])
-        profile = DeveloperProfile.objects.get(user__email="effort@example.com")
-        self.assertTrue(SemesterDeveloper.objects.filter(developer=profile, effort_available=12).exists())
-
-    def test_upload_invalid_email_returns_redirect_with_error(self):
-        response = self._post([{"email": "not-an-email", "name": "Bad", "organisation": "", "tags": "", "effort_available": ""}])
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(DeveloperProfile.objects.filter(user__email="not-an-email").exists())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/octet-stream", response["Content-Type"])
+        content = response.content.decode()
+        self.assertIn("email", content)
+        self.assertIn(profile.user.email, content)
 
 
 # ---------------------------------------------------------------------------

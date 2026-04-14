@@ -96,6 +96,8 @@ class ObserverUpdateView(RoleRequiredMixin, View):
         return redirect("planning:observers")
 
 
+# NOTE: This clears all project and stream access for the observer in this semester
+# but does NOT delete the SemesterObserver record or the User account.
 class ObserverDeleteView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 

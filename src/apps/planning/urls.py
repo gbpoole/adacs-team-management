@@ -2,8 +2,9 @@ from django.urls import path
 
 from .views import DeveloperCreateView
 from .views import DeveloperDeleteView
+from .views import DeveloperDownloadView
+from .views import DeveloperMigrateView
 from .views import DeveloperUpdateView
-from .views import DeveloperUploadView
 from .views import DevelopersView
 from .views import LeaveCreateView
 from .views import LeaveDeleteView
@@ -42,7 +43,8 @@ app_name = "planning"
 urlpatterns = [
     path("developers/", DevelopersView.as_view(), name="developers"),
     path("developers/add/", DeveloperCreateView.as_view(), name="developer_add"),
-    path("developers/upload/", DeveloperUploadView.as_view(), name="developer_upload"),
+    path("developers/download/", DeveloperDownloadView.as_view(), name="developer_download"),
+    path("developers/migrate/", DeveloperMigrateView.as_view(), name="developer_migrate"),
     path("developers/<int:pk>/edit/", DeveloperUpdateView.as_view(), name="developer_edit"),
     path("developers/<int:pk>/delete/", DeveloperDeleteView.as_view(), name="developer_delete"),
     path("observers/", ObserversView.as_view(), name="observers"),

@@ -13,8 +13,9 @@
       </div>
       {% if can_edit %}
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-developer-modal').showModal()">+ {% trans "Add Developer" %}</button>
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('upload-developer-modal').showModal()">{% trans "Upload TSV" %}</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-developer-modal').showModal()">+ {% trans "Add Developers" %}</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="downloadDevelopersTSV()">{% trans "Download TSV" %}</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('migrate-developer-modal').showModal()">{% trans "Migrate from Semester" %}</button>
       </div>
       {% endif %}
     </div>
@@ -149,77 +150,95 @@
 {% if can_edit %}
 {# Add Developer modal #}
 <dialog id="add-developer-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Add Developer" %}</h3>
-    <form method="post" action="{% url 'planning:developer_add' %}">
+  <div class="modal-box max-w-lg">
+    <h3 class="font-bold text-lg mb-1">{% trans "Add Developers" %}</h3>
+    <p class="text-sm text-neutral-500 mb-3">{{ semester }}</p>
+    <form id="add-developer-form" method="post" action="{% url 'planning:developer_add' %}">
       {% csrf_token %}
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Email" %} <span class="text-error">*</span></label>
-        <input type="email" name="email" class="input input-bordered" required>
+      <div class="flex items-center gap-2 mb-2">
+        <input type="text" id="add-dev-search" placeholder="{% trans 'Filter by name or email…' %}"
+               class="input input-bordered input-sm flex-1" oninput="filterAddDevList()"
+               autocomplete="off" data-lpignore="true" data-form-type="other">
+        <button type="button" class="btn btn-xs btn-ghost" onclick="addDevSelectAll()">{% trans "All" %}</button>
+        <button type="button" class="btn btn-xs btn-ghost" onclick="addDevDeselectAll()">{% trans "None" %}</button>
       </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %}</label>
-        <input type="text" name="name" class="input input-bordered">
+      <div id="add-dev-effort-error" class="hidden alert alert-error text-sm py-2 mb-2">
+        {% trans "Please set effort (weeks) for all selected developers before adding." %}
       </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Organisation" %}</label>
-        <input type="text" name="organisation" class="input input-bordered">
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Effort Available (wks)" %}</label>
-        <input type="number" name="effort_available" min="0" step="0.5" class="input input-bordered">
-      </div>
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Tags" %}</label>
-        <div id="dev-tag-buttons" class="flex flex-wrap gap-2 mt-1">
-          {% for tag in all_tags %}
-          <label class="btn btn-sm btn-outline cursor-pointer">
-            <input type="checkbox" name="tags" value="{{ tag.name }}" class="hidden">
-            {{ tag.name }}
-          </label>
-          {% endfor %}
-        </div>
-        <div class="flex gap-2 mt-2">
-          <input type="text" id="dev-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1">
-          <button type="button" class="btn btn-sm btn-ghost" onclick="devAddTag()">+ {% trans "Add" %}</button>
-        </div>
+      <div id="add-dev-list" class="max-h-64 overflow-y-auto border border-base-300 rounded p-2 space-y-0.5">
+        {% for u in available_users %}
+        <label class="flex items-center gap-2 px-2 py-1 hover:bg-base-200 rounded cursor-pointer add-dev-item"
+               data-search="{{ u.name|lower|default:'' }} {{ u.email|lower }}">
+          <input type="checkbox" name="user_pks" value="{{ u.pk }}" class="checkbox checkbox-sm shrink-0">
+          <span class="flex-1 min-w-0">
+            <span class="font-medium">{{ u.name|default:u.email }}</span>
+            {% if u.name %}<span class="text-xs text-neutral-500 ml-1">{{ u.email }}</span>{% endif %}
+          </span>
+          <input type="number" name="effort_{{ u.pk }}"
+                 value="{% if u.developer_profile %}{{ u.developer_profile.base_effort_weeks|floatformat:1 }}{% endif %}"
+                 data-base="{% if u.developer_profile %}{{ u.developer_profile.base_effort_weeks|floatformat:1 }}{% endif %}"
+                 placeholder="wks" min="0" max="52" step="0.5"
+                 class="input input-bordered input-xs w-20 shrink-0" onclick="event.stopPropagation()">
+        </label>
+        {% empty %}
+        <p class="text-neutral-500 text-sm text-center py-4">{% trans "All people have already been added to this semester." %}</p>
+        {% endfor %}
       </div>
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-developer-modal').close()">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+        <button type="button" class="btn btn-primary" onclick="submitAddDevelopers()">{% trans "Add Selected" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+{# Update Base Effort confirmation modal #}
+<dialog id="add-dev-base-modal" class="modal">
+  <div class="modal-box max-w-md">
+    <h3 class="font-bold text-lg mb-2">{% trans "Update Base Effort?" %}</h3>
+    <p class="text-sm text-neutral-500 mb-3">{% trans "The following developers have effort values that differ from (or have no) base effort on the People page. Select those whose base effort you'd like to update:" %}</p>
+    <div id="add-dev-base-list" class="max-h-48 overflow-y-auto border border-base-300 rounded p-2 space-y-0.5 mb-3"></div>
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" onclick="submitAddDevWithBase(false)">{% trans "Skip" %}</button>
+      <button type="button" class="btn btn-primary" onclick="submitAddDevWithBase(true)">{% trans "Confirm" %}</button>
+    </div>
+  </div>
+</dialog>
+
+{# Migrate from Semester modal #}
+<dialog id="migrate-developer-modal" class="modal">
+  <div class="modal-box max-w-lg">
+    <h3 class="font-bold text-lg mb-4">{% trans "Migrate from Semester" %}</h3>
+    <form method="post" action="{% url 'planning:developer_migrate' %}">
+      {% csrf_token %}
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Source semester" %}</label>
+        <select id="migrate-sem-select" class="select select-bordered" onchange="updateMigrateList()">
+          <option value="">{% trans "— select a semester —" %}</option>
+          {% for sem in migrate_semesters %}
+          <option value="{{ sem.pk }}">{{ sem }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="migrate-controls" class="hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <input type="text" id="migrate-tag-filter" placeholder="{% trans 'Filter by tag…' %}"
+                 class="input input-bordered input-sm flex-1" oninput="filterMigrateList()">
+          <button type="button" class="btn btn-xs btn-ghost" onclick="migrateSelectAll()">{% trans "All" %}</button>
+          <button type="button" class="btn btn-xs btn-ghost" onclick="migrateDeselectAll()">{% trans "None" %}</button>
+        </div>
+        <div id="migrate-dev-list" class="max-h-64 overflow-y-auto border border-base-300 rounded p-2 space-y-0.5"></div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('migrate-developer-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Migrate Selected" %}</button>
       </div>
     </form>
   </div>
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
 {% endif %}
-
-{# Upload TSV modal #}
-<dialog id="upload-developer-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-2">{% trans "Upload Developers TSV" %}</h3>
-    <p class="text-sm text-neutral-500 mb-4">
-      {% trans "Tab-separated file with a header row. Columns:" %}
-      <code class="text-xs bg-base-200 px-1 rounded">email</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">name</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">organisation</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">effort_available</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">tags</code>
-      {% trans "(comma-separated tag names)" %}
-    </p>
-    <form method="post" action="{% url 'planning:developer_upload' %}" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="form-control mb-4">
-        <input type="file" name="tsv_file" accept=".tsv,.txt" class="file-input file-input-bordered w-full" required>
-      </div>
-      <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('upload-developer-modal').close()">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Upload" %}</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
 
 {# Edit Developer modal #}
 {% if can_edit %}
@@ -277,6 +296,22 @@
 {% endif %}
 
 <script>
+function downloadDevelopersTSV() {
+  fetch('{% url "planning:developer_download" %}')
+    .then(function (r) { return r.text(); })
+    .then(function (text) {
+      var blob = new Blob([text], { type: 'text/tab-separated-values' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'developers_{{ semester }}.tsv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+}
+
 (function () {
   var SORT_KEY = 'developers_sort';
   var _sortCol = 'name', _sortAsc = true;
@@ -362,20 +397,163 @@ function addTagButton(containerId, name) {
   container.appendChild(label);
 }
 
-function devAddTag() {
-  var input = document.getElementById('dev-new-tag');
-  addTagButton('dev-tag-buttons', input.value.trim());
-  input.value = '';
-  input.focus();
+{% if can_edit %}
+// ── Add Developers modal ───────────────────────────────────────────────────
+function filterAddDevList() {
+  var q = document.getElementById('add-dev-search').value.toLowerCase();
+  document.querySelectorAll('#add-dev-list .add-dev-item').forEach(function (el) {
+    el.style.display = el.dataset.search.indexOf(q) !== -1 ? '' : 'none';
+  });
+}
+function addDevSelectAll() {
+  document.querySelectorAll('#add-dev-list .add-dev-item').forEach(function (el) {
+    if (el.style.display !== 'none') el.querySelector('input[type="checkbox"]').checked = true;
+  });
+}
+function addDevDeselectAll() {
+  document.querySelectorAll('#add-dev-list input[type="checkbox"]').forEach(function (cb) {
+    cb.checked = false;
+  });
 }
 
-document.getElementById('dev-new-tag').addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') { e.preventDefault(); devAddTag(); }
-});
+function submitAddDevelopers() {
+  var form = document.getElementById('add-developer-form');
+  var selected = Array.from(form.querySelectorAll('input[name="user_pks"]:checked'));
 
-initTagButtons('dev-tag-buttons');
+  // Clear previous error state
+  document.getElementById('add-dev-effort-error').classList.add('hidden');
+  form.querySelectorAll('input[type="number"]').forEach(function (i) { i.classList.remove('input-error'); });
 
-{% if can_edit %}
+  if (selected.length === 0) { form.submit(); return; }
+
+  // Validate: all selected must have effort set
+  var missing = selected.filter(function (cb) {
+    var input = form.querySelector('input[name="effort_' + cb.value + '"]');
+    return input && input.value.trim() === '';
+  });
+  if (missing.length > 0) {
+    missing.forEach(function (cb) {
+      var input = form.querySelector('input[name="effort_' + cb.value + '"]');
+      if (input) input.classList.add('input-error');
+    });
+    document.getElementById('add-dev-effort-error').classList.remove('hidden');
+    return;
+  }
+
+  // Find cases where effort differs from base (or base is unset)
+  var changed = [];
+  selected.forEach(function (cb) {
+    var pk = cb.value;
+    var input = form.querySelector('input[name="effort_' + pk + '"]');
+    if (!input) return;
+    var base = input.dataset.base;
+    var val = parseFloat(input.value);
+    if (base === '' || Math.abs(parseFloat(base) - val) > 0.001) {
+      var label = cb.closest('label');
+      var name = label.querySelector('.font-medium').textContent.trim();
+      changed.push({ pk: pk, name: name, effort: val });
+    }
+  });
+
+  if (changed.length > 0) {
+    var list = document.getElementById('add-dev-base-list');
+    list.innerHTML = '';
+    changed.forEach(function (d) {
+      var lbl = document.createElement('label');
+      lbl.className = 'flex items-center gap-2 px-2 py-1 hover:bg-base-200 rounded cursor-pointer';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = true; cb.className = 'checkbox checkbox-sm shrink-0'; cb.dataset.pk = d.pk;
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'flex-1 font-medium'; nameSpan.textContent = d.name;
+      var effSpan = document.createElement('span');
+      effSpan.className = 'text-xs text-neutral-500 shrink-0'; effSpan.textContent = d.effort.toFixed(1) + ' wks';
+      lbl.appendChild(cb); lbl.appendChild(nameSpan); lbl.appendChild(effSpan);
+      list.appendChild(lbl);
+    });
+    document.getElementById('add-dev-base-modal').showModal();
+  } else {
+    form.submit();
+  }
+}
+
+function submitAddDevWithBase(useChecked) {
+  var form = document.getElementById('add-developer-form');
+  // Remove any previous update_base hidden inputs
+  form.querySelectorAll('input[name^="update_base_"]').forEach(function (i) { i.remove(); });
+  if (useChecked) {
+    document.querySelectorAll('#add-dev-base-list input[type="checkbox"]:checked').forEach(function (cb) {
+      var hidden = document.createElement('input');
+      hidden.type = 'hidden'; hidden.name = 'update_base_' + cb.dataset.pk; hidden.value = '1';
+      form.appendChild(hidden);
+    });
+  }
+  document.getElementById('add-dev-base-modal').close();
+  form.submit();
+}
+
+// ── Migrate from Semester modal ────────────────────────────────────────────
+var MIGRATE_DATA = {{ migrate_data_json|safe }};
+
+function updateMigrateList() {
+  var semPk = document.getElementById('migrate-sem-select').value;
+  var controls = document.getElementById('migrate-controls');
+  var list = document.getElementById('migrate-dev-list');
+  document.getElementById('migrate-tag-filter').value = '';
+  if (!semPk || !MIGRATE_DATA[semPk]) {
+    controls.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  controls.classList.remove('hidden');
+  renderMigrateList(MIGRATE_DATA[semPk]);
+}
+
+function renderMigrateList(devs) {
+  var q = (document.getElementById('migrate-tag-filter').value || '').toLowerCase();
+  var list = document.getElementById('migrate-dev-list');
+  list.innerHTML = '';
+  var filtered = q ? devs.filter(function (d) {
+    return d.tags.some(function (t) { return t.toLowerCase().indexOf(q) !== -1; });
+  }) : devs;
+  if (filtered.length === 0) {
+    list.innerHTML = '<p class="text-neutral-500 text-sm text-center py-4">No developers to migrate.</p>';
+    return;
+  }
+  filtered.forEach(function (d) {
+    var label = document.createElement('label');
+    label.className = 'flex items-center gap-2 px-2 py-1 hover:bg-base-200 rounded cursor-pointer';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.name = 'profile_pks';
+    cb.value = d.pk;
+    cb.className = 'checkbox checkbox-sm shrink-0';
+    cb.checked = true;
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'flex-1 min-w-0 font-medium';
+    nameSpan.textContent = d.name;
+    var emailSpan = document.createElement('span');
+    emailSpan.className = 'text-xs text-neutral-500 ml-1';
+    emailSpan.textContent = d.email !== d.name ? d.email : '';
+    nameSpan.appendChild(emailSpan);
+    label.appendChild(cb);
+    label.appendChild(nameSpan);
+    list.appendChild(label);
+  });
+}
+
+function filterMigrateList() {
+  var semPk = document.getElementById('migrate-sem-select').value;
+  if (!semPk || !MIGRATE_DATA[semPk]) return;
+  renderMigrateList(MIGRATE_DATA[semPk]);
+}
+
+function migrateSelectAll() {
+  document.querySelectorAll('#migrate-dev-list input[type="checkbox"]').forEach(function (cb) { cb.checked = true; });
+}
+function migrateDeselectAll() {
+  document.querySelectorAll('#migrate-dev-list input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+}
+
 function editDevAddTag() {
   var input = document.getElementById('edit-dev-new-tag');
   addTagButton('edit-dev-tag-buttons', input.value.trim());
@@ -456,6 +634,12 @@ function confirmDeleteDeveloper() {
     .then(function () { window.location.reload(); })
     .catch(function () { window.location.reload(); });
 }
+
+document.getElementById('migrate-developer-modal').addEventListener('close', function () {
+  document.getElementById('migrate-sem-select').value = '';
+  document.getElementById('migrate-controls').classList.add('hidden');
+  document.getElementById('migrate-dev-list').innerHTML = '';
+});
 {% endif %}
 </script>
 {% endblock %}

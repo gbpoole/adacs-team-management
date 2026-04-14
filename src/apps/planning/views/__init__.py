@@ -1,8 +1,9 @@
 from .developers import DeveloperCreateView
 from .developers import DeveloperDeleteView
-from .developers import DevelopersView
+from .developers import DeveloperDownloadView
+from .developers import DeveloperMigrateView
 from .developers import DeveloperUpdateView
-from .developers import DeveloperUploadView
+from .developers import DevelopersView
 from .home import HomeView
 from .leave import LeaveCreateView
 from .leave import LeaveDeleteView
@@ -39,8 +40,9 @@ from .tags import TagUpdateView
 __all__ = [
     "DeveloperCreateView",
     "DeveloperDeleteView",
+    "DeveloperDownloadView",
+    "DeveloperMigrateView",
     "DeveloperUpdateView",
-    "DeveloperUploadView",
     "DevelopersView",
     "HomeView",
     "LeaveCreateView",
