@@ -118,15 +118,27 @@ class ProjectsView(PMOrParticipantMixin, ListView):
             key = (phase.semester_id, phase.project_id)
             phase_by_sem_proj[key] = phase_by_sem_proj.get(key, 0) + phase.effort_weeks()
 
+        # Projects in the current semester that already have a continuation_of link —
+        # exclude their targets from the migrate list so we don't double-migrate.
+        already_linked_pks = set(
+            Project.objects.filter(
+                semester_names__semester=semester,
+                continuation_of__isnull=False,
+            ).values_list("continuation_of_id", flat=True)
+        )
+
         continuation_map = {}
         for sem in other_semesters:
             psns = (
                 ProjectSemesterName.objects.filter(semester=sem)
                 .select_related("project")
+                .prefetch_related("project__streams")
                 .order_by("name")
             )
             entries = []
             for psn in psns:
+                if psn.project.pk in already_linked_pks:
+                    continue
                 w_res = alloc_by_sem_proj.get((sem.pk, psn.project.pk), 0)
                 w_alloc = round(phase_by_sem_proj.get((sem.pk, psn.project.pk), 0), 2)
                 entries.append({
@@ -134,6 +146,7 @@ class ProjectsView(PMOrParticipantMixin, ListView):
                     "name": psn.name,
                     "weeks_resourced": w_res,
                     "weeks_unallocated": round(max(0, w_res - w_alloc), 2),
+                    "streams": [s.name for s in psn.project.streams.all()],
                 })
             continuation_map[str(sem.pk)] = entries
         ctx["continuation_semesters"] = other_semesters

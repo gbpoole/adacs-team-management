@@ -432,37 +432,25 @@
     <h3 class="font-bold text-lg mb-4">{% trans "Migrate Projects from Another Semester" %}</h3>
     <form id="migrate-project-form" method="post" action="{% url 'planning:project_migrate' %}">
       {% csrf_token %}
-      <div class="flex gap-3 items-end mb-4">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Source Semester" %}</label>
-          <select id="migrate-proj-semester" name="source_semester" class="select select-bordered" onchange="updateMigrateProjList()">
-            {% for sem in continuation_semesters %}
-            <option value="{{ sem.pk }}">{{ sem }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-control">
-          <label class="label label-text">{% trans "Weeks to copy" %}</label>
-          <div class="flex gap-3 items-center h-12">
-            <label class="flex items-center gap-1 cursor-pointer text-sm">
-              <input type="radio" name="migrate_effort_type" value="resourced" class="radio radio-sm" checked onchange="applyMigrateEffortType()">
-              {% trans "Resourced" %}
-            </label>
-            <label class="flex items-center gap-1 cursor-pointer text-sm">
-              <input type="radio" name="migrate_effort_type" value="unallocated" class="radio radio-sm" onchange="applyMigrateEffortType()">
-              {% trans "Unallocated" %}
-            </label>
-            <label class="flex items-center gap-1 cursor-pointer text-sm">
-              <input type="radio" name="migrate_effort_type" value="custom" class="radio radio-sm" onchange="applyMigrateEffortType()">
-              {% trans "Custom" %}
-            </label>
-          </div>
-        </div>
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Source Semester" %}</label>
+        <select id="migrate-proj-semester" name="source_semester" class="select select-bordered" onchange="updateMigrateProjList()">
+          {% for sem in continuation_semesters %}
+          <option value="{{ sem.pk }}">{{ sem }}</option>
+          {% endfor %}
+        </select>
       </div>
+      <div id="migrate-stream-filters" class="flex flex-wrap gap-1.5 items-center mb-2 min-h-6"></div>
       <div class="flex gap-2 mb-2">
         <input type="text" id="migrate-proj-search" placeholder="{% trans 'Filter projects…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other" oninput="filterMigrateProjList()">
-        <button type="button" class="btn btn-xs btn-ghost" onclick="selectAllMigrateProjects(true)">{% trans "All" %}</button>
-        <button type="button" class="btn btn-xs btn-ghost" onclick="selectAllMigrateProjects(false)">{% trans "None" %}</button>
+        <select id="migrate-set-all" class="select select-bordered select-sm" onchange="setAllMigrateType()">
+          <option value="">{% trans "Set all…" %}</option>
+          <option value="resourced">{% trans "All: Resourced" %}</option>
+          <option value="unallocated">{% trans "All: Unallocated" %}</option>
+          <option value="custom">{% trans "All: Custom" %}</option>
+        </select>
+        <button type="button" class="btn btn-xs btn-ghost self-center" onclick="selectAllMigrateProjects(true)">{% trans "All" %}</button>
+        <button type="button" class="btn btn-xs btn-ghost self-center" onclick="selectAllMigrateProjects(false)">{% trans "None" %}</button>
       </div>
       <div id="migrate-proj-list" class="border border-base-300 rounded-lg overflow-y-auto max-h-72 divide-y divide-base-200">
         <div class="p-4 text-sm text-neutral-400">{% trans "Select a semester above." %}</div>
@@ -744,72 +732,139 @@ function confirmRemoveProject() {
 
 {% if continuation_semesters %}
 var _migrateProjects = [];
-
-function getMigrateEffortType() {
-  var radios = document.querySelectorAll('input[name="migrate_effort_type"]');
-  for (var i = 0; i < radios.length; i++) {
-    if (radios[i].checked) return radios[i].value;
-  }
-  return 'resourced';
-}
-
-function effortForProject(p, effortType) {
-  if (effortType === 'resourced') return p.weeks_resourced;
-  if (effortType === 'unallocated') return p.weeks_unallocated;
-  return '';
-}
-
-function renderMigrateProjList(filter) {
-  var container = document.getElementById('migrate-proj-list');
-  var effortType = getMigrateEffortType();
-  var items = filter
-    ? _migrateProjects.filter(function (p) { return p.name.toLowerCase().indexOf(filter.toLowerCase()) !== -1; })
-    : _migrateProjects;
-  if (items.length === 0) {
-    container.innerHTML = '<div class="p-4 text-sm text-neutral-400">{% trans "No projects to migrate from this semester." %}</div>';
-    return;
-  }
-  container.innerHTML = items.map(function (p) {
-    var effortVal = effortForProject(p, effortType);
-    return '<label class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-base-200 migrate-proj-row" data-pk="' + p.pk + '" data-name="' + escapeAttr(p.name) + '" data-resourced="' + p.weeks_resourced + '" data-unallocated="' + p.weeks_unallocated + '">'
-      + '<input type="checkbox" name="project_pks" value="' + p.pk + '" class="checkbox checkbox-sm migrate-proj-cb" checked>'
-      + '<span class="flex-1 text-sm">' + escapeHtml(p.name) + '</span>'
-      + '<span class="text-xs text-neutral-400 shrink-0">{% trans "wks:" %}</span>'
-      + '<input type="number" name="effort_' + p.pk + '" value="' + effortVal + '" min="0" step="0.5" class="input input-bordered input-xs w-20 migrate-effort-input" onclick="event.stopPropagation()">'
-      + '</label>';
-  }).join('');
-}
-
-function updateMigrateProjList() {
-  var semPk = document.getElementById('migrate-proj-semester').value;
-  _migrateProjects = (CONTINUATION_DATA[semPk] || []);
-  document.getElementById('migrate-proj-search').value = '';
-  renderMigrateProjList('');
-}
-
-function applyMigrateEffortType() {
-  var effortType = getMigrateEffortType();
-  document.querySelectorAll('.migrate-proj-row').forEach(function (row) {
-    if (effortType !== 'custom') {
-      var val = effortType === 'resourced' ? row.dataset.resourced : row.dataset.unallocated;
-      row.querySelector('.migrate-effort-input').value = val;
-    }
-  });
-}
-
-function filterMigrateProjList() {
-  renderMigrateProjList(document.getElementById('migrate-proj-search').value);
-}
-
-function selectAllMigrateProjects(checked) {
-  document.querySelectorAll('.migrate-proj-cb').forEach(function (cb) { cb.checked = checked; });
-}
+var _selectedMigrateStreams = new Set();
+var _migrateState = {}; // pk -> {checked, type, customValue}
 
 function escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function escapeAttr(s) {
   return String(s).replace(/"/g,'&quot;');
+}
+
+function _setEffortInput(input, value, isCustom) {
+  if (isCustom) {
+    input.readOnly = false;
+    input.classList.remove('opacity-50', 'cursor-not-allowed');
+  } else {
+    input.value = value;
+    input.readOnly = true;
+    input.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function saveMigrateState() {
+  document.querySelectorAll('.migrate-proj-row').forEach(function (row) {
+    var pk = row.dataset.pk;
+    var cb = row.querySelector('.migrate-proj-cb');
+    var sel = row.querySelector('.migrate-type-sel');
+    var input = row.querySelector('.migrate-effort-input');
+    _migrateState[pk] = { checked: cb.checked, type: sel.value, customValue: input.value };
+  });
+}
+
+function renderMigrateProjList(items) {
+  var container = document.getElementById('migrate-proj-list');
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="p-4 text-sm text-neutral-400">{% trans "No projects to migrate from this semester." %}</div>';
+    return;
+  }
+  container.innerHTML = items.map(function (p) {
+    var st = _migrateState[p.pk] || {};
+    var type = st.type || 'resourced';
+    var checked = st.checked !== undefined ? st.checked : true;
+    var isCustom = type === 'custom';
+    var val = isCustom ? (st.customValue !== undefined ? st.customValue : p.weeks_resourced)
+                       : (type === 'unallocated' ? p.weeks_unallocated : p.weeks_resourced);
+    var checkedAttr = checked ? ' checked' : '';
+    var readonlyAttr = isCustom ? '' : ' readonly';
+    var opacityClass = isCustom ? '' : ' opacity-50 cursor-not-allowed';
+    return '<label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-base-200 migrate-proj-row" data-pk="' + p.pk + '" data-resourced="' + p.weeks_resourced + '" data-unallocated="' + p.weeks_unallocated + '">'
+      + '<input type="checkbox" name="project_pks" value="' + p.pk + '" class="checkbox checkbox-sm migrate-proj-cb"' + checkedAttr + '>'
+      + '<span class="flex-1 text-sm">' + escapeHtml(p.name) + '</span>'
+      + '<select class="select select-bordered select-xs migrate-type-sel" onchange="applyProjEffortType(this)" onclick="event.stopPropagation()">'
+      + '<option value="resourced"' + (type === 'resourced' ? ' selected' : '') + '>{% trans "Resourced" %} (' + p.weeks_resourced + ')</option>'
+      + '<option value="unallocated"' + (type === 'unallocated' ? ' selected' : '') + '>{% trans "Unallocated" %} (' + p.weeks_unallocated + ')</option>'
+      + '<option value="custom"' + (type === 'custom' ? ' selected' : '') + '>{% trans "Custom" %}</option>'
+      + '</select>'
+      + '<input type="number" name="effort_' + p.pk + '" value="' + val + '" min="0" step="0.5"' + readonlyAttr + ' class="input input-bordered input-xs w-20 migrate-effort-input' + opacityClass + '" onclick="event.stopPropagation()">'
+      + '<span class="text-xs text-neutral-400 shrink-0">{% trans "wks" %}</span>'
+      + '</label>';
+  }).join('');
+}
+
+function renderMigrateStreamFilters() {
+  var container = document.getElementById('migrate-stream-filters');
+  var streamSet = {};
+  _migrateProjects.forEach(function (p) {
+    (p.streams || []).forEach(function (s) { streamSet[s] = true; });
+  });
+  var streams = Object.keys(streamSet).sort();
+  if (streams.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = '<span class="text-xs text-neutral-500 shrink-0 mr-1">{% trans "Streams:" %}</span>'
+    + streams.map(function (s) {
+        var active = _selectedMigrateStreams.has(s);
+        return '<button type="button" onclick="toggleMigrateStream(this)" data-stream="' + escapeAttr(s) + '" '
+          + 'class="btn btn-xs ' + (active ? 'btn-primary' : 'btn-outline') + ' migrate-stream-btn">'
+          + escapeHtml(s) + '</button>';
+      }).join('');
+}
+
+function toggleMigrateStream(btn) {
+  saveMigrateState();
+  var s = btn.dataset.stream;
+  if (_selectedMigrateStreams.has(s)) { _selectedMigrateStreams.delete(s); }
+  else { _selectedMigrateStreams.add(s); }
+  renderMigrateStreamFilters();
+  renderMigrateProjList(getFilteredMigrateProjects());
+}
+
+function getFilteredMigrateProjects() {
+  var text = document.getElementById('migrate-proj-search').value.toLowerCase();
+  return _migrateProjects.filter(function (p) {
+    if (text && p.name.toLowerCase().indexOf(text) === -1) return false;
+    if (_selectedMigrateStreams.size > 0 &&
+        !(p.streams || []).some(function (s) { return _selectedMigrateStreams.has(s); })) return false;
+    return true;
+  });
+}
+
+function filterMigrateProjList() {
+  saveMigrateState();
+  renderMigrateProjList(getFilteredMigrateProjects());
+}
+
+function applyProjEffortType(sel) {
+  var row = sel.closest('.migrate-proj-row');
+  var input = row.querySelector('.migrate-effort-input');
+  var isCustom = sel.value === 'custom';
+  var val = sel.value === 'unallocated' ? row.dataset.unallocated : row.dataset.resourced;
+  _setEffortInput(input, val, isCustom);
+}
+
+function setAllMigrateType() {
+  var type = document.getElementById('migrate-set-all').value;
+  if (!type) return;
+  document.querySelectorAll('.migrate-proj-row').forEach(function (row) {
+    var sel = row.querySelector('.migrate-type-sel');
+    sel.value = type;
+    applyProjEffortType(sel);
+  });
+  document.getElementById('migrate-set-all').value = '';
+}
+
+function updateMigrateProjList() {
+  var semPk = document.getElementById('migrate-proj-semester').value;
+  _migrateProjects = (CONTINUATION_DATA[semPk] || []);
+  _migrateState = {};
+  _selectedMigrateStreams = new Set();
+  document.getElementById('migrate-proj-search').value = '';
+  renderMigrateStreamFilters();
+  renderMigrateProjList(_migrateProjects);
+}
+
+function selectAllMigrateProjects(checked) {
+  document.querySelectorAll('.migrate-proj-cb').forEach(function (cb) { cb.checked = checked; });
 }
 
 function openMigrateProjects() {
