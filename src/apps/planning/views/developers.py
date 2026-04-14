@@ -195,7 +195,6 @@ class DeveloperDeleteView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(DeveloperProfile, pk=pk)
-        user = profile.user
-        profile.delete()
-        user.delete()
+        semester = get_selected_semester(request)
+        SemesterDeveloper.objects.filter(developer=profile, semester=semester).delete()
         return HttpResponse(status=204)

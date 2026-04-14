@@ -254,7 +254,7 @@
         </div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteDeveloper()">{% trans "Delete" %}</button>
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteDeveloper()">{% trans "Remove" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('developer-edit-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
@@ -447,7 +447,7 @@ document.getElementById('developer-edit-form').addEventListener('submit', functi
 
 function confirmDeleteDeveloper() {
   var pk = document.getElementById('edit-developer-id').value;
-  if (!pk || !confirm('{% trans "Delete this developer? This cannot be undone." %}')) return;
+  if (!pk || !confirm('{% trans "Remove this developer from the current semester?" %}')) return;
   document.getElementById('developer-edit-modal').close();
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
   var body = new FormData();

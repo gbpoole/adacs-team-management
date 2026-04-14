@@ -151,7 +151,7 @@
         {% endif %}
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteObserver()">{% trans "Delete" %}</button>
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteObserver()">{% trans "Remove All Access" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('observer-edit-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
@@ -193,7 +193,7 @@ document.getElementById('observer-edit-form').addEventListener('submit', functio
 
 function confirmDeleteObserver() {
   var pk = document.getElementById('edit-observer-id').value;
-  if (!pk || !confirm('{% trans "Delete this observer? This cannot be undone." %}')) return;
+  if (!pk || !confirm('{% trans "Remove all project and stream access for this observer?" %}')) return;
   document.getElementById('observer-edit-modal').close();
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
   var body = new FormData();

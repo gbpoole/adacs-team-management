@@ -101,5 +101,6 @@ class ObserverDeleteView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         obs = get_object_or_404(SemesterObserver, pk=pk)
-        obs.delete()
+        obs.project_access.clear()
+        obs.stream_access.clear()
         return HttpResponse(status=204)
