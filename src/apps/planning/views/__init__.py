@@ -22,9 +22,10 @@ from .phases import PhaseUpdateView
 from .planning import PlanningView
 from .projects import ProjectCreateView
 from .projects import ProjectDeleteView
+from .projects import ProjectDownloadView
+from .projects import ProjectMigrateView
 from .projects import ProjectsView
 from .projects import ProjectUpdateView
-from .projects import ProjectUploadView
 from .schedule import ScheduleView
 from ._semester import SemesterCreateView
 from ._semester import SemesterSwitchView
@@ -62,8 +63,9 @@ __all__ = [
     "PlanningView",
     "ProjectCreateView",
     "ProjectDeleteView",
+    "ProjectDownloadView",
+    "ProjectMigrateView",
     "ProjectUpdateView",
-    "ProjectUploadView",
     "ProjectsView",
     "ScheduleView",
     "SemesterCreateView",

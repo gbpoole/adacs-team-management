@@ -14,7 +14,10 @@
       {% if can_edit %}
       <div class="flex gap-2">
         <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-project-modal').showModal()">+ {% trans "Add Project" %}</button>
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('upload-project-modal').showModal()">{% trans "Upload TSV" %}</button>
+        {% if continuation_semesters %}
+        <button class="btn btn-outline btn-sm" onclick="openMigrateProjects()">{% trans "Migrate from Semester" %}</button>
+        {% endif %}
+        <button class="btn btn-outline btn-sm" onclick="downloadProjectsTSV()">{% trans "Download TSV" %}</button>
       </div>
       {% endif %}
     </div>
@@ -122,11 +125,13 @@
           </th>
           <th>{% trans "Streams" %}</th>
           <th>{% trans "Tags" %}</th>
+          <th>{% trans "Sci. Lead" %}</th>
+          <th>{% trans "Dev Lead" %}</th>
           <th class="text-right cursor-pointer select-none" onclick="sortProjTable('resourced')" data-col="resourced">
-            {% trans "Effort Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+            {% trans "Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
           <th class="text-right cursor-pointer select-none" onclick="sortProjTable('allocated')" data-col="allocated">
-            {% trans "Effort Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+            {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
           <th class="text-right cursor-pointer select-none" onclick="sortProjTable('unallocated')" data-col="unallocated">
             {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
@@ -136,12 +141,16 @@
       <tbody>
         {% for project in projects %}
         <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200"
-            onclick="openEditProject(this)"
+            onclick="openEditProject(this)"{% endif %}
             data-pk="{{ project.pk }}"
             data-name="{{ project.display_name }}"
             data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
             data-effort="{{ project.effort_resourced|default:'' }}"
-            data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
+            data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-dev-lead-pk="{{ project.dev_lead.pk|default:'' }}"
+            data-science-lead-pk="{{ project.science_lead.pk|default:'' }}"
+            data-science-lead-name="{{ project.science_lead_name|default:'' }}"
+            data-continuation-of-pk="{{ project.continuation_of.pk|default:'' }}"
             data-sort-name="{{ project.display_name|lower }}"
             data-sort-resourced="{{ project.effort_resourced }}"
             data-sort-allocated="{{ project.effort_allocated }}"
@@ -150,6 +159,9 @@
             <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
                   style="background-color: {{ project.colour }};"></span>
             {{ project.display_name }}
+            {% if project.continuation_of %}
+            <div class="text-xs text-neutral-400 mt-0.5 ml-5">↳ {{ project.continuation_display_name }}</div>
+            {% endif %}
           </td>
           <td>
             {% for stream in project.streams.all %}
@@ -160,6 +172,22 @@
             {% for tag in project.tags.all %}
             <span class="badge badge-sm" style="background-color: {{ tag.colour }}; color: white; border-color: {{ tag.colour }};">{{ tag }}</span>
             {% empty %}—{% endfor %}
+          </td>
+          <td>
+            {% if project.science_lead %}
+              {{ project.science_lead.name|default:project.science_lead.email }}
+            {% elif project.science_lead_name %}
+              <span class="italic text-neutral-400" title="{% trans 'Not in system' %}">{{ project.science_lead_name }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if project.dev_lead %}
+              {{ project.dev_lead.name|default:project.dev_lead.email }}
+            {% else %}
+              —
+            {% endif %}
           </td>
           <td class="text-right">{{ project.effort_resourced|wks }}</td>
           <td class="text-right">{{ project.effort_allocated|wks }}</td>
@@ -172,7 +200,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
+          <td colspan="8" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -182,17 +210,19 @@
 
 {# Add Project modal #}
 <dialog id="add-project-modal" class="modal">
-  <div class="modal-box">
+  <div class="modal-box max-w-2xl">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Project" %}</h3>
     <form method="post" action="{% url 'planning:project_add' %}">
       {% csrf_token %}
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
-        <input type="text" name="name" class="input input-bordered" required>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
-        <input type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
+          <input type="text" name="name" class="input input-bordered" required autocomplete="off" data-lpignore="true" data-form-type="other">
+        </div>
+        <div class="form-control" style="width: 140px;">
+          <label class="label label-text">{% trans "Resourced (wks)" %}</label>
+          <input type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered">
+        </div>
       </div>
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Streams" %}</label>
@@ -205,11 +235,11 @@
           {% endfor %}
         </div>
         <div class="flex gap-2 mt-2">
-          <input type="text" id="proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
+          <input type="text" id="proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
           <button type="button" class="btn btn-sm btn-ghost" onclick="projAddStream()">+ {% trans "Add" %}</button>
         </div>
       </div>
-      <div class="form-control mb-4">
+      <div class="form-control mb-3">
         <label class="label label-text">{% trans "Tags" %}</label>
         <div id="proj-tag-buttons" class="flex flex-wrap gap-2 mt-1">
           {% for tag in all_tags %}
@@ -220,10 +250,61 @@
           {% endfor %}
         </div>
         <div class="flex gap-2 mt-2">
-          <input type="text" id="proj-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1">
+          <input type="text" id="proj-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
           <button type="button" class="btn btn-sm btn-ghost" onclick="projAddTag()">+ {% trans "Add" %}</button>
         </div>
       </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Dev Lead" %}</label>
+          <select name="dev_lead" class="select select-bordered">
+            <option value="">{% trans "— none —" %}</option>
+            {% for person in available_people %}
+            <option value="{{ person.pk }}">{{ person.name|default:person.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Science Lead" %}</label>
+        <div class="flex gap-2 items-center mb-1">
+          <label class="flex items-center gap-1 cursor-pointer text-sm">
+            <input type="radio" name="add_sci_lead_type" value="people" class="radio radio-sm" checked onchange="toggleSciLeadAdd('people')">
+            {% trans "From People" %}
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer text-sm">
+            <input type="radio" name="add_sci_lead_type" value="external" class="radio radio-sm" onchange="toggleSciLeadAdd('external')">
+            {% trans "External (not in system)" %}
+          </label>
+        </div>
+        <div id="add-sci-lead-people">
+          <select name="science_lead" class="select select-bordered w-full">
+            <option value="">{% trans "— none —" %}</option>
+            {% for person in available_people %}
+            <option value="{{ person.pk }}">{{ person.name|default:person.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="add-sci-lead-external" class="hidden">
+          <input type="text" name="science_lead_name" placeholder="{% trans 'Enter name…' %}" class="input input-bordered w-full" autocomplete="off" data-lpignore="true" data-form-type="other">
+        </div>
+      </div>
+      {% if continuation_semesters %}
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Continuation of" %}</label>
+        <div class="flex gap-2">
+          <select id="add-cont-semester" class="select select-bordered flex-1" onchange="updateAddContProjects()">
+            <option value="">{% trans "— select semester —" %}</option>
+            {% for sem in continuation_semesters %}
+            <option value="{{ sem.pk }}">{{ sem }}</option>
+            {% endfor %}
+          </select>
+          <select id="add-cont-project" name="continuation_of" class="select select-bordered flex-1" disabled>
+            <option value="">{% trans "— select project —" %}</option>
+          </select>
+        </div>
+      </div>
+      {% endif %}
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-project-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
@@ -233,47 +314,24 @@
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
 
-{# Upload TSV modal #}
-<dialog id="upload-project-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-2">{% trans "Upload Projects TSV" %}</h3>
-    <p class="text-sm text-neutral-500 mb-4">
-      {% trans "Tab-separated file with a header row. Columns:" %}
-      <code class="text-xs bg-base-200 px-1 rounded">name</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">streams</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">effort_resourced</code>,
-      <code class="text-xs bg-base-200 px-1 rounded">tags</code>
-      {% trans "(comma-separated values for streams and tags)" %}
-    </p>
-    <form method="post" action="{% url 'planning:project_upload' %}" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="form-control mb-4">
-        <input type="file" name="tsv_file" accept=".tsv,.txt" class="file-input file-input-bordered w-full" required>
-      </div>
-      <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('upload-project-modal').close()">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Upload" %}</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-{# Edit Project modal #}
 {% if can_edit %}
+{# Edit Project modal #}
 <dialog id="project-edit-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Edit Project" %}</h3>
+  <div class="modal-box max-w-2xl">
+    <h3 id="edit-project-name-heading" class="font-bold text-lg mb-1"></h3>
+    <p class="text-sm text-neutral-500 mb-4"><span class="font-medium">{{ semester }}</span></p>
     <form id="project-edit-form" method="post" action="">
       {% csrf_token %}
       <input type="hidden" id="edit-project-id" value="">
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
-        <input id="edit-project-name" type="text" name="name" class="input input-bordered" required>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Effort Resourced (wks)" %}</label>
-        <input id="edit-project-effort" type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered" style="width: 140px;">
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
+          <input id="edit-project-name" type="text" name="name" class="input input-bordered" required autocomplete="off" data-lpignore="true" data-form-type="other">
+        </div>
+        <div class="form-control" style="width: 140px;">
+          <label class="label label-text">{% trans "Resourced (wks)" %}</label>
+          <input id="edit-project-effort" type="number" name="effort_resourced" min="0" step="0.5" class="input input-bordered">
+        </div>
       </div>
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Streams" %}</label>
@@ -286,11 +344,11 @@
           {% endfor %}
         </div>
         <div class="flex gap-2 mt-2">
-          <input type="text" id="edit-proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
+          <input type="text" id="edit-proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
           <button type="button" class="btn btn-sm btn-ghost" onclick="editProjAddStream()">+ {% trans "Add" %}</button>
         </div>
       </div>
-      <div class="form-control mb-4">
+      <div class="form-control mb-3">
         <label class="label label-text">{% trans "Tags" %}</label>
         <div id="edit-proj-tag-buttons" class="flex flex-wrap gap-2 mt-1">
           {% for tag in all_tags %}
@@ -301,12 +359,63 @@
           {% endfor %}
         </div>
         <div class="flex gap-2 mt-2">
-          <input type="text" id="edit-proj-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1">
+          <input type="text" id="edit-proj-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
           <button type="button" class="btn btn-sm btn-ghost" onclick="editProjAddTag()">+ {% trans "Add" %}</button>
         </div>
       </div>
+      <div class="flex gap-3 mb-3">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Dev Lead" %}</label>
+          <select id="edit-dev-lead" name="dev_lead" class="select select-bordered">
+            <option value="">{% trans "— none —" %}</option>
+            {% for person in available_people %}
+            <option value="{{ person.pk }}">{{ person.name|default:person.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-control mb-3">
+        <label class="label label-text">{% trans "Science Lead" %}</label>
+        <div class="flex gap-2 items-center mb-1">
+          <label class="flex items-center gap-1 cursor-pointer text-sm">
+            <input type="radio" name="edit_sci_lead_type" value="people" class="radio radio-sm" onchange="toggleSciLeadEdit('people')">
+            {% trans "From People" %}
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer text-sm">
+            <input type="radio" name="edit_sci_lead_type" value="external" class="radio radio-sm" onchange="toggleSciLeadEdit('external')">
+            {% trans "External (not in system)" %}
+          </label>
+        </div>
+        <div id="edit-sci-lead-people">
+          <select id="edit-science-lead" name="science_lead" class="select select-bordered w-full">
+            <option value="">{% trans "— none —" %}</option>
+            {% for person in available_people %}
+            <option value="{{ person.pk }}">{{ person.name|default:person.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="edit-sci-lead-external" class="hidden">
+          <input id="edit-science-lead-name" type="text" name="science_lead_name" placeholder="{% trans 'Enter name…' %}" class="input input-bordered w-full" autocomplete="off" data-lpignore="true" data-form-type="other">
+        </div>
+      </div>
+      {% if continuation_semesters %}
+      <div class="form-control mb-4">
+        <label class="label label-text">{% trans "Continuation of" %}</label>
+        <div class="flex gap-2">
+          <select id="edit-cont-semester" class="select select-bordered flex-1" onchange="updateEditContProjects()">
+            <option value="">{% trans "— select semester —" %}</option>
+            {% for sem in continuation_semesters %}
+            <option value="{{ sem.pk }}">{{ sem }}</option>
+            {% endfor %}
+          </select>
+          <select id="edit-cont-project" name="continuation_of" class="select select-bordered flex-1" disabled>
+            <option value="">{% trans "— select project —" %}</option>
+          </select>
+        </div>
+      </div>
+      {% endif %}
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteProject()">{% trans "Delete" %}</button>
+        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmRemoveProject()">{% trans "Remove from Semester" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('project-edit-modal').close()">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
@@ -316,7 +425,61 @@
 </dialog>
 {% endif %}
 
+{% if can_edit and continuation_semesters %}
+{# Migrate Projects modal #}
+<dialog id="migrate-project-modal" class="modal">
+  <div class="modal-box max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">{% trans "Migrate Projects from Another Semester" %}</h3>
+    <form id="migrate-project-form" method="post" action="{% url 'planning:project_migrate' %}">
+      {% csrf_token %}
+      <div class="flex gap-3 items-end mb-4">
+        <div class="form-control flex-1">
+          <label class="label label-text">{% trans "Source Semester" %}</label>
+          <select id="migrate-proj-semester" name="source_semester" class="select select-bordered" onchange="updateMigrateProjList()">
+            {% for sem in continuation_semesters %}
+            <option value="{{ sem.pk }}">{{ sem }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label label-text">{% trans "Weeks to copy" %}</label>
+          <div class="flex gap-3 items-center h-12">
+            <label class="flex items-center gap-1 cursor-pointer text-sm">
+              <input type="radio" name="migrate_effort_type" value="resourced" class="radio radio-sm" checked onchange="applyMigrateEffortType()">
+              {% trans "Resourced" %}
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer text-sm">
+              <input type="radio" name="migrate_effort_type" value="unallocated" class="radio radio-sm" onchange="applyMigrateEffortType()">
+              {% trans "Unallocated" %}
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer text-sm">
+              <input type="radio" name="migrate_effort_type" value="custom" class="radio radio-sm" onchange="applyMigrateEffortType()">
+              {% trans "Custom" %}
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 mb-2">
+        <input type="text" id="migrate-proj-search" placeholder="{% trans 'Filter projects…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other" oninput="filterMigrateProjList()">
+        <button type="button" class="btn btn-xs btn-ghost" onclick="selectAllMigrateProjects(true)">{% trans "All" %}</button>
+        <button type="button" class="btn btn-xs btn-ghost" onclick="selectAllMigrateProjects(false)">{% trans "None" %}</button>
+      </div>
+      <div id="migrate-proj-list" class="border border-base-300 rounded-lg overflow-y-auto max-h-72 divide-y divide-base-200">
+        <div class="p-4 text-sm text-neutral-400">{% trans "Select a semester above." %}</div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('migrate-project-modal').close()">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Migrate Selected" %}</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+{% endif %}
+
 <script>
+var CONTINUATION_DATA = {{ continuation_data_json|safe }};
+
 (function () {
   var SORT_KEY = 'projects_sort';
   var _sortCol = 'name', _sortAsc = true;
@@ -359,7 +522,6 @@
     applyProjSort();
   };
 
-  // Restore saved sort or default to name ascending
   try {
     var saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
     if (saved && saved.col) { _sortCol = saved.col; _sortAsc = saved.asc; }
@@ -426,6 +588,38 @@ document.getElementById('proj-new-tag').addEventListener('keydown', function (e)
 initCheckboxButtons('proj-stream-buttons');
 initCheckboxButtons('proj-tag-buttons');
 
+function toggleSciLeadAdd(type) {
+  document.getElementById('add-sci-lead-people').classList.toggle('hidden', type !== 'people');
+  document.getElementById('add-sci-lead-external').classList.toggle('hidden', type !== 'external');
+  if (type === 'people') {
+    document.querySelector('#add-sci-lead-external input').value = '';
+  } else {
+    document.querySelector('#add-sci-lead-people select').value = '';
+  }
+}
+
+function updateContProjects(semSelectId, projSelectId) {
+  var semSel = document.getElementById(semSelectId);
+  var projSel = document.getElementById(projSelectId);
+  var semPk = semSel.value;
+  projSel.innerHTML = '<option value="">— select project —</option>';
+  if (semPk && CONTINUATION_DATA[semPk]) {
+    CONTINUATION_DATA[semPk].forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.pk;
+      opt.textContent = p.name;
+      projSel.appendChild(opt);
+    });
+    projSel.disabled = false;
+  } else {
+    projSel.disabled = true;
+  }
+}
+
+function updateAddContProjects() {
+  updateContProjects('add-cont-semester', 'add-cont-project');
+}
+
 {% if can_edit %}
 function editProjAddStream() {
   var input = document.getElementById('edit-proj-new-stream');
@@ -452,13 +646,34 @@ document.getElementById('edit-proj-new-tag').addEventListener('keydown', functio
 initCheckboxButtons('edit-proj-stream-buttons');
 initCheckboxButtons('edit-proj-tag-buttons');
 
+function toggleSciLeadEdit(type) {
+  document.getElementById('edit-sci-lead-people').classList.toggle('hidden', type !== 'people');
+  document.getElementById('edit-sci-lead-external').classList.toggle('hidden', type !== 'external');
+  if (type === 'people') {
+    document.getElementById('edit-science-lead-name').value = '';
+  } else {
+    document.getElementById('edit-science-lead').value = '';
+  }
+}
+
+function updateEditContProjects() {
+  updateContProjects('edit-cont-semester', 'edit-cont-project');
+}
+
 function openEditProject(row) {
   var pk = row.dataset.pk;
   var streams = row.dataset.streams ? row.dataset.streams.split(',') : [];
   var tags = row.dataset.tags ? row.dataset.tags.split(',') : [];
+  var devLeadPk = row.dataset.devLeadPk || '';
+  var sciLeadPk = row.dataset.scienceLeadPk || '';
+  var sciLeadName = row.dataset.scienceLeadName || '';
+  var contOfPk = row.dataset.continuationOfPk || '';
+
   document.getElementById('edit-project-id').value = pk;
+  document.getElementById('edit-project-name-heading').textContent = row.dataset.name;
   document.getElementById('edit-project-name').value = row.dataset.name;
   document.getElementById('edit-project-effort').value = row.dataset.effort;
+
   document.querySelectorAll('#edit-proj-stream-buttons input[type="checkbox"]').forEach(function (cb) {
     cb.checked = streams.indexOf(cb.value) !== -1;
     cb.dispatchEvent(new Event('change'));
@@ -467,6 +682,42 @@ function openEditProject(row) {
     cb.checked = tags.indexOf(cb.value) !== -1;
     cb.dispatchEvent(new Event('change'));
   });
+
+  document.getElementById('edit-dev-lead').value = devLeadPk;
+
+  if (sciLeadName && !sciLeadPk) {
+    document.querySelector('input[name="edit_sci_lead_type"][value="external"]').checked = true;
+    toggleSciLeadEdit('external');
+    document.getElementById('edit-science-lead-name').value = sciLeadName;
+  } else {
+    document.querySelector('input[name="edit_sci_lead_type"][value="people"]').checked = true;
+    toggleSciLeadEdit('people');
+    document.getElementById('edit-science-lead').value = sciLeadPk;
+  }
+
+  // Continuation of
+  {% if continuation_semesters %}
+  var editContSem = document.getElementById('edit-cont-semester');
+  var editContProj = document.getElementById('edit-cont-project');
+  editContSem.value = '';
+  editContProj.innerHTML = '<option value="">— select project —</option>';
+  editContProj.disabled = true;
+  if (contOfPk) {
+    // Find which semester this project belongs to (search through continuation data)
+    var foundSemPk = null;
+    Object.keys(CONTINUATION_DATA).forEach(function (semPk) {
+      CONTINUATION_DATA[semPk].forEach(function (p) {
+        if (String(p.pk) === String(contOfPk)) { foundSemPk = semPk; }
+      });
+    });
+    if (foundSemPk) {
+      editContSem.value = foundSemPk;
+      updateEditContProjects();
+      editContProj.value = contOfPk;
+    }
+  }
+  {% endif %}
+
   document.getElementById('project-edit-form').action = '/planning/projects/' + pk + '/edit/';
   document.getElementById('project-edit-modal').showModal();
 }
@@ -478,9 +729,9 @@ document.getElementById('project-edit-form').addEventListener('submit', function
     .catch(function () { window.location.reload(); });
 });
 
-function confirmDeleteProject() {
+function confirmRemoveProject() {
   var pk = document.getElementById('edit-project-id').value;
-  if (!pk || !confirm('{% trans "Delete this project? This cannot be undone." %}')) return;
+  if (!pk || !confirm('{% trans "Remove this project from the current semester? This cannot be undone." %}')) return;
   document.getElementById('project-edit-modal').close();
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
   var body = new FormData();
@@ -490,5 +741,95 @@ function confirmDeleteProject() {
     .catch(function () { window.location.reload(); });
 }
 {% endif %}
+
+{% if continuation_semesters %}
+var _migrateProjects = [];
+
+function getMigrateEffortType() {
+  var radios = document.querySelectorAll('input[name="migrate_effort_type"]');
+  for (var i = 0; i < radios.length; i++) {
+    if (radios[i].checked) return radios[i].value;
+  }
+  return 'resourced';
+}
+
+function effortForProject(p, effortType) {
+  if (effortType === 'resourced') return p.weeks_resourced;
+  if (effortType === 'unallocated') return p.weeks_unallocated;
+  return '';
+}
+
+function renderMigrateProjList(filter) {
+  var container = document.getElementById('migrate-proj-list');
+  var effortType = getMigrateEffortType();
+  var items = filter
+    ? _migrateProjects.filter(function (p) { return p.name.toLowerCase().indexOf(filter.toLowerCase()) !== -1; })
+    : _migrateProjects;
+  if (items.length === 0) {
+    container.innerHTML = '<div class="p-4 text-sm text-neutral-400">{% trans "No projects to migrate from this semester." %}</div>';
+    return;
+  }
+  container.innerHTML = items.map(function (p) {
+    var effortVal = effortForProject(p, effortType);
+    return '<label class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-base-200 migrate-proj-row" data-pk="' + p.pk + '" data-name="' + escapeAttr(p.name) + '" data-resourced="' + p.weeks_resourced + '" data-unallocated="' + p.weeks_unallocated + '">'
+      + '<input type="checkbox" name="project_pks" value="' + p.pk + '" class="checkbox checkbox-sm migrate-proj-cb" checked>'
+      + '<span class="flex-1 text-sm">' + escapeHtml(p.name) + '</span>'
+      + '<span class="text-xs text-neutral-400 shrink-0">{% trans "wks:" %}</span>'
+      + '<input type="number" name="effort_' + p.pk + '" value="' + effortVal + '" min="0" step="0.5" class="input input-bordered input-xs w-20 migrate-effort-input" onclick="event.stopPropagation()">'
+      + '</label>';
+  }).join('');
+}
+
+function updateMigrateProjList() {
+  var semPk = document.getElementById('migrate-proj-semester').value;
+  _migrateProjects = (CONTINUATION_DATA[semPk] || []);
+  document.getElementById('migrate-proj-search').value = '';
+  renderMigrateProjList('');
+}
+
+function applyMigrateEffortType() {
+  var effortType = getMigrateEffortType();
+  document.querySelectorAll('.migrate-proj-row').forEach(function (row) {
+    if (effortType !== 'custom') {
+      var val = effortType === 'resourced' ? row.dataset.resourced : row.dataset.unallocated;
+      row.querySelector('.migrate-effort-input').value = val;
+    }
+  });
+}
+
+function filterMigrateProjList() {
+  renderMigrateProjList(document.getElementById('migrate-proj-search').value);
+}
+
+function selectAllMigrateProjects(checked) {
+  document.querySelectorAll('.migrate-proj-cb').forEach(function (cb) { cb.checked = checked; });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escapeAttr(s) {
+  return String(s).replace(/"/g,'&quot;');
+}
+
+function openMigrateProjects() {
+  updateMigrateProjList();
+  document.getElementById('migrate-project-modal').showModal();
+}
+{% endif %}
+
+function downloadProjectsTSV() {
+  fetch('/planning/projects/download/')
+    .then(function (r) { return r.blob(); })
+    .then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'projects_{{ semester }}.tsv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 100);
+    });
+}
 </script>
 {% endblock %}

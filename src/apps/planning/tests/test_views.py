@@ -2,7 +2,6 @@
 import datetime
 
 from django.contrib.auth.models import AnonymousUser
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.test import TestCase
 from django.urls import reverse
@@ -1199,17 +1198,8 @@ class LeaveUpdateViewTests(PlanningTestCase):
 
 
 # ---------------------------------------------------------------------------
-# Developer upload view
+# Developer download view
 # ---------------------------------------------------------------------------
-
-
-def _tsv_bytes(rows):
-    """Build a tab-separated bytes object from a list of dicts."""
-    if not rows:
-        return b""
-    header = "\t".join(rows[0].keys())
-    body = "\n".join("\t".join(str(v) for v in r.values()) for r in rows)
-    return (header + "\n" + body).encode("utf-8")
 
 
 class DeveloperDownloadViewTests(PlanningTestCase):
@@ -1237,47 +1227,34 @@ class DeveloperDownloadViewTests(PlanningTestCase):
 
 
 # ---------------------------------------------------------------------------
-# Project upload view
+# Project download view
 # ---------------------------------------------------------------------------
 
 
-class ProjectUploadViewTests(PlanningTestCase):
+class ProjectDownloadViewTests(PlanningTestCase):
     def setUp(self):
-        self.url = reverse("planning:project_upload")
+        self.url = reverse("planning:project_download")
         self.pm = PMUserFactory()
-
-    def _post(self, rows):
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        f = SimpleUploadedFile("projects.tsv", _tsv_bytes(rows), content_type="text/plain")
-        self.client.force_login(self.pm)
-        return self.client.post(self.url, {"tsv_file": f})
+        self.semester = SemesterFactory(year=2026, semester_type=SemesterType.A)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, method="post", denied=["developer", "observer"])
+        self.assertRoleAccess(self.url, method="get", denied=["developer", "observer"])
 
-    def test_missing_file_redirects(self):
+    def test_returns_tsv_file(self):
+        project = ProjectFactory()
+        ProjectSemesterNameFactory(project=project, semester=self.semester, name="My Project")
         self.client.force_login(self.pm)
-        response = self.client.post(self.url, {})
-        self.assertEqual(response.status_code, 302)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/octet-stream")
+        self.assertIn("projects_", response["Content-Disposition"])
 
-    def test_upload_creates_project(self):
-        self._post([{"name": "Uploaded Project", "streams": "Engineering", "tags": "", "effort_resourced": "8"}])
-        self.assertTrue(ProjectSemesterName.objects.filter(name="Uploaded Project").exists())
-
-    def test_upload_assigns_streams(self):
-        self._post([{"name": "Stream Project", "streams": "Engineering", "tags": "", "effort_resourced": ""}])
-        psn = ProjectSemesterName.objects.get(name="Stream Project")
-        self.assertTrue(psn.project.streams.filter(name="Engineering").exists())
-
-    def test_upload_creates_allocation(self):
-        self._post([{"name": "Alloc Project", "streams": "", "tags": "", "effort_resourced": "5"}])
-        psn = ProjectSemesterName.objects.get(name="Alloc Project")
-        self.assertTrue(ProjectAllocation.objects.filter(project=psn.project, weeks_new=5).exists())
-
-    def test_upload_invalid_name_returns_redirect_with_error(self):
-        before = Project.objects.count()
-        self._post([{"name": "", "streams": "", "tags": "", "effort_resourced": ""}])
-        self.assertEqual(Project.objects.count(), before)
+    def test_tsv_contains_project_name(self):
+        project = ProjectFactory()
+        ProjectSemesterNameFactory(project=project, semester=self.semester, name="Download Me")
+        self.client.force_login(self.pm)
+        response = self.client.get(self.url)
+        self.assertIn(b"Download Me", response.content)
 
 
 # ---------------------------------------------------------------------------

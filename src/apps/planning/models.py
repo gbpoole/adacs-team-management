@@ -221,6 +221,32 @@ class Project(models.Model):
         choices=COLOUR_CHOICES,
         blank=True,
     )
+    continuation_of = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="continuations",
+    )
+    dev_lead = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="dev_lead_projects",
+    )
+    science_lead = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="science_lead_projects",
+    )
+    science_lead_name = models.CharField(
+        _("science lead name (external)"),
+        max_length=255,
+        blank=True,
+    )
 
     class Meta:
         verbose_name = _("Project")

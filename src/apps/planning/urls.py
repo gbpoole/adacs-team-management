@@ -25,8 +25,9 @@ from .views import SemesterCreateView
 from .views import SemesterSwitchView
 from .views import ProjectCreateView
 from .views import ProjectDeleteView
+from .views import ProjectDownloadView
+from .views import ProjectMigrateView
 from .views import ProjectUpdateView
-from .views import ProjectUploadView
 from .views import ProjectsView
 from .views import ScheduleView
 from .views import StreamCreateView
@@ -53,7 +54,8 @@ urlpatterns = [
     path("observers/<int:pk>/delete/", ObserverDeleteView.as_view(), name="observer_delete"),
     path("projects/", ProjectsView.as_view(), name="projects"),
     path("projects/add/", ProjectCreateView.as_view(), name="project_add"),
-    path("projects/upload/", ProjectUploadView.as_view(), name="project_upload"),
+    path("projects/download/", ProjectDownloadView.as_view(), name="project_download"),
+    path("projects/migrate/", ProjectMigrateView.as_view(), name="project_migrate"),
     path("projects/<int:pk>/edit/", ProjectUpdateView.as_view(), name="project_edit"),
     path("projects/<int:pk>/delete/", ProjectDeleteView.as_view(), name="project_delete"),
     path("leave/", LeaveView.as_view(), name="leave"),
