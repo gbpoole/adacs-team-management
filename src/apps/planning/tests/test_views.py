@@ -25,6 +25,7 @@ from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
 from apps.planning.tests.factories import SemesterObserverFactory
 from apps.planning.tests.factories import PMUserFactory
+from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterFactory
@@ -961,6 +962,35 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Project.objects.count(), before)
 
+    def test_creates_project_with_dev_lead(self):
+        user = UserFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "dev_lead": str(user.pk)})
+        project = Project.objects.latest("pk")
+        self.assertEqual(project.dev_lead, user)
+
+    def test_creates_project_with_internal_science_lead(self):
+        user = UserFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "science_lead": str(user.pk)})
+        project = Project.objects.latest("pk")
+        self.assertEqual(project.science_lead, user)
+        self.assertEqual(project.science_lead_name, "")
+
+    def test_creates_project_with_external_science_lead(self):
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "science_lead_name": "Prof. External"})
+        project = Project.objects.latest("pk")
+        self.assertIsNone(project.science_lead)
+        self.assertEqual(project.science_lead_name, "Prof. External")
+
+    def test_creates_project_with_continuation_of(self):
+        source = ProjectFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "continuation_of": str(source.pk)})
+        project = Project.objects.latest("pk")
+        self.assertEqual(project.continuation_of, source)
+
 
 class ProjectUpdateViewTests(PlanningTestCase):
     def setUp(self):
@@ -998,6 +1028,36 @@ class ProjectUpdateViewTests(PlanningTestCase):
             ProjectAllocation.objects.filter(project=self.project, weeks_new=15).exists()
         )
 
+    def test_updates_dev_lead(self):
+        user = UserFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "dev_lead": str(user.pk)})
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.dev_lead, user)
+
+    def test_updates_science_lead_name(self):
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "science_lead_name": "External Lead"})
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.science_lead_name, "External Lead")
+
+    def test_clears_science_lead_name_when_internal_lead_set(self):
+        self.project.science_lead_name = "Old External"
+        self.project.save()
+        user = UserFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "science_lead": str(user.pk)})
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.science_lead, user)
+        self.assertEqual(self.project.science_lead_name, "")
+
+    def test_updates_continuation_of(self):
+        source = ProjectFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {**self.post_data, "continuation_of": str(source.pk)})
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.continuation_of, source)
+
 
 class ProjectDeleteViewTests(PlanningTestCase):
     def setUp(self):
@@ -1022,6 +1082,120 @@ class ProjectDeleteViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         self.client.post(self.url, {})
         self.assertFalse(Project.objects.filter(pk=pk).exists())
+
+    def test_removes_from_semester_only_when_other_names_exist(self):
+        sem_a = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        sem_b = SemesterFactory(year=2025, semester_type=SemesterType.B)
+        project = ProjectFactory()
+        ProjectSemesterNameFactory(project=project, semester=sem_a, name="Sem A Name")
+        ProjectSemesterNameFactory(project=project, semester=sem_b, name="Sem B Name")
+        self.client.force_login(self.pm)
+        session = self.client.session
+        session["selected_semester"] = "2026A"
+        session.save()
+        response = self.client.post(reverse("planning:project_delete", args=[project.pk]), {})
+        self.assertEqual(response.status_code, 204)
+        self.assertTrue(Project.objects.filter(pk=project.pk).exists())
+        self.assertFalse(ProjectSemesterName.objects.filter(project=project, semester=sem_a).exists())
+        self.assertTrue(ProjectSemesterName.objects.filter(project=project, semester=sem_b).exists())
+
+
+# ---------------------------------------------------------------------------
+# Project migrate view
+# ---------------------------------------------------------------------------
+
+
+class ProjectMigrateViewTests(PlanningTestCase):
+    def setUp(self):
+        self.url = reverse("planning:project_migrate")
+        self.pm = PMUserFactory()
+        self.target_sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.source_sem = SemesterFactory(year=2025, semester_type=SemesterType.B)
+        self.source_project = ProjectFactory()
+        ProjectSemesterNameFactory(
+            project=self.source_project, semester=self.source_sem, name="Old Project",
+        )
+        ProjectAllocationFactory(
+            project=self.source_project, semester=self.source_sem,
+            weeks_new=8, weeks_carryover=2,
+        )
+
+    def _migrate(self, effort=None, extra=None):
+        self.client.force_login(self.pm)
+        session = self.client.session
+        session["selected_semester"] = "2026A"
+        session.save()
+        data = {
+            "source_semester": str(self.source_sem.pk),
+            "project_pks": [str(self.source_project.pk)],
+            f"effort_{self.source_project.pk}": str(effort if effort is not None else 8),
+        }
+        if extra:
+            data.update(extra)
+        return self.client.post(self.url, data)
+
+    def test_role_access(self):
+        self.assertRoleAccess(
+            self.url, method="post",
+            allowed=["pm"], denied=["developer", "observer"],
+            data={"source_semester": str(self.source_sem.pk), "project_pks": []},
+        )
+
+    def test_creates_new_project(self):
+        before = Project.objects.count()
+        self._migrate()
+        self.assertEqual(Project.objects.count(), before + 1)
+
+    def test_new_project_has_continuation_of(self):
+        self._migrate()
+        new = Project.objects.latest("pk")
+        self.assertEqual(new.continuation_of, self.source_project)
+
+    def test_new_project_has_semester_name(self):
+        self._migrate()
+        new = Project.objects.latest("pk")
+        self.assertTrue(
+            ProjectSemesterName.objects.filter(
+                project=new, semester=self.target_sem, name="Old Project",
+            ).exists()
+        )
+
+    def test_new_project_has_allocation(self):
+        self._migrate(effort=5)
+        new = Project.objects.latest("pk")
+        self.assertTrue(
+            ProjectAllocation.objects.filter(
+                project=new, semester=self.target_sem, weeks_new=5,
+            ).exists()
+        )
+
+    def test_copies_dev_lead(self):
+        dev = UserFactory()
+        self.source_project.dev_lead = dev
+        self.source_project.save()
+        self._migrate()
+        new = Project.objects.latest("pk")
+        self.assertEqual(new.dev_lead, dev)
+
+    def test_copies_science_lead(self):
+        sci = UserFactory()
+        self.source_project.science_lead = sci
+        self.source_project.save()
+        self._migrate()
+        new = Project.objects.latest("pk")
+        self.assertEqual(new.science_lead, sci)
+
+    def test_copies_external_science_lead_name(self):
+        self.source_project.science_lead_name = "Prof. External"
+        self.source_project.save()
+        self._migrate()
+        new = Project.objects.latest("pk")
+        self.assertEqual(new.science_lead_name, "Prof. External")
+
+    def test_invalid_source_semester_redirects(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(self.url, {"source_semester": "99999", "project_pks": []})
+        self.assertEqual(response.status_code, 302)
 
 
 # ---------------------------------------------------------------------------
@@ -1255,6 +1429,21 @@ class ProjectDownloadViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Download Me", response.content)
+
+    def test_tsv_contains_dev_lead_name(self):
+        dev = UserFactory(name="Dev Lead Person")
+        project = ProjectFactory(dev_lead=dev)
+        ProjectSemesterNameFactory(project=project, semester=self.semester, name="Led Project")
+        self.client.force_login(self.pm)
+        response = self.client.get(self.url)
+        self.assertIn(b"Dev Lead Person", response.content)
+
+    def test_tsv_contains_external_science_lead(self):
+        project = ProjectFactory(science_lead_name="Prof. Smith")
+        ProjectSemesterNameFactory(project=project, semester=self.semester, name="Sci Project")
+        self.client.force_login(self.pm)
+        response = self.client.get(self.url)
+        self.assertIn(b"Prof. Smith", response.content)
 
 
 # ---------------------------------------------------------------------------
