@@ -148,11 +148,24 @@ class Command(BaseCommand):
             effort = float(effort_str) if effort_str else DEFAULT_EFFORT_WEEKS
             profile.base_effort_weeks = effort
             profile.save()
-            for sem in [sem_a, sem_b]:
-                SemesterDeveloper.objects.get_or_create(
+            base_tags = list(profile.tags.all())
+            for i, sem in enumerate([sem_a, sem_b]):
+                sd, _ = SemesterDeveloper.objects.get_or_create(
                     developer=profile, semester=sem,
                     defaults={"effort_available": effort},
                 )
+                if i == 0:
+                    # sem_a: exact copy of base tags
+                    sd.tags.set(base_tags)
+                else:
+                    # sem_b: slight variation — maybe drop one, maybe add one
+                    sem_tags = list(base_tags)
+                    if len(sem_tags) > 1 and random.random() < 0.5:
+                        sem_tags.remove(random.choice(sem_tags))
+                    extras = [t for t in Tag.objects.all() if t not in sem_tags]
+                    if extras and random.random() < 0.5:
+                        sem_tags.append(random.choice(extras))
+                    sd.tags.set(sem_tags)
             dev_profiles.append(profile)
         self.stdout.write(f"  {len(dev_profiles)} developers loaded.")
 
@@ -214,10 +227,14 @@ class Command(BaseCommand):
                 user.save()
             access_names = [n.strip() for n in row.get("project_access", "").split(",") if n.strip()]
             access_projects = [project_by_name[n] for n in access_names if n in project_by_name]
+            stream_names = [n.strip() for n in (row.get("stream_access") or "").split(",") if n.strip()]
+            access_streams = list(Stream.objects.filter(name__in=stream_names))
             for sem in [sem_a, sem_b]:
                 obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=sem)
                 if access_projects:
                     obs.project_access.set(access_projects)
+                if access_streams:
+                    obs.stream_access.set(access_streams)
             obs_count += 1
         self.stdout.write(f"  {obs_count} observers loaded.")
 

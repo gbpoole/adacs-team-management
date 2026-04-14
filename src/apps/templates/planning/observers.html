@@ -117,22 +117,15 @@
 {# Edit Observer modal #}
 <dialog id="observer-edit-modal" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Edit Observer" %}</h3>
+    <h3 id="edit-observer-name-heading" class="font-bold text-lg mb-1"></h3>
+    <p class="text-sm text-neutral-500 mb-4">
+      <span id="edit-observer-email-subheading"></span>
+      <span class="mx-1">·</span>
+      <span class="font-medium">{{ semester }}</span>
+    </p>
     <form id="observer-edit-form" method="post" action="">
       {% csrf_token %}
       <input type="hidden" id="edit-observer-id" value="">
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Email" %}</label>
-        <input id="edit-observer-email" type="email" class="input input-bordered bg-base-200" readonly>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %}</label>
-        <input id="edit-observer-name" type="text" name="name" class="input input-bordered">
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Organisation" %}</label>
-        <input id="edit-observer-organisation" type="text" name="organisation" class="input input-bordered">
-      </div>
       <div class="flex gap-3 mb-4">
         {% if all_projects %}
         <div class="form-control flex-1">
@@ -173,9 +166,8 @@ function openEditObserver(row) {
   var projectPks = row.dataset.projects ? row.dataset.projects.split(',') : [];
   var streamPks = row.dataset.streams ? row.dataset.streams.split(',') : [];
   document.getElementById('edit-observer-id').value = pk;
-  document.getElementById('edit-observer-email').value = row.dataset.email;
-  document.getElementById('edit-observer-name').value = row.dataset.name;
-  document.getElementById('edit-observer-organisation').value = row.dataset.organisation;
+  document.getElementById('edit-observer-name-heading').textContent = row.dataset.name || row.dataset.email;
+  document.getElementById('edit-observer-email-subheading').textContent = row.dataset.email;
   var projSel = document.getElementById('edit-observer-projects');
   if (projSel) {
     Array.from(projSel.options).forEach(function (opt) {

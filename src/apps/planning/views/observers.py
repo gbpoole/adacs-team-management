@@ -13,7 +13,6 @@ from apps.planning.models import Stream
 from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
-from ._mixins import _update_user_profile_fields
 from ._semester import get_selected_semester
 
 
@@ -92,7 +91,6 @@ class ObserverUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         obs = get_object_or_404(SemesterObserver, pk=pk)
-        _update_user_profile_fields(obs.user, request.POST)
         obs.project_access.set(request.POST.getlist("project_access"))
         obs.stream_access.set(request.POST.getlist("stream_access"))
         return redirect("planning:observers")

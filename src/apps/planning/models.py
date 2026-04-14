@@ -367,6 +367,7 @@ class SemesterDeveloper(models.Model):
         default=0,
         validators=[MinValueValidator(0)],
     )
+    tags = models.ManyToManyField(Tag, blank=True, related_name="semester_developer_records")
 
     class Meta:
         unique_together = [("developer", "semester")]

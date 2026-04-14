@@ -21,17 +21,16 @@ from ._csv_import import _upload_error
 from ._csv_import import _validate_developer_rows
 from ._mixins import PMOrDeveloperMixin
 from ._mixins import RoleRequiredMixin
-from ._mixins import _update_user_profile_fields
 from ._semester import get_selected_semester
 
 
 def _upsert_semester_developer(profile, effort_str, semester):
     if not effort_str:
-        return
+        return None, False
     try:
         effort = float(effort_str)
     except ValueError:
-        return
+        return None, False
     sd, created = SemesterDeveloper.objects.get_or_create(
         developer=profile,
         semester=semester,
@@ -40,6 +39,7 @@ def _upsert_semester_developer(profile, effort_str, semester):
     if not created:
         sd.effort_available = effort
         sd.save(update_fields=["effort_available"])
+    return sd, created
 
 
 class DevelopersView(PMOrDeveloperMixin, ListView):
@@ -54,7 +54,11 @@ class DevelopersView(PMOrDeveloperMixin, ListView):
         )
         tag_filter = self.request.GET.getlist("tags")
         if tag_filter:
-            qs = qs.filter(tags__name__in=tag_filter).distinct()
+            semester = get_selected_semester(self.request)
+            qs = qs.filter(
+                semester_records__semester=semester,
+                semester_records__tags__name__in=tag_filter,
+            ).distinct()
         return qs
 
     def get_context_data(self, **kwargs):
@@ -65,10 +69,11 @@ class DevelopersView(PMOrDeveloperMixin, ListView):
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = self.request.GET.getlist("tags")
 
-        records = SemesterDeveloper.objects.filter(semester=semester).values_list(
-            "developer_id", "effort_available",
+        sd_records = list(
+            SemesterDeveloper.objects.filter(semester=semester)
+            .prefetch_related("tags")
         )
-        effort_map = dict(records)
+        sd_map = {sd.developer_id: sd for sd in sd_records}
 
         phases = Phase.objects.filter(
             semester=semester,
@@ -80,7 +85,9 @@ class DevelopersView(PMOrDeveloperMixin, ListView):
             )
 
         for dev in ctx["developers"]:
-            dev.effort_available = effort_map.get(dev.pk)
+            sd = sd_map.get(dev.pk)
+            dev.effort_available = sd.effort_available if sd else None
+            dev.semester_tags = list(sd.tags.all()) if sd else []
             dev.effort_allocated = round(effort_allocated.get(dev.pk, 0), 2)
             if dev.effort_available is not None:
                 dev.effort_unallocated = round(float(dev.effort_available) - dev.effort_allocated, 2)
@@ -109,10 +116,17 @@ class DeveloperCreateView(RoleRequiredMixin, View):
         tag_names = request.POST.getlist("tags")
         if tag_names:
             profile.tags.set(_get_or_create_tags(tag_names))
-        _upsert_semester_developer(
-            profile, request.POST.get("effort_available", "").strip(),
-            get_selected_semester(request),
-        )
+
+        # Default effort to base effort if not provided
+        effort_str = request.POST.get("effort_available", "").strip()
+        if not effort_str:
+            effort_str = str(profile.base_effort_weeks)
+
+        semester = get_selected_semester(request)
+        sd, sd_created = _upsert_semester_developer(profile, effort_str, semester)
+        # Seed semester tags from base tags when first added to this semester
+        if sd is not None and sd_created:
+            sd.tags.set(profile.tags.all())
         return redirect("planning:developers")
 
 
@@ -144,7 +158,10 @@ class DeveloperUploadView(RoleRequiredMixin, View):
                 tag_names = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
                 if tag_names:
                     profile.tags.set(_get_or_create_tags(tag_names))
-                _upsert_semester_developer(profile, row.get("effort_available", "").strip(), semester)
+                effort_str = row.get("effort_available", "").strip() or str(profile.base_effort_weeks)
+                sd, sd_created = _upsert_semester_developer(profile, effort_str, semester)
+                if sd is not None and sd_created:
+                    sd.tags.set(profile.tags.all())
         messages.success(request, f"{len(rows)} developer(s) uploaded successfully.")
         return redirect("planning:developers")
 
@@ -154,12 +171,21 @@ class DeveloperUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(DeveloperProfile, pk=pk)
-        _update_user_profile_fields(profile.user, request.POST)
         tag_names = request.POST.getlist("tags")
-        profile.tags.set(_get_or_create_tags(tag_names))
+        tags = _get_or_create_tags(tag_names)
+        semester = get_selected_semester(request)
+        # Update semester-specific tags
+        try:
+            sd = SemesterDeveloper.objects.get(developer=profile, semester=semester)
+            sd.tags.set(tags)
+        except SemesterDeveloper.DoesNotExist:
+            pass
+        # Optionally also update base tags
+        if request.POST.get("update_base_tags"):
+            profile.tags.set(tags)
         _upsert_semester_developer(
             profile, request.POST.get("effort_available", "").strip(),
-            get_selected_semester(request),
+            semester,
         )
         return redirect("planning:developers")
 

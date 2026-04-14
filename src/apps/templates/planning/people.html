@@ -104,7 +104,7 @@
         <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200"
             onclick="openEditPerson(this)"
             data-pk="{{ person.pk }}"
-            data-effort="{% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks }}{% else %}20{% endif %}"
+            data-effort="{% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks|floatformat:1 }}{% else %}20.0{% endif %}"
             data-tags="{% if person.developer_profile %}{% for t in person.developer_profile.tags.all %}{{ t.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
             data-projects="{% if person.semester_observer %}{% for p in person.semester_observer.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
             data-streams="{% if person.semester_observer %}{% for s in person.semester_observer.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"{% endif %}
@@ -125,7 +125,7 @@
           </td>
           <td>{{ person.organisation|default:"—" }}</td>
           <td>
-            {% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks }}{% else %}—{% endif %}
+            {% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks|floatformat:1 }}{% else %}—{% endif %}
           </td>
           <td>
             {% with profile=person.developer_profile %}

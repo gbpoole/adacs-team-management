@@ -109,7 +109,8 @@
             data-email="{{ dev.user.email }}"
             data-organisation="{{ dev.user.organisation|default:'' }}"
             data-effort="{{ dev.effort_available|default:'' }}"
-            data-tags="{% for tag in dev.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
+            data-tags="{% for tag in dev.semester_tags %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-base-tags="{% for tag in dev.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
             data-sort-name="{{ dev.user.name|default:dev.user.email|lower }}"
             data-sort-available="{{ dev.effort_available|default:'' }}"
             data-sort-allocated="{{ dev.effort_allocated }}"
@@ -120,7 +121,7 @@
             {{ dev.user.name|default:dev.user.email }}
           </td>
           <td>
-            {% for tag in dev.tags.all %}
+            {% for tag in dev.semester_tags %}
             <span class="badge badge-sm" style="background-color: {{ tag.colour }}; color: white; border-color: {{ tag.colour }};">{{ tag }}</span>
             {% empty %}—{% endfor %}
           </td>
@@ -224,22 +225,15 @@
 {% if can_edit %}
 <dialog id="developer-edit-modal" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Edit Developer" %}</h3>
+    <h3 id="edit-developer-name-heading" class="font-bold text-lg mb-1"></h3>
+    <p class="text-sm text-neutral-500 mb-4">
+      <span id="edit-developer-email-subheading"></span>
+      <span class="mx-1">·</span>
+      <span class="font-medium">{{ semester }}</span>
+    </p>
     <form id="developer-edit-form" method="post" action="">
       {% csrf_token %}
       <input type="hidden" id="edit-developer-id" value="">
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Email" %}</label>
-        <input id="edit-developer-email" type="email" class="input input-bordered bg-base-200" readonly>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %}</label>
-        <input id="edit-developer-name" type="text" name="name" class="input input-bordered">
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Organisation" %}</label>
-        <input id="edit-developer-organisation" type="text" name="organisation" class="input input-bordered">
-      </div>
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Effort Available (wks)" %}</label>
         <input id="edit-developer-effort" type="number" name="effort_available" min="0" step="0.5" class="input input-bordered">
@@ -265,6 +259,18 @@
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
     </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
+</dialog>
+
+{# Base-tags sync confirmation dialog #}
+<dialog id="base-tags-confirm-modal" class="modal">
+  <div class="modal-box max-w-sm">
+    <p class="mb-4">{% trans "The semester tags differ from the base tags on the People page. Also update the base tags?" %}</p>
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" id="base-tags-no">{% trans "No" %}</button>
+      <button type="button" class="btn btn-primary" id="base-tags-yes">{% trans "Yes" %}</button>
+    </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
@@ -385,25 +391,58 @@ initTagButtons('edit-dev-tag-buttons');
 
 function openEditDeveloper(row) {
   var pk = row.dataset.pk;
-  var tags = row.dataset.tags ? row.dataset.tags.split(',') : [];
+  var tags = row.dataset.tags ? row.dataset.tags.split(',').filter(Boolean) : [];
   document.getElementById('edit-developer-id').value = pk;
-  document.getElementById('edit-developer-email').value = row.dataset.email;
-  document.getElementById('edit-developer-name').value = row.dataset.name;
-  document.getElementById('edit-developer-organisation').value = row.dataset.organisation;
-  document.getElementById('edit-developer-effort').value = row.dataset.effort;
+  document.getElementById('edit-developer-name-heading').textContent = row.dataset.name || row.dataset.email;
+  document.getElementById('edit-developer-email-subheading').textContent = row.dataset.email;
+  var effortVal = parseFloat(row.dataset.effort);
+  document.getElementById('edit-developer-effort').value = isNaN(effortVal) ? '' : effortVal.toFixed(1);
   document.querySelectorAll('#edit-dev-tag-buttons input[type="checkbox"]').forEach(function (cb) {
     cb.checked = tags.indexOf(cb.value) !== -1;
     cb.dispatchEvent(new Event('change'));
   });
-  document.getElementById('developer-edit-form').action = '/planning/developers/' + pk + '/edit/';
+  var form = document.getElementById('developer-edit-form');
+  form.dataset.baseTags = row.dataset.baseTags || '';
+  form.action = '/planning/developers/' + pk + '/edit/';
   document.getElementById('developer-edit-modal').showModal();
 }
 
-document.getElementById('developer-edit-form').addEventListener('submit', function (e) {
-  e.preventDefault();
-  fetch(this.action, { method: 'POST', body: new FormData(this) })
+function _submitDeveloperForm(updateBaseTags) {
+  var form = document.getElementById('developer-edit-form');
+  var existing = form.querySelector('input[name="update_base_tags"]');
+  if (existing) existing.remove();
+  if (updateBaseTags) {
+    var hidden = document.createElement('input');
+    hidden.type = 'hidden'; hidden.name = 'update_base_tags'; hidden.value = '1';
+    form.appendChild(hidden);
+  }
+  fetch(form.action, { method: 'POST', body: new FormData(form) })
     .then(function () { window.location.reload(); })
     .catch(function () { window.location.reload(); });
+}
+
+document.getElementById('base-tags-yes').addEventListener('click', function () {
+  document.getElementById('base-tags-confirm-modal').close();
+  _submitDeveloperForm(true);
+});
+document.getElementById('base-tags-no').addEventListener('click', function () {
+  document.getElementById('base-tags-confirm-modal').close();
+  _submitDeveloperForm(false);
+});
+
+document.getElementById('developer-edit-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var form = this;
+  var semTags = Array.from(form.querySelectorAll('#edit-dev-tag-buttons input[type="checkbox"]:checked'))
+    .map(function (cb) { return cb.value; }).sort();
+  var baseTags = (form.dataset.baseTags || '').split(',').filter(Boolean).sort();
+  var tagsChanged = semTags.join(',') !== baseTags.join(',');
+
+  if (tagsChanged) {
+    document.getElementById('base-tags-confirm-modal').showModal();
+  } else {
+    _submitDeveloperForm(false);
+  }
 });
 
 function confirmDeleteDeveloper() {

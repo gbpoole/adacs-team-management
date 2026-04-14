@@ -1,3 +1,4 @@
-email	name	organisation	project_access
-sarah.chen@uni.edu.au	Prof. Sarah Chen	Monash University	GALAH Stellar Spectra Pipeline,SKA Precursor Data Processing,OzGrav Gravitational Wave Analysis,TAIPAN Survey Tools
-mark.williams@anu.edu.au	Dr. Mark Williams	ANU	Climate Model Post-Processing,BOM Data Ingestion Framework,ACCESS Climate Portal,Seismic Event Classifier,Geodynamics Simulation Tools
+email	name	organisation	project_access	stream_access
+sarah.chen@uni.edu.au	Prof. Sarah Chen	Monash University		Astronomy
+mark.williams@anu.edu.au	Dr. Mark Williams	ANU	Microbiome Assembly Pipeline
+raj.patel@curtin.edu.au	Dr. Raj Patel	Curtin University	Geodynamics Simulation Tools	Climate Science
