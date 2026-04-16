@@ -24,7 +24,6 @@ from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
 from django.db import transaction
 
-from apps.planning.models import AllocationType
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.planning.models import Phase
@@ -193,7 +192,6 @@ class Command(BaseCommand):
                 ProjectAllocation.objects.get_or_create(
                     project=project, semester=sem,
                     defaults={
-                        "allocation_type": AllocationType.FIXED,
                         "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
                         "weeks_carryover": 0,
                     },

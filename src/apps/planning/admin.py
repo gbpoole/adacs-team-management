@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from .models import DeveloperProfile
 from .models import Leave
-from .models import ObserverProfile
 from .models import Phase
 from .models import Project
 from .models import ProjectAllocation
@@ -29,13 +28,6 @@ class StreamAdmin(admin.ModelAdmin):
 class DeveloperProfileAdmin(admin.ModelAdmin):
     list_display = ["user", "colour"]
     filter_horizontal = ["tags"]
-    search_fields = ["user__email", "user__name"]
-
-
-@admin.register(ObserverProfile)
-class ObserverProfileAdmin(admin.ModelAdmin):
-    list_display = ["user"]
-    filter_horizontal = ["project_access"]
     search_fields = ["user__email", "user__name"]
 
 

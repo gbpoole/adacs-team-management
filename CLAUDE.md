@@ -68,31 +68,40 @@ docker compose build django && docker compose up -d django
 - **Auth:** django-allauth with email-only login (no username), mandatory email verification
 
 ### App structure
-- `src/apps/users/` — custom `User` model (email-based, no username) with `Role` choices: `admin`, `pm`, `developer`, `observer`
+- `src/apps/users/` — custom `User` model (email-based, no username) with `Role` choices: `pm`, `user` (default). Developer/observer access is determined by `SemesterDeveloper`/`SemesterObserver` records, not by the role field.
 - `src/apps/planning/` — all domain logic, models, views, templates, tests
 - `src/config/` — settings (base/development/test/prod), URL conf, API router
 
 ### Domain model (`src/apps/planning/models.py`)
-- **`DeveloperProfile`** / **`ObserverProfile`** — extend `User` via OneToOne; observers have M2M `project_access`
+- **`DeveloperProfile`** — extends `User` via OneToOne; holds colour, base_effort_weeks, and base tags
 - **`Semester`** — year + type (A=Jan-Jun, B=Jul-Dec); `Semester.get_current()` auto-creates if missing
-- **`Project`** — has a `Stream`, colour, tags, and per-semester names via `ProjectSemesterName`; `project.name_for_semester(semester)` resolves the display name with fallback
+- **`Project`** — belongs to `Stream`(s), has colour, tags, and per-semester names via `ProjectSemesterName`; `project.name_for_semester(semester)` resolves the display name with fallback
 - **`ProjectAllocation`** — weeks (new + carryover) per project per semester
-- **`SemesterDeveloper`** — effort available (weeks) per developer per semester
+- **`SemesterDeveloper`** — effort available (weeks) per developer per semester; mutually exclusive with `SemesterObserver` for the same user+semester
+- **`SemesterObserver`** — per-semester observer access record; grants a user view access to specific projects and/or streams; mutually exclusive with `SemesterDeveloper`
 - **`Leave`** — date ranges for a developer; affects `Phase.effort_weeks()` calculation
 - **`Phase`** — a developer working on a project for a date range within a semester; `effort_weeks()` counts working days minus leave, divided by 5, times `effort_multiplier`
+- **`DeveloperLane`** — a visual row on the Gantt for one developer in one semester; a developer can have multiple lanes when phases overlap
 - **`Tag`** — shared across developers and projects for filtering
 
-### Views & URL structure (`/planning/`)
-Access control uses `RoleRequiredMixin` with per-view `allowed_roles`. URL namespace is `planning`.
+### Access control
+Three mixins in `views/_mixins.py` gate access based on role + semester participation:
+- `RoleRequiredMixin` — restricts to `allowed_roles`; all write views use `allowed_roles = (Role.PM,)`
+- `PMOrDeveloperMixin` — PM always allowed; others only if they have a `SemesterDeveloper` record with `effort_available > 0`
+- `PMOrObserverMixin` — PM always allowed; others only if they have a `SemesterObserver` record
+- `PMOrParticipantMixin` — PM always allowed; others if they are either a semester developer or observer
 
-| URL | View | Roles |
-|-----|------|-------|
-| `/planning/developers/` | `DevelopersView` | admin, pm, developer |
-| `/planning/observers/` | `ObserversView` | admin, pm |
-| `/planning/projects/` | `ProjectsView` | all roles |
-| `/planning/leave/` | `LeaveView` | admin, pm, developer |
-| `/planning/planning/` | `PlanningView` | admin, pm |
-| `/planning/schedule/` | `ScheduleView` | admin, pm |
+### Views & URL structure (`/planning/`)
+URL namespace is `planning`.
+
+| URL | View | Access |
+|-----|------|--------|
+| `/planning/developers/` | `DevelopersView` | PM or semester developer |
+| `/planning/observers/` | `ObserversView` | PM only |
+| `/planning/projects/` | `ProjectsView` | PM or semester participant |
+| `/planning/leave/` | `LeaveView` | PM or semester developer |
+| `/planning/planning/` | `PlanningView` | PM only |
+| `/planning/schedule/` | `ScheduleView` | PM only |
 
 The Planning and Schedule pages render week-by-week Gantt-style timelines. The shared helpers `_week_starts`, `_coverage`, and `_build_timeline_layers` in `views.py` build the grid data passed to templates. Phases are placed into non-overlapping layers; leave periods fill gaps between phases.
 

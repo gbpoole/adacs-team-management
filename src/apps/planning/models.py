@@ -114,28 +114,6 @@ class DeveloperProfile(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# ObserverProfile  (FR-02 / FR-11)
-# ---------------------------------------------------------------------------
-
-
-class ObserverProfile(models.Model):
-    """Read-only observer linked via OneToOne to User; accesses specific projects."""
-
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="observer_profile",
-    )
-
-    class Meta:
-        verbose_name = _("Observer Profile")
-        verbose_name_plural = _("Observer Profiles")
-
-    def __str__(self):
-        return self.user.email
-
-
-# ---------------------------------------------------------------------------
 # Semester  (FR-06)
 # ---------------------------------------------------------------------------
 
@@ -302,11 +280,6 @@ class ProjectSemesterName(models.Model):
 # ---------------------------------------------------------------------------
 
 
-class AllocationType(models.TextChoices):
-    FIXED = "fixed", _("Fixed (specified semesters)")
-    INDEFINITE = "indefinite", _("Indefinite (ongoing)")
-
-
 class ProjectAllocation(models.Model):
     """Tracks how many weeks a project is allocated for a specific semester."""
 
@@ -315,12 +288,6 @@ class ProjectAllocation(models.Model):
     )
     semester = models.ForeignKey(
         Semester, on_delete=models.CASCADE, related_name="project_allocations",
-    )
-    allocation_type = models.CharField(
-        _("allocation type"),
-        max_length=20,
-        choices=AllocationType.choices,
-        default=AllocationType.FIXED,
     )
     weeks_new = models.DecimalField(
         _("new weeks allocated"), max_digits=6, decimal_places=2, default=0,
@@ -339,35 +306,6 @@ class ProjectAllocation(models.Model):
     @property
     def total_weeks(self):
         return self.weeks_new + self.weeks_carryover
-
-
-# ---------------------------------------------------------------------------
-# Observer project access  (FR-11)
-# ---------------------------------------------------------------------------
-
-ObserverProfile.add_to_class(
-    "project_access",
-    models.ManyToManyField(
-        Project,
-        blank=True,
-        related_name="observer_access",
-        help_text=_(
-            "Projects this observer can view. Leave empty for no access.",
-        ),
-    ),
-)
-
-ObserverProfile.add_to_class(
-    "stream_access",
-    models.ManyToManyField(
-        Stream,
-        blank=True,
-        related_name="observer_access",
-        help_text=_(
-            "Streams this observer can view. All projects in these streams are accessible.",
-        ),
-    ),
-)
 
 
 # ---------------------------------------------------------------------------
