@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n planning_extras %}
+{% load static i18n planning_extras %}
 
 {% block title %} — {% trans "Schedule" %}{% endblock %}
 
@@ -62,48 +62,7 @@
       </div>
       {% endif %}
     </form>
-    <script>
-      (function () {
-        var STORAGE_KEY = 'schedule_filter';
-        var form = document.getElementById('filter-form');
-        var params = new URLSearchParams(window.location.search);
-        var urlTags = params.getAll('tags');
-        var urlStreams = params.getAll('streams');
-        if (urlTags.length > 0 || urlStreams.length > 0) {
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: urlTags, streams: urlStreams})); } catch (e) {}
-        } else {
-          try {
-            var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-            if (saved && (saved.tags && saved.tags.length > 0 || saved.streams && saved.streams.length > 0)) {
-              var p = new URLSearchParams();
-              (saved.tags || []).forEach(function (t) { p.append('tags', t); });
-              (saved.streams || []).forEach(function (s) { p.append('streams', s); });
-              window.location.replace(window.location.pathname + '?' + p.toString());
-              return;
-            }
-          } catch (e) {}
-        }
-        function submitFilter() {
-          var tags = Array.from(form.querySelectorAll('input[name="tags"]:checked')).map(function (cb) { return cb.value; });
-          var streams = Array.from(form.querySelectorAll('input[name="streams"]:checked')).map(function (cb) { return cb.value; });
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({tags: tags, streams: streams})); } catch (e) {}
-          form.submit();
-        }
-        form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-          cb.addEventListener('change', submitFilter);
-        });
-        form.querySelectorAll('button[data-group]').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var group = btn.dataset.group;
-            var selectAll = btn.dataset.action === 'all';
-            form.querySelectorAll('input[name="' + group + '"]').forEach(function (cb) {
-              cb.checked = selectAll;
-            });
-            submitFilter();
-          });
-        });
-      })();
-    </script>
+    <script src="{% static 'js/planning/pages/schedule.js' %}" defer></script>
     {% endif %}
     {% endif %}
   </div>
