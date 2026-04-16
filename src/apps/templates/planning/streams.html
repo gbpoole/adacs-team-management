@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load static i18n %}
 
 {% block title %} — {% trans "Streams" %}{% endblock %}
 
@@ -107,68 +107,15 @@
 </dialog>
 
 <script>
-function initColourSwatches(containerId) {
-  document.querySelectorAll('#' + containerId + ' input[type="radio"]').forEach(function (radio) {
-    var swatch = radio.nextElementSibling;
-    function sync() {
-      swatch.style.outline = radio.checked ? '2px solid currentColor' : 'none';
-      swatch.style.outlineOffset = radio.checked ? '2px' : '0';
-    }
-    sync();
-    radio.addEventListener('change', function () {
-      document.querySelectorAll('#' + containerId + ' .colour-swatch').forEach(function (s) {
-        s.style.outline = 'none';
-      });
-      swatch.style.outline = '2px solid currentColor';
-      swatch.style.outlineOffset = '2px';
-    });
-  });
-}
-
-function selectColourSwatch(containerId, hex) {
-  document.querySelectorAll('#' + containerId + ' input[type="radio"]').forEach(function (radio) {
-    radio.checked = (radio.value === hex);
-    var swatch = radio.nextElementSibling;
-    swatch.style.outline = radio.checked ? '2px solid currentColor' : 'none';
-    swatch.style.outlineOffset = radio.checked ? '2px' : '0';
-  });
-}
-
-initColourSwatches('add-colour-swatches');
-initColourSwatches('edit-colour-swatches');
-
-function openEditStream(row) {
-  var pk = row.dataset.pk;
-  document.getElementById('edit-stream-name').value = row.dataset.name;
-  document.getElementById('edit-stream-form').action = '/planning/streams/' + pk + '/edit/';
-  document.getElementById('edit-stream-form').dataset.pk = pk;
-  selectColourSwatch('edit-colour-swatches', row.dataset.colour);
-  document.getElementById('edit-stream-modal').showModal();
-}
-
-document.getElementById('edit-stream-form').addEventListener('submit', function (e) {
-  e.preventDefault();
-  fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function (resp) {
-      if (resp.ok) { window.location.reload(); }
-      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
-    })
-    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
-});
-
-function confirmDeleteStream() {
-  var pk = document.getElementById('edit-stream-form').dataset.pk;
-  if (!pk || !confirm('{% trans "Delete this stream? This cannot be undone." %}')) return;
-  document.getElementById('edit-stream-modal').close();
-  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  var body = new FormData();
-  body.append('csrfmiddlewaretoken', csrf);
-  fetch('/planning/streams/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function (resp) {
-      if (resp.ok) { window.location.reload(); }
-      else { alert('Delete failed (status ' + resp.status + '). Please try again.'); }
-    })
-    .catch(function () { alert('Delete failed. Please check your connection and try again.'); });
-}
+  window.streamsPageConfig = {
+    labels: {
+      saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
+      saveFailedStatus: "{% trans 'Save failed' %}",
+      deleteFailed: "{% trans 'Delete failed. Please check your connection and try again.' %}",
+      deleteFailedStatus: "{% trans 'Delete failed' %}",
+      deleteConfirm: "{% trans 'Delete this stream? This cannot be undone.' %}",
+    },
+  };
 </script>
+<script src="{% static 'js/planning/pages/streams.js' %}" defer></script>
 {% endblock %}

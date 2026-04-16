@@ -1,23 +1,9 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load static i18n %}
 
 {% block title %} — {% trans "Leave" %}{% endblock %}
 
 {% block content %}
-<script>
-  // Restore "Show Past" state from localStorage
-  (function () {
-    {% if not show_past %}
-    try {
-      if (localStorage.getItem('leave_show_past') === '1') {
-        window.location.replace('?show_past=1');
-      }
-    } catch (e) {}
-    {% else %}
-    try { localStorage.setItem('leave_show_past', '1'); } catch (e) {}
-    {% endif %}
-  })();
-</script>
 <div class="h-full flex flex-col">
   <div class="shrink-0 px-6 pt-6">
     <div class="flex items-center justify-between mb-4">
@@ -171,206 +157,21 @@
   </div>
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
-
-<script>
-function openEditLeave(row) {
-  document.getElementById('edit-leave-id').value = row.dataset.pk;
-  document.getElementById('edit-leave-developer').value = row.dataset.developer;
-  document.getElementById('edit-leave-start').value = row.dataset.start;
-  document.getElementById('edit-leave-end').value = row.dataset.end;
-  document.getElementById('leave-edit-form').action = '/planning/leave/' + row.dataset.pk + '/update/';
-  document.getElementById('leave-edit-modal').showModal();
-}
-
-document.getElementById('leave-edit-form').addEventListener('submit', function (e) {
-  e.preventDefault();
-  fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function (resp) {
-      if (resp.ok) { window.location.reload(); }
-      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
-    })
-    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
-});
-
-function confirmDeleteLeave() {
-  var pk = document.getElementById('edit-leave-id').value;
-  if (!pk || !confirm('{% trans "Delete this leave period?" %}')) return;
-  document.getElementById('leave-edit-modal').close();
-  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  var body = new FormData();
-  body.append('csrfmiddlewaretoken', csrf);
-  fetch('/planning/leave/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function (resp) {
-      if (resp.ok) { window.location.reload(); }
-      else { alert('Delete failed (status ' + resp.status + '). Please try again.'); }
-    })
-    .catch(function () { alert('Delete failed. Please check your connection and try again.'); });
-}
-</script>
 {% endif %}
 
 <script>
-(function () {
-  var SORT_KEY = 'leave_sort';
-  var _sortCol = null, _sortAsc = true;
-
-  function cmpRows(a, b, col, asc) {
-    var av, bv, cmp;
-    if (col === 'name') {
-      av = a.dataset.sortName || ''; bv = b.dataset.sortName || '';
-      cmp = av.localeCompare(bv);
-    } else if (col === 'start') {
-      av = a.dataset.start || ''; bv = b.dataset.start || '';
-      cmp = av < bv ? -1 : av > bv ? 1 : 0;
-    } else if (col === 'end') {
-      av = a.dataset.end || ''; bv = b.dataset.end || '';
-      cmp = av < bv ? -1 : av > bv ? 1 : 0;
-    } else {
-      av = parseFloat(a.dataset.sortDuration || '0');
-      bv = parseFloat(b.dataset.sortDuration || '0');
-      cmp = av - bv;
-    }
-    return asc ? cmp : -cmp;
-  }
-
-  function applySort() {
-    var tbody = document.querySelector('#leave-table tbody');
-    tbody.querySelectorAll('tr.leave-separator').forEach(function (r) { r.remove(); });
-
-    var rows = Array.from(tbody.querySelectorAll('tr[data-start]'));
-    var todayStr = new Date().toISOString().slice(0, 10);
-
-    rows.sort(function (a, b) { return cmpRows(a, b, _sortCol, _sortAsc); });
-
-    var futureRows = rows.filter(function (r) { return r.dataset.end >= todayStr; });
-    var pastRows   = rows.filter(function (r) { return r.dataset.end <  todayStr; });
-
-    // Style past rows with inline opacity (avoids any CSS specificity issues)
-    futureRows.forEach(function (r) { r.style.opacity = ''; });
-    pastRows.forEach(function (r) { r.style.opacity = '0.4'; });
-
-    // Append: future first, separator, past last
-    futureRows.forEach(function (r) { tbody.appendChild(r); });
-    if (futureRows.length > 0 && pastRows.length > 0) {
-      var colCount = document.querySelectorAll('#leave-table thead th').length;
-      var sep = document.createElement('tr');
-      sep.className = 'leave-separator';
-      var td = document.createElement('td');
-      td.colSpan = colCount;
-      td.textContent = '{% trans "Past" %}';
-      td.style.cssText = 'padding:3px 8px;text-align:center;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;pointer-events:none;';
-      sep.appendChild(td);
-      tbody.appendChild(sep);
-    }
-    pastRows.forEach(function (r) { tbody.appendChild(r); });
-
-    // Update header icons
-    document.querySelectorAll('#leave-table th[data-col]').forEach(function (th) {
-      var icon = th.querySelector('.sort-icon');
-      if (th.dataset.col === _sortCol) {
-        icon.textContent = _sortAsc ? '▲' : '▼';
-        icon.classList.remove('text-neutral-400');
-      } else {
-        icon.textContent = '⇅';
-        icon.classList.add('text-neutral-400');
-      }
-    });
-    try { localStorage.setItem(SORT_KEY, JSON.stringify({col: _sortCol, asc: _sortAsc})); } catch (e) {}
-  }
-
-  function sortLeaveTable(col) {
-    if (_sortCol === col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = col === 'name'; }
-    applySort();
-  }
-
-  // Restore saved sort or default to start date ascending
-  _sortCol = 'start'; _sortAsc = true;
-  try {
-    var saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
-    if (saved && saved.col) { _sortCol = saved.col; _sortAsc = saved.asc; }
-  } catch (e) {}
-  applySort();
-
-  window.sortLeaveTable = sortLeaveTable;
-})();
+  window.leavePageConfig = {
+    showPast: {% if show_past %}true{% else %}false{% endif %},
+    canEdit: {% if can_edit or is_developer %}true{% else %}false{% endif %},
+    labels: {
+      saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
+      saveFailedStatus: "{% trans 'Save failed' %}",
+      deleteFailed: "{% trans 'Delete failed. Please check your connection and try again.' %}",
+      deleteFailedStatus: "{% trans 'Delete failed' %}",
+      deleteConfirm: "{% trans 'Delete this leave period?' %}",
+      past: "{% trans 'Past' %}",
+    },
+  };
 </script>
-
-<script>
-var HIGHLIGHT_BG = '#4E79A7';
-var HIGHLIGHT_FG = '#ffffff';
-var DAY_NAMES = ['Mo','Tu','We','Th','Fr','Sa','Su'];
-
-function renderMiniCal(year, month, startDate, endDate) {
-  var monthLabel = new Date(year, month, 1)
-    .toLocaleString('default', { month: 'long', year: 'numeric' });
-  var html = '<div style="min-width:168px">'
-    + '<div style="text-align:center;font-weight:600;margin-bottom:4px">' + monthLabel + '</div>'
-    + '<div style="display:grid;grid-template-columns:repeat(7,24px);gap:1px;text-align:center">';
-  DAY_NAMES.forEach(function(d) {
-    html += '<div style="font-size:10px;color:#9ca3af;padding-bottom:2px">' + d + '</div>';
-  });
-  var first = new Date(year, month, 1);
-  var firstDow = (first.getDay() + 6) % 7;
-  for (var i = 0; i < firstDow; i++) {
-    html += '<div></div>';
-  }
-  var daysInMonth = new Date(year, month + 1, 0).getDate();
-  for (var d = 1; d <= daysInMonth; d++) {
-    var cur = new Date(year, month, d);
-    var inRange = cur >= startDate && cur <= endDate;
-    var style = inRange
-      ? 'background:' + HIGHLIGHT_BG + ';color:' + HIGHLIGHT_FG + ';border-radius:4px;'
-      : '';
-    html += '<div style="padding:2px 0;font-size:12px;' + style + '">' + d + '</div>';
-  }
-  html += '</div></div>';
-  return html;
-}
-
-function showLeaveCalendar(row, event) {
-  var startDate = new Date(row.dataset.start + 'T00:00:00');
-  var endDate   = new Date(row.dataset.end   + 'T00:00:00');
-  var startYear = startDate.getFullYear(), startMonth = startDate.getMonth();
-  var endYear   = endDate.getFullYear(),   endMonth   = endDate.getMonth();
-  var monthSpan = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-
-  var inner = '';
-  if (monthSpan <= 2) {
-    inner = '<div style="display:flex;gap:12px">';
-    for (var m = 0; m < monthSpan; m++) {
-      var y  = startYear + Math.floor((startMonth + m) / 12);
-      var mo = (startMonth + m) % 12;
-      inner += renderMiniCal(y, mo, startDate, endDate);
-    }
-    inner += '</div>';
-  } else {
-    var connector = '<div style="display:flex;align-items:center;justify-content:center;'
-      + 'padding:0 10px;color:#374151;font-size:20px;font-weight:700">'
-      + '&rarr;</div>';
-    inner = '<div style="display:flex;gap:4px;align-items:center">'
-      + renderMiniCal(startYear, startMonth, startDate, endDate)
-      + connector
-      + renderMiniCal(endYear, endMonth, startDate, endDate)
-      + '</div>';
-  }
-
-  var popup = document.getElementById('leave-cal-popup');
-  popup.innerHTML = inner;
-  popup.style.visibility = 'hidden';
-  popup.style.display = 'block';
-  var pw = popup.offsetWidth, ph = popup.offsetHeight;
-  popup.style.visibility = '';
-  var margin = 12;
-  var x = event.clientX + margin;
-  var y = event.clientY + margin;
-  if (x + pw > window.innerWidth  - margin) { x = event.clientX - pw - margin; }
-  if (y + ph > window.innerHeight - margin) { y = event.clientY - ph - margin; }
-  popup.style.left = x + 'px';
-  popup.style.top  = y + 'px';
-}
-
-function hideLeaveCalendar() {
-  document.getElementById('leave-cal-popup').style.display = 'none';
-}
-</script>
+<script src="{% static 'js/planning/pages/leave.js' %}" defer></script>
 {% endblock %}
