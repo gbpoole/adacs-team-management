@@ -1,4 +1,5 @@
 """Integration tests for planning views."""
+
 import datetime
 
 from django.contrib.auth.models import AnonymousUser
@@ -48,13 +49,15 @@ class PlanningTestCase(TestCase):
         for role in allowed:
             self.client.force_login(_ROLE_FACTORIES[role]())
             resp = getattr(self.client, method)(url, data or {})
-            self.assertNotEqual(resp.status_code, 403,
-                msg=f"Role '{role}' should be allowed at {url}")
+            self.assertNotEqual(
+                resp.status_code, 403, msg=f"Role '{role}' should be allowed at {url}"
+            )
         for role in denied:
             self.client.force_login(_ROLE_FACTORIES[role]())
             resp = getattr(self.client, method)(url, data or {})
-            self.assertEqual(resp.status_code, 403,
-                msg=f"Role '{role}' should be denied at {url}")
+            self.assertEqual(
+                resp.status_code, 403, msg=f"Role '{role}' should be denied at {url}"
+            )
 
 
 class HomeViewTests(TestCase):
@@ -78,7 +81,9 @@ class HomeViewTests(TestCase):
     def test_developer_effort_available_in_context(self):
         dev = DeveloperProfileFactory()
         sem = Semester.get_current()
-        SemesterDeveloper.objects.create(developer=dev, semester=sem, effort_available=15)
+        SemesterDeveloper.objects.create(
+            developer=dev, semester=sem, effort_available=15
+        )
         self.client.force_login(dev.user)
         response = self.client.get(reverse("home"))
         self.assertEqual(response.context["my_effort_available"], 15)
@@ -119,7 +124,9 @@ class DevelopersViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm", "developer"], denied=["observer"])
+        self.assertRoleAccess(
+            self.url, allowed=["pm", "developer"], denied=["observer"]
+        )
 
     def test_shows_developer_in_table(self):
         dev_profile = make_semester_developer()
@@ -151,7 +158,9 @@ class ObserversViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm"], denied=["developer", "observer"])
+        self.assertRoleAccess(
+            self.url, allowed=["pm"], denied=["developer", "observer"]
+        )
 
     def test_shows_observer_in_table(self):
         obs = SemesterObserverFactory()
@@ -163,7 +172,9 @@ class ObserversViewTests(PlanningTestCase):
     def test_project_display_names_resolved(self):
         semester = Semester.get_current()
         project = ProjectFactory()
-        ProjectSemesterNameFactory(project=project, semester=semester, name="My Real Project")
+        ProjectSemesterNameFactory(
+            project=project, semester=semester, name="My Real Project"
+        )
         obs = SemesterObserverFactory(semester=semester)
         obs.project_access.add(project)
         admin = PMUserFactory()
@@ -195,11 +206,15 @@ class ProjectsViewTests(PlanningTestCase):
     def test_observer_sees_only_authorized_projects(self):
         project_visible = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project_visible, semester=self.semester, name="Visible Project",
+            project=project_visible,
+            semester=self.semester,
+            name="Visible Project",
         )
         project_hidden = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project_hidden, semester=self.semester, name="Hidden Project",
+            project=project_hidden,
+            semester=self.semester,
+            name="Hidden Project",
         )
 
         obs = SemesterObserverFactory(semester=self.semester)
@@ -214,7 +229,9 @@ class ProjectsViewTests(PlanningTestCase):
     def test_shows_project_display_name(self):
         project = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project, semester=self.semester, name="My Project Name",
+            project=project,
+            semester=self.semester,
+            name="My Project Name",
         )
         user = make_semester_developer().user
         self.client.force_login(user)
@@ -226,6 +243,7 @@ class ProjectsViewTests(PlanningTestCase):
 # Planning page
 # ---------------------------------------------------------------------------
 
+
 class PlanningViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:planning")
@@ -234,22 +252,29 @@ class PlanningViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm", "observer"], denied=["developer"])
+        self.assertRoleAccess(
+            self.url, allowed=["pm", "observer"], denied=["developer"]
+        )
 
     def test_context_contains_developer_rows(self):
         sem = Semester.get_current()
         dev = DeveloperProfileFactory()
         project = ProjectFactory()
         Phase.objects.create(
-            developer=dev, project=project, semester=sem,
-            start_date=sem.start_date, end_date=sem.start_date + datetime.timedelta(days=6),
+            developer=dev,
+            project=project,
+            semester=sem,
+            start_date=sem.start_date,
+            end_date=sem.start_date + datetime.timedelta(days=6),
         )
         self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         self.assertIn("developer_rows", response.context)
         pks = [row["developer"].pk for row in response.context["developer_rows"]]
         self.assertIn(dev.pk, pks)
-        row = next(r for r in response.context["developer_rows"] if r["developer"].pk == dev.pk)
+        row = next(
+            r for r in response.context["developer_rows"] if r["developer"].pk == dev.pk
+        )
         self.assertIn("lanes", row)
         self.assertIn("overallocated_cols", row)
 
@@ -261,8 +286,11 @@ class PlanningViewTests(PlanningTestCase):
         dev_without = DeveloperProfileFactory()
         for dev in (dev_with, dev_without):
             Phase.objects.create(
-                developer=dev, project=ProjectFactory(), semester=sem,
-                start_date=sem.start_date, end_date=sem.start_date + datetime.timedelta(days=6),
+                developer=dev,
+                project=ProjectFactory(),
+                semester=sem,
+                start_date=sem.start_date,
+                end_date=sem.start_date + datetime.timedelta(days=6),
             )
         self.client.force_login(PMUserFactory())
         response = self.client.get(self.url + "?tags=python")
@@ -275,6 +303,7 @@ class PlanningViewTests(PlanningTestCase):
 # Schedule page
 # ---------------------------------------------------------------------------
 
+
 class ScheduleViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:schedule")
@@ -283,7 +312,9 @@ class ScheduleViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm", "observer"], denied=["developer"])
+        self.assertRoleAccess(
+            self.url, allowed=["pm", "observer"], denied=["developer"]
+        )
 
     def _make_phase_in_current_semester(self, multiplier):
         sem = Semester.get_current()
@@ -293,8 +324,12 @@ class ScheduleViewTests(PlanningTestCase):
         start = sem.start_date
         end = start + datetime.timedelta(days=6)
         return Phase.objects.create(
-            developer=dev, project=project, semester=sem,
-            start_date=start, end_date=end, effort_multiplier=multiplier,
+            developer=dev,
+            project=project,
+            semester=sem,
+            start_date=start,
+            end_date=end,
+            effort_multiplier=multiplier,
         )
 
     def _find_phase_in_context(self, response):
@@ -393,7 +428,9 @@ class PhaseCreateViewTests(PlanningTestCase):
     def test_overlapping_phase_gets_new_lane(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
-        overlapping_data = dict(self.post_data, start_date="2026-01-12", end_date="2026-02-09")
+        overlapping_data = dict(
+            self.post_data, start_date="2026-01-12", end_date="2026-02-09"
+        )
         self.client.post(self.url, overlapping_data)
         phases = list(Phase.objects.all())
         self.assertEqual(len(phases), 2)
@@ -405,8 +442,12 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.client.post(self.url, self.post_data)
         first_lane = Phase.objects.first().lane
         # Second non-overlapping phase with lane_pk=new — must land in a NEW lane
-        non_overlapping = dict(self.post_data, start_date="2026-03-02", end_date="2026-04-06",
-                               lane_pk="new")
+        non_overlapping = dict(
+            self.post_data,
+            start_date="2026-03-02",
+            end_date="2026-04-06",
+            lane_pk="new",
+        )
         self.client.post(self.url, non_overlapping)
         second_phase = Phase.objects.order_by("-pk").first()
         self.assertNotEqual(second_phase.lane, first_lane)
@@ -415,11 +456,20 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         data = dict(self.post_data, next="/planning/planning/")
         response = self.client.post(self.url, data)
-        self.assertRedirects(response, "/planning/planning/", fetch_redirect_response=False)
+        self.assertRedirects(
+            response, "/planning/planning/", fetch_redirect_response=False
+        )
 
-    def test_invalid_date_returns_redirect_not_500(self):
+    def test_invalid_date_rejected_without_creating_phase(self):
         self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="not-a-date")
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Phase.objects.count(), 0)
+
+    def test_end_before_start_does_not_create_phase(self):
+        self.client.force_login(self.pm)
+        data = dict(self.post_data, start_date="2026-02-09", end_date="2026-01-12")
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Phase.objects.count(), 0)
@@ -450,8 +500,11 @@ class PhaseDeleteViewTests(PhaseViewTestCase):
     def test_non_empty_lane_kept_after_delete(self):
         # Add a second phase to the same lane so it won't be empty after deletion
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 3, 2), end_date=datetime.date(2026, 4, 6),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 3, 2),
+            end_date=datetime.date(2026, 4, 6),
             lane=self.phase.lane,
         )
         lane_pk = self.phase.lane_id
@@ -481,7 +534,7 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
-    def test_invalid_date_returns_400_not_500(self):
+    def test_invalid_date_returns_400(self):
         self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="not-a-date")
         response = self.client.post(self.url, data)
@@ -506,29 +559,38 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
     def test_lane_pk_new_changes_developer(self):
         new_dev = DeveloperProfileFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {
-            **self.post_data,
-            "lane_pk": "new",
-            "developer_pk": new_dev.pk,
-        })
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "lane_pk": "new",
+                "developer_pk": new_dev.pk,
+            },
+        )
         self.phase.refresh_from_db()
         self.assertEqual(self.phase.developer, new_dev)
 
     def test_overlap_bumps_to_new_lane(self):
         # Create a second phase in the same lane, non-overlapping
         phase2 = Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 3, 2), end_date=datetime.date(2026, 4, 6),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 3, 2),
+            end_date=datetime.date(2026, 4, 6),
         )
         original_lane = phase2.lane
         # Move phase2 to overlap with self.phase
         url2 = reverse("planning:phase_update", args=[phase2.pk])
         self.client.force_login(self.pm)
-        self.client.post(url2, {
-            "start_date": "2026-01-12",
-            "end_date": "2026-02-09",
-            "lane_pk": str(original_lane.pk),
-        })
+        self.client.post(
+            url2,
+            {
+                "start_date": "2026-01-12",
+                "end_date": "2026-02-09",
+                "lane_pk": str(original_lane.pk),
+            },
+        )
         phase2.refresh_from_db()
         self.assertNotEqual(phase2.lane, original_lane)
 
@@ -537,28 +599,37 @@ class PhaseUpdateViewTests(PhaseViewTestCase):
         new_dev = DeveloperProfileFactory()
         old_lane_pk = self.phase.lane_id
         self.client.force_login(self.pm)
-        self.client.post(self.url, {
-            **self.post_data,
-            "lane_pk": "new",
-            "developer_pk": new_dev.pk,
-        })
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "lane_pk": "new",
+                "developer_pk": new_dev.pk,
+            },
+        )
         self.assertFalse(DeveloperLane.objects.filter(pk=old_lane_pk).exists())
 
     def test_old_non_empty_lane_kept_on_developer_change(self):
         # Add another phase to the same lane
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 3, 2), end_date=datetime.date(2026, 4, 6),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 3, 2),
+            end_date=datetime.date(2026, 4, 6),
             lane=self.phase.lane,
         )
         new_dev = DeveloperProfileFactory()
         old_lane_pk = self.phase.lane_id
         self.client.force_login(self.pm)
-        self.client.post(self.url, {
-            **self.post_data,
-            "lane_pk": "new",
-            "developer_pk": new_dev.pk,
-        })
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "lane_pk": "new",
+                "developer_pk": new_dev.pk,
+            },
+        )
         self.assertTrue(DeveloperLane.objects.filter(pk=old_lane_pk).exists())
 
 
@@ -621,8 +692,11 @@ class PhaseEditViewTests(PhaseViewTestCase):
     def test_developer_change_keeps_non_empty_old_lane(self):
         # Put another phase in the same lane
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 3, 2), end_date=datetime.date(2026, 4, 6),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 3, 2),
+            end_date=datetime.date(2026, 4, 6),
             lane=self.phase.lane,
         )
         old_lane_pk = self.phase.lane_id
@@ -645,15 +719,19 @@ class DeveloperCreateViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, method="post",
-            allowed=["pm"], denied=["developer", "observer"],
+            self.url,
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
             data={"user_pks": [self.profile.user.pk]},
         )
 
     def test_adds_profile_to_semester(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, {"user_pks": [self.profile.user.pk]})
-        self.assertTrue(SemesterDeveloper.objects.filter(developer=self.profile).exists())
+        self.assertTrue(
+            SemesterDeveloper.objects.filter(developer=self.profile).exists()
+        )
 
     def test_empty_pks_redirects_without_creating(self):
         before = SemesterDeveloper.objects.count()
@@ -693,11 +771,14 @@ class DeveloperCreateViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         original_base = float(self.profile.base_effort_weeks)
         new_effort = original_base + 5
-        self.client.post(self.url, {
-            "user_pks": [self.profile.user.pk],
-            f"effort_{self.profile.user.pk}": str(new_effort),
-            f"update_base_{self.profile.user.pk}": "1",
-        })
+        self.client.post(
+            self.url,
+            {
+                "user_pks": [self.profile.user.pk],
+                f"effort_{self.profile.user.pk}": str(new_effort),
+                f"update_base_{self.profile.user.pk}": "1",
+            },
+        )
         self.profile.refresh_from_db()
         self.assertEqual(float(self.profile.base_effort_weeks), new_effort)
 
@@ -706,10 +787,13 @@ class DeveloperCreateViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         original_base = float(self.profile.base_effort_weeks)
         new_effort = original_base + 5
-        self.client.post(self.url, {
-            "user_pks": [self.profile.user.pk],
-            f"effort_{self.profile.user.pk}": str(new_effort),
-        })
+        self.client.post(
+            self.url,
+            {
+                "user_pks": [self.profile.user.pk],
+                f"effort_{self.profile.user.pk}": str(new_effort),
+            },
+        )
         self.profile.refresh_from_db()
         self.assertEqual(float(self.profile.base_effort_weeks), original_base)
 
@@ -718,10 +802,13 @@ class DeveloperCreateViewTests(PlanningTestCase):
         tag = Tag.objects.create(name="TestTag")
         self.profile.tags.add(tag)
         self.client.force_login(self.pm)
-        self.client.post(self.url, {
-            "user_pks": [self.profile.user.pk],
-            f"effort_{self.profile.user.pk}": "20",
-        })
+        self.client.post(
+            self.url,
+            {
+                "user_pks": [self.profile.user.pk],
+                f"effort_{self.profile.user.pk}": "20",
+            },
+        )
         sd = SemesterDeveloper.objects.get(developer=self.profile)
         self.assertIn(tag, sd.tags.all())
 
@@ -738,8 +825,10 @@ class DeveloperUpdateViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, method="post",
-            allowed=["pm"], denied=["developer"],
+            self.url,
+            method="post",
+            allowed=["pm"],
+            denied=["developer"],
             data=self.post_data,
         )
 
@@ -747,7 +836,9 @@ class DeveloperUpdateViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "effort_available": "18"})
         self.assertTrue(
-            SemesterDeveloper.objects.filter(developer=self.profile, effort_available=18).exists()
+            SemesterDeveloper.objects.filter(
+                developer=self.profile, effort_available=18
+            ).exists()
         )
 
 
@@ -761,10 +852,14 @@ class DeveloperDeleteViewTests(PlanningTestCase):
         profile = DeveloperProfileFactory()
         semester = Semester.get_current()
         sd = SemesterDeveloper.objects.create(
-            developer=profile, semester=semester, effort_available=20,
+            developer=profile,
+            semester=semester,
+            effort_available=20,
         )
         self.client.force_login(PMUserFactory())
-        response = self.client.post(reverse("planning:developer_delete", args=[profile.pk]), {})
+        response = self.client.post(
+            reverse("planning:developer_delete", args=[profile.pk]), {}
+        )
         self.assertEqual(response.status_code, 204)
         self.assertFalse(SemesterDeveloper.objects.filter(pk=sd.pk).exists())
         self.assertTrue(DeveloperProfile.objects.filter(pk=profile.pk).exists())
@@ -777,7 +872,9 @@ class DeveloperDeleteViewTests(PlanningTestCase):
     def test_removes_semester_developer_record(self):
         semester = Semester.get_current()
         sd = SemesterDeveloper.objects.create(
-            developer=self.profile, semester=semester, effort_available=20,
+            developer=self.profile,
+            semester=semester,
+            effort_available=20,
         )
         sd_pk = sd.pk
         self.client.force_login(self.pm)
@@ -789,7 +886,9 @@ class DeveloperDeleteViewTests(PlanningTestCase):
         profile = DeveloperProfileFactory()
         semester = Semester.get_current()
         SemesterDeveloper.objects.create(
-            developer=profile, semester=semester, effort_available=20,
+            developer=profile,
+            semester=semester,
+            effort_available=20,
         )
         self.client.force_login(self.pm)
         self.client.post(reverse("planning:developer_delete", args=[profile.pk]), {})
@@ -812,8 +911,10 @@ class ObserverCreateViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, method="post",
-            allowed=["pm"], denied=["developer", "observer"],
+            self.url,
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
             data=self.post_data,
         )
 
@@ -876,7 +977,9 @@ class ObserverDeleteViewTests(PlanningTestCase):
         project = ProjectFactory()
         obs.project_access.add(project)
         self.client.force_login(PMUserFactory())
-        response = self.client.post(reverse("planning:observer_delete", args=[obs.pk]), {})
+        response = self.client.post(
+            reverse("planning:observer_delete", args=[obs.pk]), {}
+        )
         self.assertEqual(response.status_code, 204)
         obs.refresh_from_db()
         self.assertEqual(obs.project_access.count(), 0)
@@ -930,8 +1033,10 @@ class ProjectCreateViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, method="post",
-            allowed=["pm"], denied=["developer", "observer"],
+            self.url,
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
             data=self.post_data,
         )
 
@@ -969,7 +1074,9 @@ class ProjectCreateViewTests(PlanningTestCase):
 
     def test_creates_project_with_external_science_lead(self):
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "science_lead_name": "Prof. External"})
+        self.client.post(
+            self.url, {**self.post_data, "science_lead_name": "Prof. External"}
+        )
         project = Project.objects.latest("pk")
         self.assertIsNone(project.science_lead)
         self.assertEqual(project.science_lead_name, "Prof. External")
@@ -977,7 +1084,9 @@ class ProjectCreateViewTests(PlanningTestCase):
     def test_creates_project_with_continuation_of(self):
         source = ProjectFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "continuation_of": str(source.pk)})
+        self.client.post(
+            self.url, {**self.post_data, "continuation_of": str(source.pk)}
+        )
         project = Project.objects.latest("pk")
         self.assertEqual(project.continuation_of, source)
 
@@ -987,7 +1096,9 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.pm = PMUserFactory()
         self.semester = SemesterFactory()
         self.project = ProjectFactory()
-        ProjectSemesterNameFactory(project=self.project, semester=self.semester, name="Old Name")
+        ProjectSemesterNameFactory(
+            project=self.project, semester=self.semester, name="Old Name"
+        )
         self.url = reverse("planning:project_edit", args=[self.project.pk])
         self.post_data = {
             "name": "New Name",
@@ -1008,14 +1119,18 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(
-            ProjectSemesterName.objects.filter(project=self.project, name="New Name").exists()
+            ProjectSemesterName.objects.filter(
+                project=self.project, name="New Name"
+            ).exists()
         )
 
     def test_updates_allocation(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(
-            ProjectAllocation.objects.filter(project=self.project, weeks_new=15).exists()
+            ProjectAllocation.objects.filter(
+                project=self.project, weeks_new=15
+            ).exists()
         )
 
     def test_updates_dev_lead(self):
@@ -1027,7 +1142,9 @@ class ProjectUpdateViewTests(PlanningTestCase):
 
     def test_updates_science_lead_name(self):
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "science_lead_name": "External Lead"})
+        self.client.post(
+            self.url, {**self.post_data, "science_lead_name": "External Lead"}
+        )
         self.project.refresh_from_db()
         self.assertEqual(self.project.science_lead_name, "External Lead")
 
@@ -1044,7 +1161,9 @@ class ProjectUpdateViewTests(PlanningTestCase):
     def test_updates_continuation_of(self):
         source = ProjectFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "continuation_of": str(source.pk)})
+        self.client.post(
+            self.url, {**self.post_data, "continuation_of": str(source.pk)}
+        )
         self.project.refresh_from_db()
         self.assertEqual(self.project.continuation_of, source)
 
@@ -1058,7 +1177,9 @@ class ProjectDeleteViewTests(PlanningTestCase):
     def test_pm_can_delete(self):
         project = ProjectFactory()
         self.client.force_login(PMUserFactory())
-        response = self.client.post(reverse("planning:project_delete", args=[project.pk]), {})
+        response = self.client.post(
+            reverse("planning:project_delete", args=[project.pk]), {}
+        )
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
@@ -1083,11 +1204,17 @@ class ProjectDeleteViewTests(PlanningTestCase):
         session = self.client.session
         session["selected_semester"] = "2026A"
         session.save()
-        response = self.client.post(reverse("planning:project_delete", args=[project.pk]), {})
+        response = self.client.post(
+            reverse("planning:project_delete", args=[project.pk]), {}
+        )
         self.assertEqual(response.status_code, 204)
         self.assertTrue(Project.objects.filter(pk=project.pk).exists())
-        self.assertFalse(ProjectSemesterName.objects.filter(project=project, semester=sem_a).exists())
-        self.assertTrue(ProjectSemesterName.objects.filter(project=project, semester=sem_b).exists())
+        self.assertFalse(
+            ProjectSemesterName.objects.filter(project=project, semester=sem_a).exists()
+        )
+        self.assertTrue(
+            ProjectSemesterName.objects.filter(project=project, semester=sem_b).exists()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1103,11 +1230,15 @@ class ProjectMigrateViewTests(PlanningTestCase):
         self.source_sem = SemesterFactory(year=2025, semester_type=SemesterType.B)
         self.source_project = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=self.source_project, semester=self.source_sem, name="Old Project",
+            project=self.source_project,
+            semester=self.source_sem,
+            name="Old Project",
         )
         ProjectAllocationFactory(
-            project=self.source_project, semester=self.source_sem,
-            weeks_new=8, weeks_carryover=2,
+            project=self.source_project,
+            semester=self.source_sem,
+            weeks_new=8,
+            weeks_carryover=2,
         )
 
     def _migrate(self, effort=None, extra=None):
@@ -1118,7 +1249,9 @@ class ProjectMigrateViewTests(PlanningTestCase):
         data = {
             "source_semester": str(self.source_sem.pk),
             "project_pks": [str(self.source_project.pk)],
-            f"effort_{self.source_project.pk}": str(effort if effort is not None else 8),
+            f"effort_{self.source_project.pk}": str(
+                effort if effort is not None else 8
+            ),
         }
         if extra:
             data.update(extra)
@@ -1126,8 +1259,10 @@ class ProjectMigrateViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, method="post",
-            allowed=["pm"], denied=["developer", "observer"],
+            self.url,
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
             data={"source_semester": str(self.source_sem.pk), "project_pks": []},
         )
 
@@ -1146,7 +1281,9 @@ class ProjectMigrateViewTests(PlanningTestCase):
         new = Project.objects.latest("pk")
         self.assertTrue(
             ProjectSemesterName.objects.filter(
-                project=new, semester=self.target_sem, name="Old Project",
+                project=new,
+                semester=self.target_sem,
+                name="Old Project",
             ).exists()
         )
 
@@ -1155,7 +1292,9 @@ class ProjectMigrateViewTests(PlanningTestCase):
         new = Project.objects.latest("pk")
         self.assertTrue(
             ProjectAllocation.objects.filter(
-                project=new, semester=self.target_sem, weeks_new=5,
+                project=new,
+                semester=self.target_sem,
+                weeks_new=5,
             ).exists()
         )
 
@@ -1184,7 +1323,9 @@ class ProjectMigrateViewTests(PlanningTestCase):
 
     def test_invalid_source_semester_redirects(self):
         self.client.force_login(self.pm)
-        response = self.client.post(self.url, {"source_semester": "99999", "project_pks": []})
+        response = self.client.post(
+            self.url, {"source_semester": "99999", "project_pks": []}
+        )
         self.assertEqual(response.status_code, 302)
 
 
@@ -1201,7 +1342,9 @@ class LeaveViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm", "developer"], denied=["observer"])
+        self.assertRoleAccess(
+            self.url, allowed=["pm", "developer"], denied=["observer"]
+        )
 
     def test_developer_sees_only_own_leave(self):
         dev1 = make_semester_developer()
@@ -1265,7 +1408,7 @@ class LeaveCreateViewTests(PlanningTestCase):
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
 
-    def test_invalid_date_returns_redirect_not_500(self):
+    def test_invalid_date_rejected_without_creating_leave(self):
         self.client.force_login(self.pm)
         data = dict(self.post_data, start_date="not-a-date")
         response = self.client.post(self.url, data)
@@ -1352,7 +1495,9 @@ class LeaveUpdateViewTests(PlanningTestCase):
 
     def test_invalid_date_returns_400(self):
         self.client.force_login(PMUserFactory())
-        response = self.client.post(self.url, {"start_date": "not-a-date", "end_date": "2026-03-13"})
+        response = self.client.post(
+            self.url, {"start_date": "not-a-date", "end_date": "2026-03-13"}
+        )
         self.assertEqual(response.status_code, 400)
 
 
@@ -1373,7 +1518,8 @@ class DeveloperDownloadViewTests(PlanningTestCase):
         profile = DeveloperProfileFactory()
         semester = Semester.get_current()
         SemesterDeveloper.objects.get_or_create(
-            developer=profile, semester=semester,
+            developer=profile,
+            semester=semester,
             defaults={"effort_available": 20},
         )
         self.client.force_login(self.pm)
@@ -1401,7 +1547,9 @@ class ProjectDownloadViewTests(PlanningTestCase):
 
     def test_returns_tsv_file(self):
         project = ProjectFactory()
-        ProjectSemesterNameFactory(project=project, semester=self.semester, name="My Project")
+        ProjectSemesterNameFactory(
+            project=project, semester=self.semester, name="My Project"
+        )
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
@@ -1410,7 +1558,9 @@ class ProjectDownloadViewTests(PlanningTestCase):
 
     def test_tsv_contains_project_name(self):
         project = ProjectFactory()
-        ProjectSemesterNameFactory(project=project, semester=self.semester, name="Download Me")
+        ProjectSemesterNameFactory(
+            project=project, semester=self.semester, name="Download Me"
+        )
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Download Me", response.content)
@@ -1418,14 +1568,18 @@ class ProjectDownloadViewTests(PlanningTestCase):
     def test_tsv_contains_dev_lead_name(self):
         dev = UserFactory(name="Dev Lead Person")
         project = ProjectFactory(dev_lead=dev)
-        ProjectSemesterNameFactory(project=project, semester=self.semester, name="Led Project")
+        ProjectSemesterNameFactory(
+            project=project, semester=self.semester, name="Led Project"
+        )
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Dev Lead Person", response.content)
 
     def test_tsv_contains_external_science_lead(self):
         project = ProjectFactory(science_lead_name="Prof. Smith")
-        ProjectSemesterNameFactory(project=project, semester=self.semester, name="Sci Project")
+        ProjectSemesterNameFactory(
+            project=project, semester=self.semester, name="Sci Project"
+        )
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Prof. Smith", response.content)
@@ -1451,41 +1605,56 @@ class TagsViewTests(PlanningTestCase):
 
     def test_create_tag_with_name_and_colour(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:tag_add"), {"name": "new-tag", "colour": "#4E79A7"})
+        self.client.post(
+            reverse("planning:tag_add"), {"name": "new-tag", "colour": "#4E79A7"}
+        )
         tag = Tag.objects.get(name="new-tag")
         self.assertEqual(tag.colour, "#4E79A7")
 
     def test_create_tag_auto_assigns_colour_when_not_provided(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:tag_add"), {"name": "auto-colour-tag", "colour": ""})
+        self.client.post(
+            reverse("planning:tag_add"), {"name": "auto-colour-tag", "colour": ""}
+        )
         tag = Tag.objects.get(name="auto-colour-tag")
         self.assertTrue(tag.colour)
 
     def test_rename_tag_preserves_pk(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:tag_add"), {"name": "original", "colour": "#4E79A7"})
+        self.client.post(
+            reverse("planning:tag_add"), {"name": "original", "colour": "#4E79A7"}
+        )
         tag = Tag.objects.get(name="original")
         original_pk = tag.pk
-        self.client.post(reverse("planning:tag_edit", args=[tag.pk]), {"name": "renamed", "colour": "#4E79A7"})
+        self.client.post(
+            reverse("planning:tag_edit", args=[tag.pk]),
+            {"name": "renamed", "colour": "#4E79A7"},
+        )
         tag.refresh_from_db()
         self.assertEqual(tag.name, "renamed")
         self.assertEqual(tag.pk, original_pk)
 
     def test_update_colour(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:tag_add"), {"name": "colour-test", "colour": "#4E79A7"})
+        self.client.post(
+            reverse("planning:tag_add"), {"name": "colour-test", "colour": "#4E79A7"}
+        )
         tag = Tag.objects.get(name="colour-test")
-        self.client.post(reverse("planning:tag_edit", args=[tag.pk]), {"name": "colour-test", "colour": "#E15759"})
+        self.client.post(
+            reverse("planning:tag_edit", args=[tag.pk]),
+            {"name": "colour-test", "colour": "#E15759"},
+        )
         tag.refresh_from_db()
         self.assertEqual(tag.colour, "#E15759")
 
     def test_delete_tag(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:tag_add"), {"name": "to-delete", "colour": "#4E79A7"})
+        self.client.post(
+            reverse("planning:tag_add"), {"name": "to-delete", "colour": "#4E79A7"}
+        )
         tag = Tag.objects.get(name="to-delete")
         self.client.post(reverse("planning:tag_delete", args=[tag.pk]))
         self.assertFalse(Tag.objects.filter(pk=tag.pk).exists())
-
 
 
 # ---------------------------------------------------------------------------
@@ -1508,37 +1677,56 @@ class StreamsViewTests(PlanningTestCase):
 
     def test_create_stream_with_name_and_colour(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:stream_add"), {"name": "new-stream", "colour": "#76B7B2"})
+        self.client.post(
+            reverse("planning:stream_add"), {"name": "new-stream", "colour": "#76B7B2"}
+        )
         stream = Stream.objects.get(name="new-stream")
         self.assertEqual(stream.colour, "#76B7B2")
 
     def test_create_stream_auto_assigns_colour_when_not_provided(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:stream_add"), {"name": "auto-colour-stream", "colour": ""})
+        self.client.post(
+            reverse("planning:stream_add"), {"name": "auto-colour-stream", "colour": ""}
+        )
         stream = Stream.objects.get(name="auto-colour-stream")
         self.assertTrue(stream.colour)
 
     def test_rename_stream_preserves_pk(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:stream_add"), {"name": "original-stream", "colour": "#76B7B2"})
+        self.client.post(
+            reverse("planning:stream_add"),
+            {"name": "original-stream", "colour": "#76B7B2"},
+        )
         stream = Stream.objects.get(name="original-stream")
         original_pk = stream.pk
-        self.client.post(reverse("planning:stream_edit", args=[stream.pk]), {"name": "renamed-stream", "colour": "#76B7B2"})
+        self.client.post(
+            reverse("planning:stream_edit", args=[stream.pk]),
+            {"name": "renamed-stream", "colour": "#76B7B2"},
+        )
         stream.refresh_from_db()
         self.assertEqual(stream.name, "renamed-stream")
         self.assertEqual(stream.pk, original_pk)
 
     def test_update_colour(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:stream_add"), {"name": "stream-colour-test", "colour": "#76B7B2"})
+        self.client.post(
+            reverse("planning:stream_add"),
+            {"name": "stream-colour-test", "colour": "#76B7B2"},
+        )
         stream = Stream.objects.get(name="stream-colour-test")
-        self.client.post(reverse("planning:stream_edit", args=[stream.pk]), {"name": "stream-colour-test", "colour": "#59A14F"})
+        self.client.post(
+            reverse("planning:stream_edit", args=[stream.pk]),
+            {"name": "stream-colour-test", "colour": "#59A14F"},
+        )
         stream.refresh_from_db()
         self.assertEqual(stream.colour, "#59A14F")
 
     def test_delete_stream(self):
         self.client.force_login(self.pm)
-        self.client.post(reverse("planning:stream_add"), {"name": "stream-to-delete", "colour": "#76B7B2"})
+        self.client.post(
+            reverse("planning:stream_add"),
+            {"name": "stream-to-delete", "colour": "#76B7B2"},
+        )
         stream = Stream.objects.get(name="stream-to-delete")
         self.client.post(reverse("planning:stream_delete", args=[stream.pk]))
         self.assertFalse(Stream.objects.filter(pk=stream.pk).exists())
@@ -1558,27 +1746,34 @@ class GetSelectedSemesterTests(TestCase):
 
     def test_returns_current_when_no_session(self):
         from apps.planning.views._semester import get_selected_semester
+
         result = get_selected_semester(self._request())
         self.assertEqual(result, Semester.get_current())
 
     def test_returns_session_semester_when_set(self):
         from apps.planning.views._semester import get_selected_semester
+
         sem_db = SemesterFactory(year=2026, semester_type=SemesterType.A)
         result = get_selected_semester(self._request({"selected_semester": "2026A"}))
         self.assertEqual(result, sem_db)
 
     def test_falls_back_on_nonexistent_code(self):
         from apps.planning.views._semester import get_selected_semester
+
         result = get_selected_semester(self._request({"selected_semester": "9999Z"}))
         self.assertEqual(result, Semester.get_current())
 
     def test_falls_back_on_malformed_code(self):
         from apps.planning.views._semester import get_selected_semester
-        result = get_selected_semester(self._request({"selected_semester": "not-a-code"}))
+
+        result = get_selected_semester(
+            self._request({"selected_semester": "not-a-code"})
+        )
         self.assertEqual(result, Semester.get_current())
 
     def test_falls_back_on_empty_string(self):
         from apps.planning.views._semester import get_selected_semester
+
         result = get_selected_semester(self._request({"selected_semester": ""}))
         self.assertEqual(result, Semester.get_current())
 
@@ -1598,17 +1793,20 @@ class SemesterContextProcessorTests(TestCase):
 
     def test_returns_empty_dict_for_anonymous(self):
         from apps.planning.context_processors import semester_context
+
         result = semester_context(self._request())
         self.assertEqual(result, {})
 
     def test_injects_selected_semester(self):
         from apps.planning.context_processors import semester_context
+
         result = semester_context(self._request(user=PMUserFactory()))
         self.assertIn("selected_semester", result)
         self.assertIsInstance(result["selected_semester"], Semester)
 
     def test_injects_all_semesters(self):
         from apps.planning.context_processors import semester_context
+
         sem_a = SemesterFactory(year=2026, semester_type=SemesterType.A)
         sem_b = SemesterFactory(year=2026, semester_type=SemesterType.B)
         result = semester_context(self._request(user=PMUserFactory()))
@@ -1618,6 +1816,7 @@ class SemesterContextProcessorTests(TestCase):
 
     def test_respects_session_semester(self):
         from apps.planning.context_processors import semester_context
+
         sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
         result = semester_context(
             self._request(user=PMUserFactory(), session={"selected_semester": "2026A"})
@@ -1626,6 +1825,7 @@ class SemesterContextProcessorTests(TestCase):
 
     def test_semesters_ordered_by_year_type(self):
         from apps.planning.context_processors import semester_context
+
         sem_2026b = SemesterFactory(year=2026, semester_type=SemesterType.B)
         sem_2026a = SemesterFactory(year=2026, semester_type=SemesterType.A)
         sem_2025b = SemesterFactory(year=2025, semester_type=SemesterType.B)
@@ -1643,7 +1843,9 @@ class SemesterContextProcessorTests(TestCase):
 
 class SemesterSwitchViewTests(TestCase):
     def test_requires_login(self):
-        response = self.client.post(reverse("planning:semester_switch"), {"semester": "2026A"})
+        response = self.client.post(
+            reverse("planning:semester_switch"), {"semester": "2026A"}
+        )
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/", response["Location"])
 
@@ -1670,13 +1872,19 @@ class SemesterSwitchViewTests(TestCase):
             reverse("planning:semester_switch"),
             {"semester": "2026A", "next": "/planning/schedule/"},
         )
-        self.assertRedirects(response, "/planning/schedule/", fetch_redirect_response=False)
+        self.assertRedirects(
+            response, "/planning/schedule/", fetch_redirect_response=False
+        )
 
     def test_redirects_to_default_when_no_next(self):
         SemesterFactory(year=2026, semester_type=SemesterType.A)
         self.client.force_login(PMUserFactory())
-        response = self.client.post(reverse("planning:semester_switch"), {"semester": "2026A"})
-        self.assertRedirects(response, "/planning/planning/", fetch_redirect_response=False)
+        response = self.client.post(
+            reverse("planning:semester_switch"), {"semester": "2026A"}
+        )
+        self.assertRedirects(
+            response, "/planning/planning/", fetch_redirect_response=False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1687,38 +1895,59 @@ class SemesterSwitchViewTests(TestCase):
 class SemesterCreateViewTests(PlanningTestCase):
     def test_role_access(self):
         self.assertRoleAccess(
-            reverse("planning:semester_add"), method="post",
-            allowed=["pm"], denied=["developer", "observer"],
+            reverse("planning:semester_add"),
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
             data={"year": "2027", "semester_type": "A"},
         )
 
     def test_creates_semester(self):
         self.client.force_login(PMUserFactory())
-        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "A"})
-        self.assertTrue(Semester.objects.filter(year=2027, semester_type=SemesterType.A).exists())
+        self.client.post(
+            reverse("planning:semester_add"), {"year": "2027", "semester_type": "A"}
+        )
+        self.assertTrue(
+            Semester.objects.filter(year=2027, semester_type=SemesterType.A).exists()
+        )
 
     def test_type_case_insensitive(self):
         self.client.force_login(PMUserFactory())
-        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "a"})
-        self.assertTrue(Semester.objects.filter(year=2027, semester_type=SemesterType.A).exists())
+        self.client.post(
+            reverse("planning:semester_add"), {"year": "2027", "semester_type": "a"}
+        )
+        self.assertTrue(
+            Semester.objects.filter(year=2027, semester_type=SemesterType.A).exists()
+        )
 
     def test_ignores_invalid_year(self):
         self.client.force_login(PMUserFactory())
         before = Semester.objects.count()
-        self.client.post(reverse("planning:semester_add"), {"year": "not-a-year", "semester_type": "A"})
+        self.client.post(
+            reverse("planning:semester_add"),
+            {"year": "not-a-year", "semester_type": "A"},
+        )
         self.assertEqual(Semester.objects.count(), before)
 
     def test_ignores_invalid_type(self):
         self.client.force_login(PMUserFactory())
         before = Semester.objects.count()
-        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "C"})
+        self.client.post(
+            reverse("planning:semester_add"), {"year": "2027", "semester_type": "C"}
+        )
         self.assertEqual(Semester.objects.count(), before)
 
     def test_idempotent(self):
         self.client.force_login(PMUserFactory())
-        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "B"})
-        self.client.post(reverse("planning:semester_add"), {"year": "2027", "semester_type": "B"})
-        self.assertEqual(Semester.objects.filter(year=2027, semester_type=SemesterType.B).count(), 1)
+        self.client.post(
+            reverse("planning:semester_add"), {"year": "2027", "semester_type": "B"}
+        )
+        self.client.post(
+            reverse("planning:semester_add"), {"year": "2027", "semester_type": "B"}
+        )
+        self.assertEqual(
+            Semester.objects.filter(year=2027, semester_type=SemesterType.B).count(), 1
+        )
 
     def test_redirects_to_next(self):
         self.client.force_login(PMUserFactory())
@@ -1726,7 +1955,9 @@ class SemesterCreateViewTests(PlanningTestCase):
             reverse("planning:semester_add"),
             {"year": "2027", "semester_type": "A", "next": "/planning/schedule/"},
         )
-        self.assertRedirects(response, "/planning/schedule/", fetch_redirect_response=False)
+        self.assertRedirects(
+            response, "/planning/schedule/", fetch_redirect_response=False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1743,7 +1974,9 @@ class PeopleViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm", "developer", "observer"], denied=[])
+        self.assertRoleAccess(
+            self.url, allowed=["pm", "developer", "observer"], denied=[]
+        )
 
     def test_shows_all_users(self):
         dev = DeveloperProfileFactory()
@@ -1827,7 +2060,9 @@ class PersonUpdateViewTests(PlanningTestCase):
     def test_redirects_to_people(self):
         self.client.force_login(self.pm)
         response = self.client.post(self.url, {"base_effort_weeks": "20"})
-        self.assertRedirects(response, reverse("planning:people"), fetch_redirect_response=False)
+        self.assertRedirects(
+            response, reverse("planning:people"), fetch_redirect_response=False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1888,8 +2123,11 @@ class ObserverCreateNoDanglingRecordTests(PlanningTestCase):
         before = SemesterObserver.objects.count()
         self.client.force_login(pm)
         self.client.post(url, {"user": dev.user.pk})
-        self.assertEqual(SemesterObserver.objects.count(), before,
-            "A dangling SemesterObserver row was created for an existing developer")
+        self.assertEqual(
+            SemesterObserver.objects.count(),
+            before,
+            "A dangling SemesterObserver row was created for an existing developer",
+        )
 
 
 class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
@@ -1902,75 +2140,127 @@ class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
         before = SemesterObserver.objects.count()
         self.client.force_login(pm)
         self.client.post(url, {"base_effort_weeks": "20"})
-        self.assertEqual(SemesterObserver.objects.count(), before,
-            "A spurious SemesterObserver row was created when editing a developer's profile")
+        self.assertEqual(
+            SemesterObserver.objects.count(),
+            before,
+            "A spurious SemesterObserver row was created when editing a developer's profile",
+        )
 
-    def test_non_numeric_effort_does_not_500(self):
+    def test_non_numeric_effort_leaves_base_effort_unchanged(self):
         pm = PMUserFactory()
         dev = DeveloperProfileFactory()
         url = reverse("planning:person_edit", args=[dev.user.pk])
+        original_effort = float(dev.base_effort_weeks)
         self.client.force_login(pm)
         response = self.client.post(url, {"base_effort_weeks": "not-a-number"})
-        self.assertNotEqual(response.status_code, 500)
         self.assertEqual(response.status_code, 302)
+        dev.refresh_from_db()
+        self.assertEqual(float(dev.base_effort_weeks), original_effort)
 
 
 class PhaseEditInputValidationTests(PhaseViewTestCase):
-    """Bad input to PhaseEditView must produce a redirect, never a 500."""
+    """Bad input to PhaseEditView redirects and leaves the phase unchanged."""
 
-    def test_invalid_date_returns_redirect_not_500(self):
+    def _phase_state(self):
+        self.phase.refresh_from_db()
+        return {
+            "developer_id": self.phase.developer_id,
+            "project_id": self.phase.project_id,
+            "start_date": self.phase.start_date,
+            "end_date": self.phase.end_date,
+            "effort_multiplier": self.phase.effort_multiplier,
+            "lane_id": self.phase.lane_id,
+        }
+
+    def test_invalid_date_keeps_existing_phase(self):
         self.client.force_login(self.pm)
         url = reverse("planning:phase_edit", args=[self.phase.pk])
-        response = self.client.post(url, {
-            "developer": self.dev.pk,
-            "project": self.project.pk,
-            "start_date": "not-a-date",
-            "end_date": "2026-02-09",
-            "effort_multiplier": "1.0",
-        })
-        self.assertNotEqual(response.status_code, 500)
+        before = self._phase_state()
+        response = self.client.post(
+            url,
+            {
+                "developer": self.dev.pk,
+                "project": self.project.pk,
+                "start_date": "not-a-date",
+                "end_date": "2026-02-09",
+                "effort_multiplier": "1.0",
+            },
+        )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._phase_state(), before)
 
-    def test_invalid_effort_multiplier_returns_redirect_not_500(self):
+    def test_invalid_effort_multiplier_keeps_existing_phase(self):
         self.client.force_login(self.pm)
         url = reverse("planning:phase_edit", args=[self.phase.pk])
-        response = self.client.post(url, {
-            "developer": self.dev.pk,
-            "project": self.project.pk,
-            "start_date": "2026-01-12",
-            "end_date": "2026-02-09",
-            "effort_multiplier": "not-a-float",
-        })
-        self.assertNotEqual(response.status_code, 500)
+        before = self._phase_state()
+        response = self.client.post(
+            url,
+            {
+                "developer": self.dev.pk,
+                "project": self.project.pk,
+                "start_date": "2026-01-12",
+                "end_date": "2026-02-09",
+                "effort_multiplier": "not-a-float",
+            },
+        )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._phase_state(), before)
 
-    def test_invalid_developer_id_returns_redirect_not_500(self):
+    def test_invalid_developer_id_keeps_existing_phase(self):
         self.client.force_login(self.pm)
         url = reverse("planning:phase_edit", args=[self.phase.pk])
-        response = self.client.post(url, {
-            "developer": "not-an-int",
-            "project": self.project.pk,
-            "start_date": "2026-01-12",
-            "end_date": "2026-02-09",
-            "effort_multiplier": "1.0",
-        })
-        self.assertNotEqual(response.status_code, 500)
+        before = self._phase_state()
+        response = self.client.post(
+            url,
+            {
+                "developer": "not-an-int",
+                "project": self.project.pk,
+                "start_date": "2026-01-12",
+                "end_date": "2026-02-09",
+                "effort_multiplier": "1.0",
+            },
+        )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._phase_state(), before)
+
+    def test_end_before_start_keeps_existing_phase(self):
+        self.client.force_login(self.pm)
+        url = reverse("planning:phase_edit", args=[self.phase.pk])
+        before = self._phase_state()
+        response = self.client.post(
+            url,
+            {
+                "developer": self.dev.pk,
+                "project": self.project.pk,
+                "start_date": "2026-02-09",
+                "end_date": "2026-01-12",
+                "effort_multiplier": "1.0",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._phase_state(), before)
 
 
 class ProjectCreateInvalidEffortTests(PlanningTestCase):
-    """Non-numeric effort_resourced must not 500."""
+    """Non-numeric effort_resourced falls back to 0 and still creates project."""
 
-    def test_invalid_effort_returns_redirect_not_500(self):
+    def test_invalid_effort_creates_project_with_zero_resourced_weeks(self):
         pm = PMUserFactory()
         self.client.force_login(pm)
         url = reverse("planning:project_add")
-        response = self.client.post(url, {
-            "name": "Test Project",
-            "effort_resourced": "not-a-number",
-        })
-        self.assertNotEqual(response.status_code, 500)
+        response = self.client.post(
+            url,
+            {
+                "name": "Test Project",
+                "effort_resourced": "not-a-number",
+            },
+        )
         self.assertEqual(response.status_code, 302)
+        psn = ProjectSemesterName.objects.get(name="Test Project")
+        allocation = ProjectAllocation.objects.get(
+            project=psn.project, semester=psn.semester
+        )
+        self.assertEqual(float(allocation.weeks_new), 0.0)
 
 
 class LeaveUpdateEndBeforeStartTests(PlanningTestCase):
@@ -1985,10 +2275,13 @@ class LeaveUpdateEndBeforeStartTests(PlanningTestCase):
         )
         url = reverse("planning:leave_update", args=[leave.pk])
         self.client.force_login(PMUserFactory())
-        response = self.client.post(url, {
-            "start_date": "2026-03-10",
-            "end_date": "2026-03-05",
-        })
+        response = self.client.post(
+            url,
+            {
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-05",
+            },
+        )
         self.assertEqual(response.status_code, 400)
         leave.refresh_from_db()
         # Original dates must be unchanged

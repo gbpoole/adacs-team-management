@@ -33,6 +33,9 @@ class PhaseCreateView(RoleRequiredMixin, View):
         except ValueError:
             messages.error(request, "Invalid date or effort value.")
             return redirect(next_url)
+        if end_date < start_date:
+            messages.error(request, "End date must not be before start date.")
+            return redirect(next_url)
         semester = get_selected_semester(request)
         developer = get_object_or_404(DeveloperProfile, pk=developer_id)
         lane_pk = request.POST.get("lane_pk")
@@ -41,7 +44,11 @@ class PhaseCreateView(RoleRequiredMixin, View):
         else:
             preferred_lane = _create_next_lane(developer, semester)
         lane = _find_or_create_non_overlapping_lane(
-            developer, semester, start_date, end_date, preferred_lane,
+            developer,
+            semester,
+            start_date,
+            end_date,
+            preferred_lane,
         )
         Phase.objects.create(
             developer_id=developer_id,
@@ -82,7 +89,9 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         update_fields = ["start_date", "end_date"]
         lane_pk = request.POST.get("lane_pk")
         if lane_pk == "new":
-            developer = get_object_or_404(DeveloperProfile, pk=request.POST.get("developer_pk"))
+            developer = get_object_or_404(
+                DeveloperProfile, pk=request.POST.get("developer_pk")
+            )
             preferred_lane = _create_next_lane(developer, phase.semester)
             phase.developer = developer
             update_fields.append("developer_id")
@@ -93,7 +102,11 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         else:
             preferred_lane = phase.lane
         lane = _find_or_create_non_overlapping_lane(
-            phase.developer, phase.semester, new_start, new_end, preferred_lane,
+            phase.developer,
+            phase.semester,
+            new_start,
+            new_end,
+            preferred_lane,
             exclude_phase_pk=phase.pk,
         )
         phase.start_date = new_start
@@ -120,24 +133,41 @@ class PhaseEditView(RoleRequiredMixin, View):
         except (ValueError, TypeError):
             messages.error(request, "Invalid date or effort value.")
             return redirect(_get_next_url(request))
+        if new_end < new_start:
+            messages.error(request, "End date must not be before start date.")
+            return redirect(_get_next_url(request))
         new_developer_id = request.POST.get("developer")
-        update_fields = ["project_id", "start_date", "end_date", "effort_multiplier", "lane_id"]
+        update_fields = [
+            "project_id",
+            "start_date",
+            "end_date",
+            "effort_multiplier",
+            "lane_id",
+        ]
         try:
             new_developer_id_int = int(new_developer_id) if new_developer_id else None
         except (ValueError, TypeError):
             messages.error(request, "Invalid developer.")
             return redirect(_get_next_url(request))
         if new_developer_id_int and new_developer_id_int != phase.developer_id:
-            phase.developer = get_object_or_404(DeveloperProfile, pk=new_developer_id_int)
+            phase.developer = get_object_or_404(
+                DeveloperProfile, pk=new_developer_id_int
+            )
             update_fields.append("developer_id")
             # New developer — preferred lane is the first lane for them in this semester
             preferred_lane, _ = DeveloperLane.objects.get_or_create(
-                developer=phase.developer, semester=phase.semester, order=0,
+                developer=phase.developer,
+                semester=phase.semester,
+                order=0,
             )
         else:
             preferred_lane = phase.lane
         lane = _find_or_create_non_overlapping_lane(
-            phase.developer, phase.semester, new_start, new_end, preferred_lane,
+            phase.developer,
+            phase.semester,
+            new_start,
+            new_end,
+            preferred_lane,
             exclude_phase_pk=phase.pk,
         )
         phase.start_date = new_start
