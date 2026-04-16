@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n planning_extras %}
+{% load static i18n planning_extras %}
 
 {% block title %} — {% trans "Observers" %}{% endblock %}
 
@@ -161,52 +161,15 @@
 </dialog>
 
 <script>
-function openEditObserver(row) {
-  var pk = row.dataset.pk;
-  var projectPks = row.dataset.projects ? row.dataset.projects.split(',') : [];
-  var streamPks = row.dataset.streams ? row.dataset.streams.split(',') : [];
-  document.getElementById('edit-observer-id').value = pk;
-  document.getElementById('edit-observer-name-heading').textContent = row.dataset.name || row.dataset.email;
-  document.getElementById('edit-observer-email-subheading').textContent = row.dataset.email;
-  var projSel = document.getElementById('edit-observer-projects');
-  if (projSel) {
-    Array.from(projSel.options).forEach(function (opt) {
-      opt.selected = projectPks.indexOf(opt.value) !== -1;
-    });
-  }
-  var streamSel = document.getElementById('edit-observer-streams');
-  if (streamSel) {
-    Array.from(streamSel.options).forEach(function (opt) {
-      opt.selected = streamPks.indexOf(opt.value) !== -1;
-    });
-  }
-  document.getElementById('observer-edit-form').action = '/planning/observers/' + pk + '/edit/';
-  document.getElementById('observer-edit-modal').showModal();
-}
-
-document.getElementById('observer-edit-form').addEventListener('submit', function (e) {
-  e.preventDefault();
-  fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function (resp) {
-      if (resp.ok) { window.location.reload(); }
-      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
-    })
-    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
-});
-
-function confirmDeleteObserver() {
-  var pk = document.getElementById('edit-observer-id').value;
-  if (!pk || !confirm('{% trans "Remove all project and stream access for this observer?" %}')) return;
-  document.getElementById('observer-edit-modal').close();
-  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  var body = new FormData();
-  body.append('csrfmiddlewaretoken', csrf);
-  fetch('/planning/observers/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function (resp) {
-      if (resp.ok) { window.location.reload(); }
-      else { alert('Remove failed (status ' + resp.status + '). Please try again.'); }
-    })
-    .catch(function () { alert('Remove failed. Please check your connection and try again.'); });
-}
+  window.observersPageConfig = {
+    labels: {
+      saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
+      saveFailedStatus: "{% trans 'Save failed' %}",
+      removeFailed: "{% trans 'Remove failed. Please check your connection and try again.' %}",
+      removeFailedStatus: "{% trans 'Remove failed' %}",
+      removeConfirm: "{% trans 'Remove all project and stream access for this observer?' %}",
+    },
+  };
 </script>
+<script src="{% static 'js/planning/pages/observers.js' %}" defer></script>
 {% endblock %}
