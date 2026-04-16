@@ -1090,6 +1090,30 @@ class ProjectCreateViewTests(PlanningTestCase):
         project = Project.objects.latest("pk")
         self.assertEqual(project.continuation_of, source)
 
+    def test_invalid_effort_does_not_create_project(self):
+        before = Project.objects.count()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "name": "Bad Effort",
+                "effort_resourced": "not-a-number",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Project.objects.count(), before)
+
+    def test_negative_effort_does_not_create_project(self):
+        before = Project.objects.count()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Negative Effort", "effort_resourced": "-1"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Project.objects.count(), before)
+
 
 class ProjectUpdateViewTests(PlanningTestCase):
     def setUp(self):
@@ -1098,6 +1122,12 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.project = ProjectFactory()
         ProjectSemesterNameFactory(
             project=self.project, semester=self.semester, name="Old Name"
+        )
+        ProjectAllocationFactory(
+            project=self.project,
+            semester=self.semester,
+            weeks_new=3,
+            weeks_carryover=0,
         )
         self.url = reverse("planning:project_edit", args=[self.project.pk])
         self.post_data = {
@@ -1166,6 +1196,37 @@ class ProjectUpdateViewTests(PlanningTestCase):
         )
         self.project.refresh_from_db()
         self.assertEqual(self.project.continuation_of, source)
+
+    def test_invalid_effort_keeps_existing_project_state(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Should Not Save", "effort_resourced": "bad"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            ProjectSemesterName.objects.get(
+                project=self.project,
+                semester=self.semester,
+            ).name,
+            "Old Name",
+        )
+        alloc = ProjectAllocation.objects.get(
+            project=self.project, semester=self.semester
+        )
+        self.assertEqual(float(alloc.weeks_new), 3.0)
+
+    def test_negative_effort_keeps_existing_project_state(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Should Not Save", "effort_resourced": "-2"},
+        )
+        self.assertEqual(response.status_code, 302)
+        alloc = ProjectAllocation.objects.get(
+            project=self.project, semester=self.semester
+        )
+        self.assertEqual(float(alloc.weeks_new), 3.0)
 
 
 class ProjectDeleteViewTests(PlanningTestCase):
@@ -1327,6 +1388,16 @@ class ProjectMigrateViewTests(PlanningTestCase):
             self.url, {"source_semester": "99999", "project_pks": []}
         )
         self.assertEqual(response.status_code, 302)
+
+    def test_invalid_effort_does_not_migrate_any_project(self):
+        before = Project.objects.count()
+        self._migrate(effort="not-a-number")
+        self.assertEqual(Project.objects.count(), before)
+
+    def test_negative_effort_does_not_migrate_any_project(self):
+        before = Project.objects.count()
+        self._migrate(effort="-1")
+        self.assertEqual(Project.objects.count(), before)
 
 
 # ---------------------------------------------------------------------------
@@ -2242,12 +2313,13 @@ class PhaseEditInputValidationTests(PhaseViewTestCase):
 
 
 class ProjectCreateInvalidEffortTests(PlanningTestCase):
-    """Non-numeric effort_resourced falls back to 0 and still creates project."""
+    """Invalid effort input is rejected; project is not created."""
 
-    def test_invalid_effort_creates_project_with_zero_resourced_weeks(self):
+    def test_invalid_effort_does_not_create_project(self):
         pm = PMUserFactory()
         self.client.force_login(pm)
         url = reverse("planning:project_add")
+        before = Project.objects.count()
         response = self.client.post(
             url,
             {
@@ -2256,11 +2328,7 @@ class ProjectCreateInvalidEffortTests(PlanningTestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        psn = ProjectSemesterName.objects.get(name="Test Project")
-        allocation = ProjectAllocation.objects.get(
-            project=psn.project, semester=psn.semester
-        )
-        self.assertEqual(float(allocation.weeks_new), 0.0)
+        self.assertEqual(Project.objects.count(), before)
 
 
 class LeaveUpdateEndBeforeStartTests(PlanningTestCase):
