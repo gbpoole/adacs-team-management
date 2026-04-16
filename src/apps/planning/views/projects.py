@@ -60,8 +60,8 @@ class ProjectsView(PMOrParticipantMixin, ListView):
                 direct_pks = set(obs_record.project_access.values_list("pk", flat=True))
                 stream_pks = set(
                     Project.objects.filter(
-                        streams__in=obs_record.stream_access.all()
-                    ).values_list("pk", flat=True)
+                        streams__in=obs_record.stream_access.all(),
+                    ).values_list("pk", flat=True),
                 )
                 qs = qs.filter(pk__in=direct_pks | stream_pks)
             else:
@@ -92,7 +92,7 @@ class ProjectsView(PMOrParticipantMixin, ListView):
         resourced_map = {
             pk: float(new + carryover)
             for pk, new, carryover in ProjectAllocation.objects.filter(
-                semester=semester
+                semester=semester,
             ).values_list("project_id", "weeks_new", "weeks_carryover")
         }
         allocated_map: dict = {}
@@ -110,7 +110,7 @@ class ProjectsView(PMOrParticipantMixin, ListView):
             project.effort_resourced = resourced_map.get(project.pk, 0)
             project.effort_allocated = round(allocated_map.get(project.pk, 0), 2)
             project.effort_discrepancy = round(
-                project.effort_resourced - project.effort_allocated, 2
+                project.effort_resourced - project.effort_allocated, 2,
             )
             if project.continuation_of:
                 project.continuation_display_name = (
@@ -122,14 +122,14 @@ class ProjectsView(PMOrParticipantMixin, ListView):
         # Build per-semester project data for continuation-of selectors and migration modal.
         # Includes effort_resourced and effort_unallocated so the migrate modal can pre-fill weeks.
         other_semesters = list(
-            Semester.objects.exclude(pk=semester.pk).order_by("-year", "-semester_type")
+            Semester.objects.exclude(pk=semester.pk).order_by("-year", "-semester_type"),
         )
 
         # Bulk-fetch allocations and phase totals for all other semesters
         other_sem_pks = [s.pk for s in other_semesters]
         alloc_by_sem_proj = {}
         for proj_pk, sem_pk, new, carry in ProjectAllocation.objects.filter(
-            semester__in=other_sem_pks
+            semester__in=other_sem_pks,
         ).values_list("project_id", "semester_id", "weeks_new", "weeks_carryover"):
             alloc_by_sem_proj[(sem_pk, proj_pk)] = float(new + carry)
 
@@ -150,7 +150,7 @@ class ProjectsView(PMOrParticipantMixin, ListView):
             Project.objects.filter(
                 semester_names__semester=semester,
                 continuation_of__isnull=False,
-            ).values_list("continuation_of_id", flat=True)
+            ).values_list("continuation_of_id", flat=True),
         )
 
         continuation_map = {}
@@ -174,7 +174,7 @@ class ProjectsView(PMOrParticipantMixin, ListView):
                         "weeks_resourced": w_res,
                         "weeks_unallocated": round(max(0, w_res - w_alloc), 2),
                         "streams": [s.name for s in psn.project.streams.all()],
-                    }
+                    },
                 )
             continuation_map[str(sem.pk)] = entries
         ctx["continuation_semesters"] = other_semesters
@@ -202,7 +202,7 @@ class ProjectCreateView(RoleRequiredMixin, View):
         _apply_continuation(project, request)
         project.save()
         ProjectSemesterName.objects.create(
-            project=project, semester=semester, name=name
+            project=project, semester=semester, name=name,
         )
         stream_names = request.POST.getlist("streams")
         project.streams.set(_get_or_create_streams(stream_names))
@@ -226,17 +226,17 @@ class ProjectDownloadView(RoleRequiredMixin, View):
         psns = (
             ProjectSemesterName.objects.filter(semester=semester)
             .select_related(
-                "project__dev_lead", "project__science_lead", "project__continuation_of"
+                "project__dev_lead", "project__science_lead", "project__continuation_of",
             )
             .prefetch_related(
-                "project__tags", "project__streams", "project__semester_names"
+                "project__tags", "project__streams", "project__semester_names",
             )
             .order_by("name")
         )
         resourced_map = {
             pk: float(new + carryover)
             for pk, new, carryover in ProjectAllocation.objects.filter(
-                semester=semester
+                semester=semester,
             ).values_list("project_id", "weeks_new", "weeks_carryover")
         }
         output = io.StringIO()
@@ -250,7 +250,7 @@ class ProjectDownloadView(RoleRequiredMixin, View):
                 "science_lead",
                 "dev_lead",
                 "continuation_of",
-            ]
+            ],
         )
         for psn in psns:
             p = psn.project
@@ -271,7 +271,7 @@ class ProjectDownloadView(RoleRequiredMixin, View):
             )
             writer.writerow([psn.name, streams, tags, effort, sci, dev, cont])
         response = HttpResponse(
-            output.getvalue(), content_type="application/octet-stream"
+            output.getvalue(), content_type="application/octet-stream",
         )
         response["Content-Disposition"] = (
             f'attachment; filename="projects_{semester}.tsv"'
@@ -294,7 +294,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if name:
             psn, _ = ProjectSemesterName.objects.get_or_create(
-                project=project, semester=semester
+                project=project, semester=semester,
             )
             psn.name = name
             psn.save(update_fields=["name"])
@@ -350,13 +350,13 @@ class ProjectMigrateView(RoleRequiredMixin, View):
         for pk_str in project_pks:
             try:
                 source = Project.objects.prefetch_related("streams", "tags").get(
-                    pk=int(pk_str)
+                    pk=int(pk_str),
                 )
             except (Project.DoesNotExist, ValueError):
                 continue
             effort_str = request.POST.get(f"effort_{pk_str}", "").strip()
             effort = _parse_effort_weeks(
-                request, effort_str, source.name_for_semester(source_semester)
+                request, effort_str, source.name_for_semester(source_semester),
             )
             if effort is None:
                 return redirect("planning:projects")

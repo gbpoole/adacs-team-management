@@ -3,9 +3,6 @@
 from django.test import TestCase
 
 from apps.planning.views._csv_import import _validate_developer_rows
-from apps.planning.views._csv_import import _validate_effort
-from apps.planning.views._csv_import import _validate_email
-from apps.planning.views._csv_import import _validate_name
 from apps.planning.views._csv_import import _validate_rows
 
 
@@ -28,7 +25,7 @@ class TestValidateRows(TestCase):
     def test_returns_error_with_row_number(self):
         rows = [{"field": "bad"}]
         result = _validate_rows(
-            rows, {"field": self._make_validator("something wrong")}
+            rows, {"field": self._make_validator("something wrong")},
         )
         self.assertEqual(len(result), 1)
         self.assertIn("Row 2:", result[0])

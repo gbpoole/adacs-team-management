@@ -22,7 +22,7 @@ def _is_semester_developer(user, semester):
     """True if the user has effort_available > 0 for this semester."""
     from apps.planning.models import SemesterDeveloper
     return SemesterDeveloper.objects.filter(
-        developer__user=user, semester=semester, effort_available__gt=0
+        developer__user=user, semester=semester, effort_available__gt=0,
     ).exists()
 
 

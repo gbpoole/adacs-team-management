@@ -90,7 +90,7 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         lane_pk = request.POST.get("lane_pk")
         if lane_pk == "new":
             developer = get_object_or_404(
-                DeveloperProfile, pk=request.POST.get("developer_pk")
+                DeveloperProfile, pk=request.POST.get("developer_pk"),
             )
             preferred_lane = _create_next_lane(developer, phase.semester)
             phase.developer = developer
@@ -151,7 +151,7 @@ class PhaseEditView(RoleRequiredMixin, View):
             return redirect(_get_next_url(request))
         if new_developer_id_int and new_developer_id_int != phase.developer_id:
             phase.developer = get_object_or_404(
-                DeveloperProfile, pk=new_developer_id_int
+                DeveloperProfile, pk=new_developer_id_int,
             )
             update_fields.append("developer_id")
             # New developer — preferred lane is the first lane for them in this semester

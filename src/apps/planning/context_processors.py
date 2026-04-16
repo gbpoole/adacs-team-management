@@ -1,4 +1,4 @@
-import datetime
+from django.utils import timezone
 
 from apps.planning.models import Semester
 from apps.planning.views._mixins import _is_semester_developer
@@ -9,7 +9,7 @@ from apps.planning.views._semester import get_selected_semester
 def _next_semester(all_sems):
     """Return (year, type) for the first semester that does not yet exist."""
     existing = {(s.year, s.semester_type) for s in all_sems}
-    year = datetime.date.today().year
+    year = timezone.localdate().year
     for _ in range(20):  # scan at most 10 years ahead
         for s_type in ("A", "B"):
             if (year, s_type) not in existing:

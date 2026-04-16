@@ -40,7 +40,7 @@ class PeopleView(PMOrParticipantMixin, ListView):
         # Observer records for the highlighted semester
         obs_records = list(
             SemesterObserver.objects.filter(semester=highlighted)
-            .prefetch_related("project_access__semester_names", "stream_access")
+            .prefetch_related("project_access__semester_names", "stream_access"),
         )
         for so in obs_records:
             for proj in so.project_access.all():
@@ -50,11 +50,11 @@ class PeopleView(PMOrParticipantMixin, ListView):
         # Sets of user PKs for icon flags (selected semester only)
         dev_pks = set(
             SemesterDeveloper.objects.filter(semester=highlighted)
-            .values_list("developer__user_id", flat=True)
+            .values_list("developer__user_id", flat=True),
         )
         obs_pks = set(
             SemesterObserver.objects.filter(semester=highlighted)
-            .values_list("user_id", flat=True)
+            .values_list("user_id", flat=True),
         )
 
         for user in ctx["people"]:

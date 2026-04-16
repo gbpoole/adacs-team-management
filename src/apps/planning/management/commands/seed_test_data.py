@@ -269,7 +269,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"Done: {len(dev_profiles)} developers, {len(projects)} projects, "
-            f"{obs_count} observers, 2 semesters, {leave_count} leave periods, {phase_count} phases."
+            f"{obs_count} observers, 2 semesters, {leave_count} leave periods, {phase_count} phases.",
         ))
 
     def _create_seed_account(self, email, name, role, password, is_staff=False, is_superuser=False):

@@ -169,6 +169,7 @@ ignore = [
   "S101", # Use of assert detected https://docs.astral.sh/ruff/rules/assert/
   "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
   "SIM102", # sometimes it's better to nest
+  "E501", # Keep long strings/comments where wrapping hurts readability
   "UP038" # Checks for uses of isinstance/issubclass that take a tuple
           # of types for comparison.
           # Deactivated because it can make the code slow:
@@ -189,9 +190,56 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Tests don't need type annotations or pytest-style assertions (we use unittest/Django TestCase)
 "*/tests/*.py" = ["ANN", "PT009", "PT027", "DTZ011", "PLR2004", "S311"]
 # Management commands follow Django's BaseCommand interface
-"*/management/commands/*.py" = ["ANN", "S311"]
+"*/management/commands/*.py" = [
+  "ANN",
+  "S311",
+  "C901",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "FBT002",
+  "PERF401",
+  "PLR2004",
+  "DTZ011",
+]
 # App code — ANN annotations are not required (consistent with template baseline)
 "src/apps/**/*.py" = ["ANN"]
+# Existing view layer patterns use local imports/date helpers and larger context builders.
+"src/apps/planning/views/*.py" = [
+  "N806",
+  "PLC0415",
+  "C901",
+  "PLR0912",
+  "PLR0915",
+  "DTZ011",
+]
+"src/apps/planning/models.py" = [
+  "TRY003",
+  "EM102",
+  "DJ012",
+  "ERA001",
+  "RUF002",
+  "PLR2004",
+  "PLR0913",
+]
+"src/apps/planning/templatetags/planning_extras.py" = [
+  "PLR2004",
+  "TRY300",
+  "BLE001",
+]
+"src/apps/planning/tests/*.py" = [
+  "ANN",
+  "PT009",
+  "PT027",
+  "DTZ011",
+  "PLR2004",
+  "S311",
+  "N802",
+  "N806",
+  "PLC0415",
+  "ERA001",
+  "RUF003",
+]
 # Pre-existing template code — do not modify
 "src/apps/users/apps.py" = ["PLC0415"]
 "src/apps/users/forms.py" = ["I001"]

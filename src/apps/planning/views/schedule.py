@@ -37,12 +37,12 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
             obs = SemesterObserver.objects.filter(user=user, semester=semester).first()
             if obs:
                 accessible_project_pks = set(
-                    obs.project_access.values_list("pk", flat=True)
+                    obs.project_access.values_list("pk", flat=True),
                 )
                 accessible_project_pks |= set(
                     Project.objects.filter(
-                        streams__in=obs.stream_access.all()
-                    ).values_list("pk", flat=True)
+                        streams__in=obs.stream_access.all(),
+                    ).values_list("pk", flat=True),
                 )
             else:
                 accessible_project_pks = set()
@@ -96,7 +96,7 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
             dev_profiles = list(
                 DeveloperProfile.objects.filter(pk__in=dev_phases_map.keys())
                 .select_related("user")
-                .order_by("user__name")
+                .order_by("user__name"),
             )
             layers = []
             for dev in dev_profiles:

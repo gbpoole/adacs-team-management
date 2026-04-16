@@ -1,9 +1,11 @@
+from ._semester import SemesterCreateView
+from ._semester import SemesterSwitchView
 from .developers import DeveloperCreateView
 from .developers import DeveloperDeleteView
 from .developers import DeveloperDownloadView
 from .developers import DeveloperMigrateView
-from .developers import DeveloperUpdateView
 from .developers import DevelopersView
+from .developers import DeveloperUpdateView
 from .home import HomeView
 from .leave import LeaveCreateView
 from .leave import LeaveDeleteView
@@ -27,8 +29,6 @@ from .projects import ProjectMigrateView
 from .projects import ProjectsView
 from .projects import ProjectUpdateView
 from .schedule import ScheduleView
-from ._semester import SemesterCreateView
-from ._semester import SemesterSwitchView
 from .streams import StreamCreateView
 from .streams import StreamDeleteView
 from .streams import StreamsView
@@ -54,12 +54,12 @@ __all__ = [
     "ObserverDeleteView",
     "ObserverUpdateView",
     "ObserversView",
+    "PeopleView",
+    "PersonUpdateView",
     "PhaseCreateView",
     "PhaseDeleteView",
     "PhaseEditView",
     "PhaseUpdateView",
-    "PeopleView",
-    "PersonUpdateView",
     "PlanningView",
     "ProjectCreateView",
     "ProjectDeleteView",
@@ -72,10 +72,10 @@ __all__ = [
     "SemesterSwitchView",
     "StreamCreateView",
     "StreamDeleteView",
-    "StreamsView",
     "StreamUpdateView",
+    "StreamsView",
     "TagCreateView",
     "TagDeleteView",
-    "TagsView",
     "TagUpdateView",
+    "TagsView",
 ]

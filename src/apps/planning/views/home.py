@@ -55,7 +55,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     Phase.objects.filter(developer=profile, semester=semester)
                     .select_related("project")
                     .prefetch_related("project__semester_names")
-                    .order_by("start_date")
+                    .order_by("start_date"),
                 )
                 for ph in my_phases:
                     ph.display_name = ph.project.name_for_semester(semester)

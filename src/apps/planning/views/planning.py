@@ -41,12 +41,12 @@ class PlanningView(PMOrObserverMixin, TemplateView):
             ).prefetch_related("project_access", "stream_access").first()
             if obs_record:
                 accessible_project_pks = set(
-                    obs_record.project_access.values_list("pk", flat=True)
+                    obs_record.project_access.values_list("pk", flat=True),
                 )
                 accessible_project_pks |= set(
                     Project.objects.filter(
-                        streams__in=obs_record.stream_access.all()
-                    ).values_list("pk", flat=True)
+                        streams__in=obs_record.stream_access.all(),
+                    ).values_list("pk", flat=True),
                 )
             else:
                 accessible_project_pks = set()
@@ -76,7 +76,7 @@ class PlanningView(PMOrObserverMixin, TemplateView):
                     start_date__lte=weeks[-1] + datetime.timedelta(days=6),
                     end_date__gte=weeks[0],
                 ).select_related("developer", "project", "lane")
-                .prefetch_related("developer__leave_periods")
+                .prefetch_related("developer__leave_periods"),
             )
         else:
             phases = []

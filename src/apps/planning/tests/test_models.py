@@ -2,23 +2,21 @@
 import datetime
 from unittest.mock import patch
 
-from django.test import TestCase
-
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db.models import ProtectedError
+from django.test import TestCase
 
 from apps.planning.models import COLOUR_PALETTE
 from apps.planning.models import DeveloperLane
 from apps.planning.models import Leave
 from apps.planning.models import Phase
-from apps.planning.models import SemesterObserver
 from apps.planning.models import Project
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
+from apps.planning.models import SemesterObserver
 from apps.planning.models import SemesterType
-from django.core.exceptions import ValidationError
-
 from apps.planning.models import _assign_colour_if_blank
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
@@ -28,11 +26,11 @@ from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
-from apps.planning.tests.factories import SemesterObserverFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
+from apps.planning.tests.factories import SemesterObserverFactory
 
 
 class TestNextColour(TestCase):

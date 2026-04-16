@@ -39,11 +39,11 @@ class ObserversView(RoleRequiredMixin, ListView):
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
         existing_user_pks = set(
-            SemesterObserver.objects.filter(semester=semester).values_list("user_id", flat=True)
+            SemesterObserver.objects.filter(semester=semester).values_list("user_id", flat=True),
         )
         User = get_user_model()
         ctx["available_users"] = list(
-            User.objects.exclude(pk__in=existing_user_pks).order_by("name", "email")
+            User.objects.exclude(pk__in=existing_user_pks).order_by("name", "email"),
         )
         project_map = {p.pk: p for p in all_projects}
         stream_map = {s.pk: s for s in ctx["all_streams"]}

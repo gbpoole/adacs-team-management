@@ -70,7 +70,7 @@ class DevelopersView(PMOrDeveloperMixin, ListView):
 
         sd_records = list(
             SemesterDeveloper.objects.filter(semester=semester)
-            .prefetch_related("tags")
+            .prefetch_related("tags"),
         )
         sd_map = {sd.developer_id: sd for sd in sd_records}
 
@@ -97,13 +97,13 @@ class DevelopersView(PMOrDeveloperMixin, ListView):
         all_dev_pks_in_sem = set(sd_map.keys())
         user_pks_in_sem = set(
             SemesterDeveloper.objects.filter(semester=semester)
-            .values_list("developer__user_id", flat=True)
+            .values_list("developer__user_id", flat=True),
         )
         User = get_user_model()
         ctx["available_users"] = list(
             User.objects.exclude(pk__in=user_pks_in_sem)
             .select_related("developer_profile")
-            .order_by("name", "email")
+            .order_by("name", "email"),
         )
 
         # For migrate modal: other semesters and their exclusive developers

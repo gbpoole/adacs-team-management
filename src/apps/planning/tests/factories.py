@@ -7,12 +7,12 @@ from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.planning.models import Phase
-from apps.planning.models import SemesterObserver
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
+from apps.planning.models import SemesterObserver
 from apps.planning.models import SemesterType
 from apps.planning.models import Stream
 from apps.planning.models import Tag
