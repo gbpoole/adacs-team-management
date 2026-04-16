@@ -113,13 +113,22 @@ class PhaseEditView(RoleRequiredMixin, View):
         phase = get_object_or_404(Phase, pk=pk)
         old_lane = phase.lane
         phase.project_id = request.POST.get("project")
-        new_start = datetime.date.fromisoformat(request.POST.get("start_date"))
-        new_end = datetime.date.fromisoformat(request.POST.get("end_date"))
-        phase.effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
+        try:
+            new_start = datetime.date.fromisoformat(request.POST.get("start_date", ""))
+            new_end = datetime.date.fromisoformat(request.POST.get("end_date", ""))
+            phase.effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid date or effort value.")
+            return redirect(_get_next_url(request))
         new_developer_id = request.POST.get("developer")
         update_fields = ["project_id", "start_date", "end_date", "effort_multiplier", "lane_id"]
-        if new_developer_id and int(new_developer_id) != phase.developer_id:
-            phase.developer = get_object_or_404(DeveloperProfile, pk=new_developer_id)
+        try:
+            new_developer_id_int = int(new_developer_id) if new_developer_id else None
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid developer.")
+            return redirect(_get_next_url(request))
+        if new_developer_id_int and new_developer_id_int != phase.developer_id:
+            phase.developer = get_object_or_404(DeveloperProfile, pk=new_developer_id_int)
             update_fields.append("developer_id")
             # New developer — preferred lane is the first lane for them in this semester
             preferred_lane, _ = DeveloperLane.objects.get_or_create(

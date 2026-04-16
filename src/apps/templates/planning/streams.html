@@ -78,7 +78,7 @@
 <dialog id="edit-stream-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Edit Stream" %}</h3>
-    <form id="edit-stream-form" method="post" action="">
+    <form id="edit-stream-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
@@ -149,8 +149,11 @@ function openEditStream(row) {
 document.getElementById('edit-stream-form').addEventListener('submit', function (e) {
   e.preventDefault();
   fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
 });
 
 function confirmDeleteStream() {
@@ -161,8 +164,11 @@ function confirmDeleteStream() {
   var body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch('/planning/streams/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Delete failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Delete failed. Please check your connection and try again.'); });
 }
 </script>
 {% endblock %}

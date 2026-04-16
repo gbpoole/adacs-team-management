@@ -173,7 +173,10 @@ class ProjectCreateView(RoleRequiredMixin, View):
         if tag_names:
             project.tags.set(_get_or_create_tags(tag_names))
         effort_str = request.POST.get("effort_resourced", "").strip()
-        weeks = float(effort_str) if effort_str else 0
+        try:
+            weeks = float(effort_str) if effort_str else 0
+        except ValueError:
+            weeks = 0
         ProjectAllocation.objects.create(
             project=project, semester=semester,
             weeks_new=weeks, weeks_carryover=0,

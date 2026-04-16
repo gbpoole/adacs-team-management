@@ -1,6 +1,5 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -75,12 +74,20 @@ class ObserverCreateView(RoleRequiredMixin, View):
         except (User.DoesNotExist, ValueError):
             return redirect("planning:observers")
         semester = get_selected_semester(request)
-        obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=semester)
-        try:
-            obs.full_clean()
-        except ValidationError as e:
-            messages.error(request, " ".join(e.messages))
+        # Check the developer/observer mutual-exclusion constraint BEFORE creating
+        # the record.  Calling get_or_create first and then full_clean() later
+        # leaves a dangling SemesterObserver row in the DB when validation fails.
+        from apps.planning.models import SemesterDeveloper
+        if SemesterDeveloper.objects.filter(
+            developer__user=user, semester=semester, effort_available__gt=0,
+        ).exists():
+            messages.error(
+                request,
+                f"Cannot assign observer access — {user} already has developer "
+                f"capacity for {semester}. Remove their developer effort first.",
+            )
             return redirect("planning:observers")
+        obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=semester)
         obs.project_access.set(request.POST.getlist("project_access"))
         obs.stream_access.set(request.POST.getlist("stream_access"))
         return redirect("planning:observers")

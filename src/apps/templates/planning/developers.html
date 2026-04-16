@@ -250,7 +250,7 @@
       <span class="mx-1">·</span>
       <span class="font-medium">{{ semester }}</span>
     </p>
-    <form id="developer-edit-form" method="post" action="">
+    <form id="developer-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" id="edit-developer-id" value="">
       <div class="form-control mb-3">
@@ -595,8 +595,11 @@ function _submitDeveloperForm(updateBaseTags) {
     form.appendChild(hidden);
   }
   fetch(form.action, { method: 'POST', body: new FormData(form) })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
 }
 
 document.getElementById('base-tags-yes').addEventListener('click', function () {
@@ -631,8 +634,11 @@ function confirmDeleteDeveloper() {
   var body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch('/planning/developers/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Remove failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Remove failed. Please check your connection and try again.'); });
 }
 
 document.getElementById('migrate-developer-modal').addEventListener('close', function () {

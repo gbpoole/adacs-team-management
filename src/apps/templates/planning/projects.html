@@ -320,7 +320,7 @@
   <div class="modal-box max-w-2xl">
     <h3 id="edit-project-name-heading" class="font-bold text-lg mb-1"></h3>
     <p class="text-sm text-neutral-500 mb-4"><span class="font-medium">{{ semester }}</span></p>
-    <form id="project-edit-form" method="post" action="">
+    <form id="project-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" id="edit-project-id" value="">
       <div class="flex gap-3 mb-3">
@@ -713,8 +713,11 @@ function openEditProject(row) {
 document.getElementById('project-edit-form').addEventListener('submit', function (e) {
   e.preventDefault();
   fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
 });
 
 function confirmRemoveProject() {
@@ -725,8 +728,11 @@ function confirmRemoveProject() {
   var body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch('/planning/projects/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Remove failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Remove failed. Please check your connection and try again.'); });
 }
 {% endif %}
 

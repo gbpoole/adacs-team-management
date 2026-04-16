@@ -105,8 +105,11 @@ class LeaveUpdateView(PMOrDeveloperMixin, View):
             leave.end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
         except ValueError:
             return HttpResponse(status=400)
+        if leave.end_date < leave.start_date:
+            return HttpResponse(status=400)
         leave.save(update_fields=["start_date", "end_date"])
+        from django.utils.http import url_has_allowed_host_and_scheme
         next_url = request.POST.get("next")
-        if next_url:
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
             return redirect(next_url)
         return HttpResponse(status=204)

@@ -144,7 +144,7 @@
 <dialog id="leave-edit-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
-    <form id="leave-edit-form" method="post" action="">
+    <form id="leave-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" name="next" value="{% url 'planning:leave' %}{% if show_past %}?show_past=1{% endif %}">
       <input type="hidden" id="edit-leave-id" value="">
@@ -185,8 +185,11 @@ function openEditLeave(row) {
 document.getElementById('leave-edit-form').addEventListener('submit', function (e) {
   e.preventDefault();
   fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
 });
 
 function confirmDeleteLeave() {
@@ -197,8 +200,11 @@ function confirmDeleteLeave() {
   var body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch('/planning/leave/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Delete failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Delete failed. Please check your connection and try again.'); });
 }
 </script>
 {% endif %}

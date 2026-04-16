@@ -1869,3 +1869,128 @@ class ObserversViewSemesterFilterTests(PlanningTestCase):
         session.save()
         response = self.client.get(reverse("planning:observers"))
         self.assertEqual(response.context["semester"], sem)
+
+
+# ---------------------------------------------------------------------------
+# Bug-fix regression tests
+# ---------------------------------------------------------------------------
+
+
+class ObserverCreateNoDanglingRecordTests(PlanningTestCase):
+    """When adding observer access fails because the user is a developer,
+    no dangling SemesterObserver row should be created."""
+
+    def test_no_dangling_record_when_user_is_developer(self):
+        pm = PMUserFactory()
+        # Create a user who already has developer capacity in the current semester
+        dev = make_semester_developer()
+        url = reverse("planning:observer_add")
+        before = SemesterObserver.objects.count()
+        self.client.force_login(pm)
+        self.client.post(url, {"user": dev.user.pk})
+        self.assertEqual(SemesterObserver.objects.count(), before,
+            "A dangling SemesterObserver row was created for an existing developer")
+
+
+class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
+    """Editing a developer's profile must not create a spurious SemesterObserver."""
+
+    def test_no_spurious_observer_created_for_developer(self):
+        pm = PMUserFactory()
+        dev = make_semester_developer()
+        url = reverse("planning:person_edit", args=[dev.user.pk])
+        before = SemesterObserver.objects.count()
+        self.client.force_login(pm)
+        self.client.post(url, {"base_effort_weeks": "20"})
+        self.assertEqual(SemesterObserver.objects.count(), before,
+            "A spurious SemesterObserver row was created when editing a developer's profile")
+
+    def test_non_numeric_effort_does_not_500(self):
+        pm = PMUserFactory()
+        dev = DeveloperProfileFactory()
+        url = reverse("planning:person_edit", args=[dev.user.pk])
+        self.client.force_login(pm)
+        response = self.client.post(url, {"base_effort_weeks": "not-a-number"})
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+
+
+class PhaseEditInputValidationTests(PhaseViewTestCase):
+    """Bad input to PhaseEditView must produce a redirect, never a 500."""
+
+    def test_invalid_date_returns_redirect_not_500(self):
+        self.client.force_login(self.pm)
+        url = reverse("planning:phase_edit", args=[self.phase.pk])
+        response = self.client.post(url, {
+            "developer": self.dev.pk,
+            "project": self.project.pk,
+            "start_date": "not-a-date",
+            "end_date": "2026-02-09",
+            "effort_multiplier": "1.0",
+        })
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+
+    def test_invalid_effort_multiplier_returns_redirect_not_500(self):
+        self.client.force_login(self.pm)
+        url = reverse("planning:phase_edit", args=[self.phase.pk])
+        response = self.client.post(url, {
+            "developer": self.dev.pk,
+            "project": self.project.pk,
+            "start_date": "2026-01-12",
+            "end_date": "2026-02-09",
+            "effort_multiplier": "not-a-float",
+        })
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+
+    def test_invalid_developer_id_returns_redirect_not_500(self):
+        self.client.force_login(self.pm)
+        url = reverse("planning:phase_edit", args=[self.phase.pk])
+        response = self.client.post(url, {
+            "developer": "not-an-int",
+            "project": self.project.pk,
+            "start_date": "2026-01-12",
+            "end_date": "2026-02-09",
+            "effort_multiplier": "1.0",
+        })
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+
+
+class ProjectCreateInvalidEffortTests(PlanningTestCase):
+    """Non-numeric effort_resourced must not 500."""
+
+    def test_invalid_effort_returns_redirect_not_500(self):
+        pm = PMUserFactory()
+        self.client.force_login(pm)
+        url = reverse("planning:project_add")
+        response = self.client.post(url, {
+            "name": "Test Project",
+            "effort_resourced": "not-a-number",
+        })
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+
+
+class LeaveUpdateEndBeforeStartTests(PlanningTestCase):
+    """end_date before start_date must return 400, not silently save bad data."""
+
+    def test_end_before_start_returns_400(self):
+        dev = make_semester_developer()
+        leave = LeaveFactory(
+            developer=dev,
+            start_date=datetime.date(2026, 3, 2),
+            end_date=datetime.date(2026, 3, 6),
+        )
+        url = reverse("planning:leave_update", args=[leave.pk])
+        self.client.force_login(PMUserFactory())
+        response = self.client.post(url, {
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-05",
+        })
+        self.assertEqual(response.status_code, 400)
+        leave.refresh_from_db()
+        # Original dates must be unchanged
+        self.assertEqual(leave.start_date, datetime.date(2026, 3, 2))
+        self.assertEqual(leave.end_date, datetime.date(2026, 3, 6))

@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.views import View
@@ -86,17 +85,30 @@ class PersonUpdateView(RoleRequiredMixin, View):
         profile, _ = DeveloperProfile.objects.get_or_create(user=user)
         effort_str = request.POST.get("base_effort_weeks", "").strip()
         if effort_str:
-            profile.base_effort_weeks = effort_str
-            profile.save(update_fields=["base_effort_weeks"])
+            try:
+                profile.base_effort_weeks = float(effort_str)
+                profile.save(update_fields=["base_effort_weeks"])
+            except (ValueError, TypeError):
+                pass
         profile.tags.set(request.POST.getlist("tags"))
 
         semester = get_selected_semester(request)
-        try:
-            obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=semester)
-            obs.full_clean()
-            obs.project_access.set(request.POST.getlist("project_access"))
-            obs.stream_access.set(request.POST.getlist("stream_access"))
-        except ValidationError:
-            pass
+        # Only create/update the SemesterObserver if the user can actually be an
+        # observer (i.e. they do not already have developer capacity this semester).
+        # Never create a record unconditionally on every person edit — that produces
+        # spurious empty observer rows for developers and silently discards errors.
+        is_developer = SemesterDeveloper.objects.filter(
+            developer__user=user, semester=semester, effort_available__gt=0,
+        ).exists()
+        if not is_developer:
+            project_pks = request.POST.getlist("project_access")
+            stream_pks = request.POST.getlist("stream_access")
+            existing_obs = SemesterObserver.objects.filter(user=user, semester=semester).first()
+            # Create a new record only when access is explicitly being granted.
+            # Always update an existing record, including to clear its access.
+            if existing_obs is not None or project_pks or stream_pks:
+                obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=semester)
+                obs.project_access.set(project_pks)
+                obs.stream_access.set(stream_pks)
 
         return redirect("planning:people")

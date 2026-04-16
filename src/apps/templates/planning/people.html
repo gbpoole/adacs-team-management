@@ -168,7 +168,7 @@
   <div class="modal-box w-11/12 max-w-lg">
     <h3 class="font-bold text-lg mb-1" id="edit-person-heading">{% trans "Edit Person" %}</h3>
     <p class="text-sm text-neutral-500 mb-4" id="edit-person-subheading"></p>
-    <form id="person-edit-form" method="post" action="">
+    <form id="person-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
 
       {# Developer section #}
@@ -370,8 +370,11 @@ function openEditPerson(row) {
 document.getElementById('person-edit-form').addEventListener('submit', function (e) {
   e.preventDefault();
   fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
 });
 {% endif %}
 </script>

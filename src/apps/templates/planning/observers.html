@@ -123,7 +123,7 @@
       <span class="mx-1">·</span>
       <span class="font-medium">{{ semester }}</span>
     </p>
-    <form id="observer-edit-form" method="post" action="">
+    <form id="observer-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" id="edit-observer-id" value="">
       <div class="flex gap-3 mb-4">
@@ -187,8 +187,11 @@ function openEditObserver(row) {
 document.getElementById('observer-edit-form').addEventListener('submit', function (e) {
   e.preventDefault();
   fetch(this.action, { method: 'POST', body: new FormData(this) })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Save failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Save failed. Please check your connection and try again.'); });
 });
 
 function confirmDeleteObserver() {
@@ -199,8 +202,11 @@ function confirmDeleteObserver() {
   var body = new FormData();
   body.append('csrfmiddlewaretoken', csrf);
   fetch('/planning/observers/' + pk + '/delete/', { method: 'POST', body: body })
-    .then(function () { window.location.reload(); })
-    .catch(function () { window.location.reload(); });
+    .then(function (resp) {
+      if (resp.ok) { window.location.reload(); }
+      else { alert('Remove failed (status ' + resp.status + '). Please try again.'); }
+    })
+    .catch(function () { alert('Remove failed. Please check your connection and try again.'); });
 }
 </script>
 {% endblock %}

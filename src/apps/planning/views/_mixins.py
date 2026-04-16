@@ -1,11 +1,15 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.users.models import Role
 
 
 def _get_next_url(request, default="/planning/planning/"):
-    return request.POST.get("next") or request.META.get("HTTP_REFERER", default)
+    url = request.POST.get("next") or request.META.get("HTTP_REFERER", default)
+    if url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()}):
+        return url
+    return default
 
 
 def _update_user_profile_fields(user, post):
