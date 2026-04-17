@@ -272,12 +272,18 @@
     }
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function init() {
     initFilterPersistence();
     initSorting();
     initPeopleHoverCard();
     initCheckboxButtons("edit-person-tag-buttons");
     initCheckboxButtons("edit-person-stream-buttons");
     initEditModal();
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();

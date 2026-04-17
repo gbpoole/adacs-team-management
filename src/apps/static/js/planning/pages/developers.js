@@ -513,7 +513,7 @@
     );
   };
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function init() {
     initFilterPersistence();
     initSort();
     initTagButtons("edit-dev-tag-buttons");
@@ -574,5 +574,11 @@
         });
       }
     }
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
