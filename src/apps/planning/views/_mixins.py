@@ -36,6 +36,13 @@ def _has_project_access_policy(user):
     return UserProjectAccess.objects.filter(user=user).exists()
 
 
+def _has_restricted_view_access(user, semester):
+    """True when a non-developer user has explicit global access restrictions."""
+    if _is_semester_developer(user, semester):
+        return False
+    return _has_project_access_policy(user)
+
+
 def _is_semester_observer(user, semester):
     """Compatibility helper for observer-style access checks.
 
@@ -43,9 +50,7 @@ def _is_semester_observer(user, semester):
     an explicit global project-access policy.
     """
 
-    if _is_semester_developer(user, semester):
-        return False
-    return _has_project_access_policy(user)
+    return _has_restricted_view_access(user, semester)
 
 
 def _visible_project_ids_for_user(user, semester):
@@ -131,7 +136,7 @@ class PMOrObserverMixin(LoginRequiredMixin):
         from apps.planning.views._semester import get_selected_semester
 
         semester = get_selected_semester(request)
-        if not _is_semester_observer(request.user, semester):
+        if not _has_restricted_view_access(request.user, semester):
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
 
@@ -149,7 +154,7 @@ class PMOrParticipantMixin(LoginRequiredMixin):
         semester = get_selected_semester(request)
         if not (
             _is_semester_developer(request.user, semester)
-            or _is_semester_observer(request.user, semester)
+            or _has_restricted_view_access(request.user, semester)
         ):
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)

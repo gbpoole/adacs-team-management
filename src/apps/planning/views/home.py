@@ -10,8 +10,8 @@ from apps.planning.models import Project
 from apps.planning.models import SemesterDeveloper
 from apps.users.models import Role
 
+from ._mixins import _has_restricted_view_access
 from ._mixins import _is_semester_developer
-from ._mixins import _is_semester_observer
 from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
 
@@ -58,7 +58,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 profile = user.developer_profile
                 ctx["my_profile"] = profile
                 sd = SemesterDeveloper.objects.filter(
-                    developer=profile, semester=semester,
+                    developer=profile,
+                    semester=semester,
                 ).first()
                 ctx["my_effort_available"] = sd.effort_available if sd else None
                 my_phases = list(
@@ -70,17 +71,19 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 for ph in my_phases:
                     ph.display_name = ph.project.name_for_semester(semester)
                 ctx["my_effort_allocated"] = round(
-                    sum(ph.effort_weeks() for ph in my_phases), 1,
+                    sum(ph.effort_weeks() for ph in my_phases),
+                    1,
                 )
                 ctx["my_phases"] = my_phases
                 ctx["my_upcoming_leave"] = Leave.objects.filter(
-                    developer=profile, end_date__gte=today,
+                    developer=profile,
+                    end_date__gte=today,
                 ).order_by("start_date")[:5]
             except DeveloperProfile.DoesNotExist:
                 pass
 
         if (
-            _is_semester_observer(user, semester)
+            _has_restricted_view_access(user, semester)
             and not user.is_superuser
             and role != Role.PM
         ):

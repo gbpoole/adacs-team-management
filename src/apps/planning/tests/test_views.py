@@ -32,13 +32,13 @@ from apps.planning.tests.factories import StreamFactory
 from apps.planning.tests.factories import TagFactory
 from apps.planning.tests.factories import UserFactory
 from apps.planning.tests.factories import UserProjectAccessFactory
+from apps.planning.tests.factories import make_restricted_access_user
 from apps.planning.tests.factories import make_semester_developer
-from apps.planning.tests.factories import make_semester_observer
 
 _ROLE_FACTORIES = {
     "pm": lambda: PMUserFactory(),
     "developer": lambda: make_semester_developer().user,
-    "observer": lambda: make_semester_observer().user,
+    "observer": lambda: make_restricted_access_user().user,
 }
 
 
@@ -430,7 +430,7 @@ class PlanningViewTests(PlanningTestCase):
         self.assertEqual(self.client.get(self.url).status_code, 200)
 
     def test_observer_cannot_access_planning(self):
-        obs = make_semester_observer()
+        obs = make_restricted_access_user()
         self.client.force_login(obs.user)
         self.assertEqual(self.client.get(self.url).status_code, 403)
 
@@ -628,7 +628,7 @@ class PhaseCreateViewTests(PlanningTestCase):
         self.assertEqual(Phase.objects.count(), 0)
 
     def test_observer_denied(self):
-        self.client.force_login(make_semester_observer().user)
+        self.client.force_login(make_restricted_access_user().user)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Phase.objects.count(), 0)
@@ -1148,7 +1148,7 @@ class ObserverCreateViewTests(PlanningTestCase):
             data=self.post_data,
         )
 
-    def test_creates_semester_observer(self):
+    def test_creates_user_project_access(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
         self.assertTrue(
@@ -1234,7 +1234,7 @@ class ObserverDeleteViewTests(PlanningTestCase):
         self.obs.refresh_from_db()
         self.assertEqual(self.obs.project_access.count(), 0)
 
-    def test_semester_observer_record_persists_after_revoke(self):
+    def test_access_record_persists_after_revoke(self):
         """The UserProjectAccess record itself is not deleted when access is revoked."""
         project = ProjectFactory()
         stream = Stream.objects.create(name="TestStream", colour="#aabbcc")

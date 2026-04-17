@@ -155,8 +155,13 @@ def make_semester_developer(semester=None):
     return profile
 
 
-def make_semester_observer(semester=None):
+def make_restricted_access_user(semester=None):
     """Create a User + UserProjectAccess restriction record."""
     _ = semester or Semester.get_current()  # retained for call compatibility
     user = UserFactory()
     return UserProjectAccessFactory(user=user)
+
+
+def make_semester_observer(semester=None):
+    """Backward-compatible alias for make_restricted_access_user."""
+    return make_restricted_access_user(semester=semester)

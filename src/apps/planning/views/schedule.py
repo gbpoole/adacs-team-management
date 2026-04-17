@@ -12,7 +12,7 @@ from apps.planning.models import Tag
 from apps.users.models import Role
 
 from ._mixins import PMOrObserverMixin
-from ._mixins import _is_semester_observer
+from ._mixins import _has_restricted_view_access
 from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
 from ._timeline import _coverage
@@ -30,7 +30,7 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
         weeks = _week_starts(semester.start_date, semester.end_date)
 
         is_observer = (
-            _is_semester_observer(user, semester)
+            _has_restricted_view_access(user, semester)
             and not user.is_superuser
             and user.role != Role.PM
         )
