@@ -38,6 +38,8 @@ from apps.planning.tests.factories import make_semester_developer
 _ROLE_FACTORIES = {
     "pm": lambda: PMUserFactory(),
     "developer": lambda: make_semester_developer().user,
+    "restricted": lambda: make_restricted_access_user().user,
+    # Backward-compatible alias for older role labels in this test module.
     "observer": lambda: make_restricted_access_user().user,
 }
 
