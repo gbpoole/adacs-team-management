@@ -21,15 +21,61 @@ def _update_user_profile_fields(user, post):
 def _is_semester_developer(user, semester):
     """True if the user has effort_available > 0 for this semester."""
     from apps.planning.models import SemesterDeveloper
+
     return SemesterDeveloper.objects.filter(
-        developer__user=user, semester=semester, effort_available__gt=0,
+        developer__user=user,
+        semester=semester,
+        effort_available__gt=0,
     ).exists()
 
 
 def _is_semester_observer(user, semester):
-    """True if the user has a SemesterObserver record for this semester."""
+    """True for explicit semester observers (non-developers with observer record)."""
     from apps.planning.models import SemesterObserver
+
+    if _is_semester_developer(user, semester):
+        return False
     return SemesterObserver.objects.filter(user=user, semester=semester).exists()
+
+
+def _visible_project_ids_for_user(user, semester):
+    """Return visible project IDs for a user in a semester.
+
+    - ``None`` means unrestricted visibility.
+    - A set of IDs means visibility is restricted to that set (possibly empty).
+
+    Restriction semantics:
+    - PM and superusers are unrestricted.
+    - Missing SemesterObserver row means unrestricted.
+    - Existing row with both project_access and stream_access empty means unrestricted.
+    - Otherwise visibility is union(project_access, projects in stream_access).
+    """
+    from apps.planning.models import Project
+    from apps.planning.models import SemesterObserver
+
+    if user.is_superuser or user.role == Role.PM:
+        return None
+
+    record = (
+        SemesterObserver.objects.filter(user=user, semester=semester)
+        .prefetch_related("project_access", "stream_access")
+        .first()
+    )
+    if record is None:
+        return None
+
+    direct_ids = set(record.project_access.values_list("pk", flat=True))
+    stream_qs = record.stream_access.all()
+    stream_ids = set(stream_qs.values_list("pk", flat=True))
+    if not direct_ids and not stream_ids:
+        return None
+
+    via_stream_ids = set()
+    if stream_ids:
+        via_stream_ids = set(
+            Project.objects.filter(streams__in=stream_qs).values_list("pk", flat=True),
+        )
+    return direct_ids | via_stream_ids
 
 
 class RoleRequiredMixin(LoginRequiredMixin):
@@ -54,6 +100,7 @@ class PMOrDeveloperMixin(LoginRequiredMixin):
         if request.user.is_superuser or request.user.role == Role.PM:
             return super().dispatch(request, *args, **kwargs)
         from apps.planning.views._semester import get_selected_semester
+
         semester = get_selected_semester(request)
         if not _is_semester_developer(request.user, semester):
             raise PermissionDenied
@@ -69,6 +116,7 @@ class PMOrObserverMixin(LoginRequiredMixin):
         if request.user.is_superuser or request.user.role == Role.PM:
             return super().dispatch(request, *args, **kwargs)
         from apps.planning.views._semester import get_selected_semester
+
         semester = get_selected_semester(request)
         if not _is_semester_observer(request.user, semester):
             raise PermissionDenied
@@ -84,8 +132,11 @@ class PMOrParticipantMixin(LoginRequiredMixin):
         if request.user.is_superuser or request.user.role == Role.PM:
             return super().dispatch(request, *args, **kwargs)
         from apps.planning.views._semester import get_selected_semester
+
         semester = get_selected_semester(request)
-        if not (_is_semester_developer(request.user, semester)
-                or _is_semester_observer(request.user, semester)):
+        if not (
+            _is_semester_developer(request.user, semester)
+            or _is_semester_observer(request.user, semester)
+        ):
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)

@@ -1,4 +1,5 @@
 """Unit tests for planning models and business logic."""
+
 import datetime
 from unittest.mock import patch
 
@@ -115,13 +116,17 @@ class TestProjectNameForSemester(TestCase):
 
     def test_returns_name_for_exact_semester(self):
         ProjectSemesterNameFactory(
-            project=self.project, semester=self.sem_a, name="Alpha",
+            project=self.project,
+            semester=self.sem_a,
+            name="Alpha",
         )
         self.assertEqual(self.project.name_for_semester(self.sem_a), "Alpha")
 
     def test_returns_fallback_for_later_semester(self):
         ProjectSemesterNameFactory(
-            project=self.project, semester=self.sem_a, name="Alpha",
+            project=self.project,
+            semester=self.sem_a,
+            name="Alpha",
         )
         self.assertEqual(self.project.name_for_semester(self.sem_b), "Alpha")
 
@@ -133,8 +138,12 @@ class TestProjectNameForSemester(TestCase):
         sem_2025a = SemesterFactory(year=2025, semester_type=SemesterType.A)
         sem_2025b = SemesterFactory(year=2025, semester_type=SemesterType.B)
         sem_2026b = SemesterFactory(year=2026, semester_type=SemesterType.B)
-        ProjectSemesterNameFactory(project=self.project, semester=sem_2025a, name="Old Name")
-        ProjectSemesterNameFactory(project=self.project, semester=sem_2025b, name="Newer Name")
+        ProjectSemesterNameFactory(
+            project=self.project, semester=sem_2025a, name="Old Name",
+        )
+        ProjectSemesterNameFactory(
+            project=self.project, semester=sem_2025b, name="Newer Name",
+        )
         # 2026B has no direct name; should fall back to 2025B, not 2025A
         self.assertEqual(self.project.name_for_semester(sem_2026b), "Newer Name")
 
@@ -154,6 +163,7 @@ class TestSemesterDeveloper(TestCase):
 # ---------------------------------------------------------------------------
 # Phase.save() — auto lane assignment
 # ---------------------------------------------------------------------------
+
 
 class TestPhaseLaneAutoAssignment(TestCase):
     def setUp(self):
@@ -178,14 +188,18 @@ class TestPhaseLaneAutoAssignment(TestCase):
     def test_lane_auto_assigned_via_factory(self):
         """PhaseFactory (which omits lane) should produce a phase with a lane assigned."""
         from apps.planning.tests.factories import PhaseFactory
+
         phase = PhaseFactory()
         self.assertIsNotNone(phase.lane_id)
 
     def test_lane_not_reassigned_when_explicit(self):
         lane = DeveloperLaneFactory(developer=self.dev, semester=self.sem, order=0)
         phase = Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
             lane=lane,
         )
         self.assertEqual(phase.lane_id, lane.pk)
@@ -203,7 +217,9 @@ class TestPhaseLaneAutoAssignment(TestCase):
     def test_three_way_overlap_creates_three_lanes(self):
         phase1 = self._make_phase(datetime.date(2026, 1, 5), datetime.date(2026, 3, 2))
         phase2 = self._make_phase(datetime.date(2026, 1, 12), datetime.date(2026, 3, 9))
-        phase3 = self._make_phase(datetime.date(2026, 1, 19), datetime.date(2026, 3, 16))
+        phase3 = self._make_phase(
+            datetime.date(2026, 1, 19), datetime.date(2026, 3, 16),
+        )
         lanes = {phase1.lane_id, phase2.lane_id, phase3.lane_id}
         self.assertEqual(len(lanes), 3)
 
@@ -212,26 +228,35 @@ class TestPhaseLaneAutoAssignment(TestCase):
 # _find_or_create_non_overlapping_lane()
 # ---------------------------------------------------------------------------
 
+
 class TestFindOrCreateNonOverlappingLane(TestCase):
     def setUp(self):
         self.dev = DeveloperProfileFactory()
         self.sem = SemesterFactory()
         self.project = ProjectFactory()
-        self.preferred = DeveloperLaneFactory(developer=self.dev, semester=self.sem, order=0)
+        self.preferred = DeveloperLaneFactory(
+            developer=self.dev, semester=self.sem, order=0,
+        )
 
     def _phase_in_lane(self, lane, start, end):
         """Create a phase directly in a specific lane, bypassing auto-assignment."""
         phase = Phase(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=start, end_date=end, lane=lane,
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=start,
+            end_date=end,
+            lane=lane,
         )
         Phase.save(phase)  # calls super since lane is already set
         return phase
 
     def test_returns_preferred_when_lane_is_empty(self):
         result = _find_or_create_non_overlapping_lane(
-            self.dev, self.sem,
-            datetime.date(2026, 1, 5), datetime.date(2026, 2, 2),
+            self.dev,
+            self.sem,
+            datetime.date(2026, 1, 5),
+            datetime.date(2026, 2, 2),
             self.preferred,
         )
         self.assertEqual(result, self.preferred)
@@ -239,13 +264,18 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
     def test_returns_preferred_when_existing_phase_does_not_overlap(self):
         # Phase ends before our target start
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 1, 30),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 1, 30),
             lane=self.preferred,
         )
         result = _find_or_create_non_overlapping_lane(
-            self.dev, self.sem,
-            datetime.date(2026, 3, 2), datetime.date(2026, 4, 6),
+            self.dev,
+            self.sem,
+            datetime.date(2026, 3, 2),
+            datetime.date(2026, 4, 6),
             self.preferred,
         )
         self.assertEqual(result, self.preferred)
@@ -253,30 +283,44 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
     def test_bumps_to_second_lane_on_overlap(self):
         second = DeveloperLaneFactory(developer=self.dev, semester=self.sem, order=1)
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
             lane=self.preferred,
         )
         result = _find_or_create_non_overlapping_lane(
-            self.dev, self.sem,
-            datetime.date(2026, 1, 12), datetime.date(2026, 2, 9),
+            self.dev,
+            self.sem,
+            datetime.date(2026, 1, 12),
+            datetime.date(2026, 2, 9),
             self.preferred,
         )
         self.assertEqual(result, second)
 
     def test_creates_new_lane_when_all_overlap(self):
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
             lane=self.preferred,
         )
-        before_count = DeveloperLane.objects.filter(developer=self.dev, semester=self.sem).count()
+        before_count = DeveloperLane.objects.filter(
+            developer=self.dev, semester=self.sem,
+        ).count()
         result = _find_or_create_non_overlapping_lane(
-            self.dev, self.sem,
-            datetime.date(2026, 1, 12), datetime.date(2026, 2, 9),
+            self.dev,
+            self.sem,
+            datetime.date(2026, 1, 12),
+            datetime.date(2026, 2, 9),
             self.preferred,
         )
-        after_count = DeveloperLane.objects.filter(developer=self.dev, semester=self.sem).count()
+        after_count = DeveloperLane.objects.filter(
+            developer=self.dev, semester=self.sem,
+        ).count()
         self.assertEqual(after_count, before_count + 1)
         self.assertEqual(result.order, self.preferred.order + 1)
 
@@ -285,8 +329,10 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
         dev2 = DeveloperProfileFactory()
         lane = DeveloperLane.objects.create(developer=dev2, semester=self.sem, order=0)
         result = _find_or_create_non_overlapping_lane(
-            dev2, self.sem,
-            datetime.date(2026, 1, 5), datetime.date(2026, 2, 2),
+            dev2,
+            self.sem,
+            datetime.date(2026, 1, 5),
+            datetime.date(2026, 2, 2),
             lane,
         )
         self.assertEqual(result.order, 0)
@@ -294,13 +340,18 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
     def test_exclude_phase_pk_allows_self_update(self):
         """A phase can slide its own dates within the same lane without being bumped."""
         phase = Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
             lane=self.preferred,
         )
         result = _find_or_create_non_overlapping_lane(
-            self.dev, self.sem,
-            datetime.date(2026, 1, 12), datetime.date(2026, 2, 9),
+            self.dev,
+            self.sem,
+            datetime.date(2026, 1, 12),
+            datetime.date(2026, 2, 9),
             self.preferred,
             exclude_phase_pk=phase.pk,
         )
@@ -309,13 +360,18 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
     def test_adjacent_dates_are_not_overlap(self):
         """Phase ending Jan 31 and new phase starting Feb 1 must not be counted as overlap."""
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 1, 30),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 1, 30),
             lane=self.preferred,
         )
         result = _find_or_create_non_overlapping_lane(
-            self.dev, self.sem,
-            datetime.date(2026, 2, 2), datetime.date(2026, 3, 2),
+            self.dev,
+            self.sem,
+            datetime.date(2026, 2, 2),
+            datetime.date(2026, 3, 2),
             self.preferred,
         )
         self.assertEqual(result, self.preferred)
@@ -324,6 +380,7 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
 # ---------------------------------------------------------------------------
 # _create_next_lane()
 # ---------------------------------------------------------------------------
+
 
 class TestCreateNextLane(TestCase):
     def setUp(self):
@@ -343,7 +400,9 @@ class TestCreateNextLane(TestCase):
 
     def test_creates_max_plus_one(self):
         for order in (0, 2, 7):
-            DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=order)
+            DeveloperLane.objects.create(
+                developer=self.dev, semester=self.sem, order=order,
+            )
         lane = _create_next_lane(self.dev, self.sem)
         self.assertEqual(lane.order, 8)
 
@@ -352,6 +411,7 @@ class TestCreateNextLane(TestCase):
 # _delete_empty_lane()
 # ---------------------------------------------------------------------------
 
+
 class TestDeleteEmptyLane(TestCase):
     def setUp(self):
         self.dev = DeveloperProfileFactory()
@@ -359,16 +419,23 @@ class TestDeleteEmptyLane(TestCase):
         self.project = ProjectFactory()
 
     def test_deletes_empty_lane(self):
-        lane = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        lane = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=0,
+        )
         pk = lane.pk
         _delete_empty_lane(lane)
         self.assertFalse(DeveloperLane.objects.filter(pk=pk).exists())
 
     def test_keeps_lane_with_phases(self):
-        lane = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        lane = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=0,
+        )
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
             lane=lane,
         )
         _delete_empty_lane(lane)
@@ -383,6 +450,7 @@ class TestDeleteEmptyLane(TestCase):
 # Phase.effort_weeks()
 # ---------------------------------------------------------------------------
 
+
 class TestPhaseEffortWeeks(TestCase):
     def setUp(self):
         self.dev = DeveloperProfileFactory()
@@ -391,8 +459,12 @@ class TestPhaseEffortWeeks(TestCase):
 
     def _phase(self, start, end, multiplier=1.0):
         return Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=start, end_date=end, effort_multiplier=multiplier,
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=start,
+            end_date=end,
+            effort_multiplier=multiplier,
         )
 
     def test_basic_five_day_week(self):
@@ -420,7 +492,9 @@ class TestPhaseEffortWeeks(TestCase):
     def test_effort_multiplier_scales_result(self):
         # 5 working days × 0.5 = 0.5 weeks
         phase = self._phase(
-            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=0.5,
+            datetime.date(2026, 1, 5),
+            datetime.date(2026, 1, 9),
+            multiplier=0.5,
         )
         self.assertAlmostEqual(phase.effort_weeks(), 0.5)
 
@@ -461,22 +535,33 @@ class TestPhaseEffortWeeks(TestCase):
         # Phase Mon 5 Jan – Fri 23 Jan = 15 work days = 3.0 weeks
         # Leave week 1 (5 days) and leave week 3 (5 days) → 5 days remain = 1.0 week
         phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 23))
-        LeaveFactory(developer=self.dev,
-                     start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 1, 9))
-        LeaveFactory(developer=self.dev,
-                     start_date=datetime.date(2026, 1, 19), end_date=datetime.date(2026, 1, 23))
+        LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 1, 9),
+        )
+        LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 1, 19),
+            end_date=datetime.date(2026, 1, 23),
+        )
         self.assertAlmostEqual(phase.effort_weeks(), 1.0)
 
     def test_leave_partially_overlapping_phase_start(self):
         # Phase Wed 7 Jan – Fri 9 Jan = 3 work days
         # Leave Mon 5 Jan – Wed 7 Jan: only Wed 7 Jan falls inside the phase → 2 work days remain
         phase = self._phase(datetime.date(2026, 1, 7), datetime.date(2026, 1, 9))
-        LeaveFactory(developer=self.dev,
-                     start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 1, 7))
+        LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 1, 7),
+        )
         self.assertAlmostEqual(phase.effort_weeks(), round(2 / 5, 2))
 
     def test_effort_multiplier_zero_returns_zero(self):
-        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=0.0)
+        phase = self._phase(
+            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=0.0,
+        )
         self.assertAlmostEqual(phase.effort_weeks(), 0.0)
 
     def test_single_day_phase(self):
@@ -553,7 +638,9 @@ class TestDeveloperLaneModel(TestCase):
         self.project = ProjectFactory()
 
     def test_str_contains_order_and_semester(self):
-        lane = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        lane = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=0,
+        )
         s = str(lane)
         self.assertIn("0", s)
         self.assertIn(str(self.sem), s)
@@ -564,17 +651,30 @@ class TestDeveloperLaneModel(TestCase):
             DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
 
     def test_ordering_by_order_then_pk(self):
-        l2 = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=2)
-        l0 = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
-        l1 = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=1)
-        lanes = list(DeveloperLane.objects.filter(developer=self.dev, semester=self.sem))
+        l2 = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=2,
+        )
+        l0 = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=0,
+        )
+        l1 = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=1,
+        )
+        lanes = list(
+            DeveloperLane.objects.filter(developer=self.dev, semester=self.sem),
+        )
         self.assertEqual(lanes, [l0, l1, l2])
 
     def test_lane_protected_when_it_has_phases(self):
-        lane = DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
+        lane = DeveloperLane.objects.create(
+            developer=self.dev, semester=self.sem, order=0,
+        )
         Phase.objects.create(
-            developer=self.dev, project=self.project, semester=self.sem,
-            start_date=datetime.date(2026, 1, 5), end_date=datetime.date(2026, 2, 2),
+            developer=self.dev,
+            project=self.project,
+            semester=self.sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
             lane=lane,
         )
         with self.assertRaises(ProtectedError):
@@ -606,10 +706,16 @@ class TestLeaveModel(TestCase):
         self.assertFalse(Leave.objects.filter(pk=pk).exists())
 
     def test_ordering_by_start_date(self):
-        l2 = LeaveFactory(developer=self.dev, start_date=datetime.date(2026, 5, 1),
-                          end_date=datetime.date(2026, 5, 7))
-        l1 = LeaveFactory(developer=self.dev, start_date=datetime.date(2026, 3, 1),
-                          end_date=datetime.date(2026, 3, 7))
+        l2 = LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 5, 1),
+            end_date=datetime.date(2026, 5, 7),
+        )
+        l1 = LeaveFactory(
+            developer=self.dev,
+            start_date=datetime.date(2026, 3, 1),
+            end_date=datetime.date(2026, 3, 7),
+        )
         leaves = list(Leave.objects.filter(developer=self.dev))
         self.assertEqual(leaves[0].pk, l1.pk)
         self.assertEqual(leaves[1].pk, l2.pk)
@@ -630,9 +736,13 @@ class TestSemesterDeveloperModel(TestCase):
         self.assertEqual(record.effort_available, 0)
 
     def test_unique_together_prevents_duplicate(self):
-        SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem, effort_available=26)
+        SemesterDeveloper.objects.create(
+            developer=self.dev, semester=self.sem, effort_available=26,
+        )
         with self.assertRaises(IntegrityError):
-            SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem, effort_available=20)
+            SemesterDeveloper.objects.create(
+                developer=self.dev, semester=self.sem, effort_available=20,
+            )
 
     def test_cascade_delete_with_developer(self):
         record = SemesterDeveloper.objects.create(developer=self.dev, semester=self.sem)
@@ -653,22 +763,30 @@ class TestProjectSemesterNameModel(TestCase):
 
     def test_str_contains_name_and_semester(self):
         psn = ProjectSemesterNameFactory(
-            project=self.project, semester=self.sem, name="My Project",
+            project=self.project,
+            semester=self.sem,
+            name="My Project",
         )
         s = str(psn)
         self.assertIn("My Project", s)
         self.assertIn("2026A", s)
 
     def test_unique_together_prevents_duplicate(self):
-        ProjectSemesterNameFactory(project=self.project, semester=self.sem, name="First")
+        ProjectSemesterNameFactory(
+            project=self.project, semester=self.sem, name="First",
+        )
         with self.assertRaises(IntegrityError):
             ProjectSemesterName.objects.create(
-                project=self.project, semester=self.sem, name="Second",
+                project=self.project,
+                semester=self.sem,
+                name="Second",
             )
 
     def test_cascade_delete_with_project(self):
         psn = ProjectSemesterNameFactory(
-            project=self.project, semester=self.sem, name="My Project",
+            project=self.project,
+            semester=self.sem,
+            name="My Project",
         )
         pk = psn.pk
         self.project.delete()
@@ -748,63 +866,39 @@ class TestPhaseValidation(TestCase):
         phase.full_clean()  # must not raise
 
     def test_effort_multiplier_rejects_negative(self):
-        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=-0.1)
+        phase = self._phase(
+            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=-0.1,
+        )
         with self.assertRaises(ValidationError):
             phase.full_clean()
 
     def test_effort_multiplier_rejects_above_one(self):
-        phase = self._phase(datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=1.5)
+        phase = self._phase(
+            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=1.5,
+        )
         with self.assertRaises(ValidationError):
             phase.full_clean()
 
 
 # ---------------------------------------------------------------------------
-# SemesterDeveloper / SemesterObserver mutual exclusivity
+# SemesterDeveloper / SemesterObserver coexistence
 # ---------------------------------------------------------------------------
 
 
-class SemesterDeveloperValidationTests(TestCase):
-    def test_clean_raises_if_user_has_semester_observer(self):
+class SemesterMembershipCoexistenceTests(TestCase):
+    def test_semester_developer_and_access_record_can_coexist(self):
         dev = DeveloperProfileFactory()
         sem = SemesterFactory()
-        SemesterObserverFactory(user=dev.user, semester=sem)
-        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=10)
-        with self.assertRaises(ValidationError):
-            sd.full_clean()
-
-    def test_clean_allows_zero_effort_when_observer_exists(self):
-        dev = DeveloperProfileFactory()
-        sem = SemesterFactory()
-        SemesterObserverFactory(user=dev.user, semester=sem)
-        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=0)
-        sd.full_clean()  # must not raise
-
-    def test_clean_allows_positive_effort_with_no_observer(self):
-        dev = DeveloperProfileFactory()
-        sem = SemesterFactory()
-        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=10)
-        sd.full_clean()  # must not raise
-
-
-class SemesterObserverValidationTests(TestCase):
-    def test_clean_raises_if_user_has_developer_with_positive_effort(self):
-        dev = DeveloperProfileFactory()
-        sem = SemesterFactory()
-        SemesterDeveloper.objects.create(developer=dev, semester=sem, effort_available=15)
+        sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=15)
         obs = SemesterObserver(user=dev.user, semester=sem)
-        with self.assertRaises(ValidationError):
-            obs.full_clean()
 
-    def test_clean_allows_observer_when_developer_has_zero_effort(self):
-        dev = DeveloperProfileFactory()
-        sem = SemesterFactory()
-        SemesterDeveloper.objects.create(developer=dev, semester=sem, effort_available=0)
-        obs = SemesterObserver(user=dev.user, semester=sem)
-        obs.full_clean()  # must not raise
+        sd.full_clean()
+        obs.full_clean()
 
-    def test_clean_allows_observer_with_no_developer_record(self):
+    def test_observer_record_with_empty_access_is_valid(self):
         from apps.planning.tests.factories import UserFactory
+
         user = UserFactory()
         sem = SemesterFactory()
         obs = SemesterObserver(user=user, semester=sem)
-        obs.full_clean()  # must not raise
+        obs.full_clean()

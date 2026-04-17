@@ -45,7 +45,9 @@ def _assign_colour_if_blank(instance, model_class) -> None:
     Once all palette colours are in use, cycles by count so every colour gets
     used equally rather than repeating the first colour indefinitely."""
     if not instance.colour:
-        used = set(model_class.objects.exclude(pk=instance.pk).values_list("colour", flat=True))
+        used = set(
+            model_class.objects.exclude(pk=instance.pk).values_list("colour", flat=True),
+        )
         if len(used) < len(COLOUR_PALETTE):
             instance.colour = _next_colour(used)
         else:
@@ -60,7 +62,9 @@ def _assign_colour_if_blank(instance, model_class) -> None:
 
 class Tag(models.Model):
     name = models.CharField(_("name"), max_length=100, unique=True)
-    colour = models.CharField(_("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True)
+    colour = models.CharField(
+        _("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True,
+    )
 
     class Meta:
         ordering = ["name"]
@@ -171,7 +175,9 @@ class Stream(models.Model):
     """Named stream (work category) for grouping projects."""
 
     name = models.CharField(_("name"), max_length=100, unique=True)
-    colour = models.CharField(_("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True)
+    colour = models.CharField(
+        _("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True,
+    )
 
     class Meta:
         ordering = ["name"]
@@ -259,10 +265,14 @@ class ProjectSemesterName(models.Model):
     """Stores the name of a project for a given semester (FR-08)."""
 
     project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="semester_names",
+        Project,
+        on_delete=models.CASCADE,
+        related_name="semester_names",
     )
     semester = models.ForeignKey(
-        Semester, on_delete=models.CASCADE, related_name="project_names",
+        Semester,
+        on_delete=models.CASCADE,
+        related_name="project_names",
     )
     name = models.CharField(_("name"), max_length=255)
 
@@ -283,16 +293,26 @@ class ProjectAllocation(models.Model):
     """Tracks how many weeks a project is allocated for a specific semester."""
 
     project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="allocations",
+        Project,
+        on_delete=models.CASCADE,
+        related_name="allocations",
     )
     semester = models.ForeignKey(
-        Semester, on_delete=models.CASCADE, related_name="project_allocations",
+        Semester,
+        on_delete=models.CASCADE,
+        related_name="project_allocations",
     )
     weeks_new = models.DecimalField(
-        _("new weeks allocated"), max_digits=6, decimal_places=2, default=0,
+        _("new weeks allocated"),
+        max_digits=6,
+        decimal_places=2,
+        default=0,
     )
     weeks_carryover = models.DecimalField(
-        _("weeks carried over"), max_digits=6, decimal_places=2, default=0,
+        _("weeks carried over"),
+        max_digits=6,
+        decimal_places=2,
+        default=0,
     )
 
     class Meta:
@@ -330,22 +350,13 @@ class SemesterDeveloper(models.Model):
         default=0,
         validators=[MinValueValidator(0)],
     )
-    tags = models.ManyToManyField(Tag, blank=True, related_name="semester_developer_records")
+    tags = models.ManyToManyField(
+        Tag, blank=True, related_name="semester_developer_records",
+    )
 
     class Meta:
         unique_together = [("developer", "semester")]
         ordering = ["semester__year", "semester__semester_type"]
-
-    def clean(self):
-        if self.effort_available and float(self.effort_available) > 0:
-            # SemesterObserver is defined later in this module but available at call time.
-            if SemesterObserver.objects.filter(
-                user=self.developer.user, semester=self.semester,
-            ).exists():
-                raise ValidationError(
-                    f"Cannot assign developer capacity — {self.developer.user} already has "
-                    f"observer access for {self.semester}. Remove their observer access first.",
-                )
 
     def __str__(self):
         return f"{self.developer} - {self.semester} ({self.effort_available} wks)"
@@ -374,17 +385,6 @@ class SemesterObserver(models.Model):
         unique_together = [("user", "semester")]
         verbose_name = _("Semester Observer")
         verbose_name_plural = _("Semester Observers")
-
-    def clean(self):
-        if SemesterDeveloper.objects.filter(
-            developer__user=self.user,
-            semester=self.semester,
-            effort_available__gt=0,
-        ).exists():
-            raise ValidationError(
-                f"Cannot assign observer access — {self.user} already has developer "
-                f"capacity for {self.semester}. Remove their developer effort first.",
-            )
 
     def __str__(self):
         return f"{self.user} observer {self.semester}"
@@ -430,7 +430,9 @@ class Leave(models.Model):
 
     def clean(self):
         if self.end_date and self.start_date and self.end_date < self.start_date:
-            raise ValidationError({"end_date": _("End date must not be before start date.")})
+            raise ValidationError(
+                {"end_date": _("End date must not be before start date.")},
+            )
 
     def duration_weeks(self) -> float:
         """Number of working days (Mon–Fri) in the leave period, expressed as weeks (÷5)."""
@@ -517,11 +519,19 @@ class Phase(models.Model):
 
     def clean(self):
         if self.end_date and self.start_date and self.end_date < self.start_date:
-            raise ValidationError({"end_date": _("End date must not be before start date.")})
+            raise ValidationError(
+                {"end_date": _("End date must not be before start date.")},
+            )
 
     def save(self, *args, **kwargs):
         """Auto-assign a non-overlapping DeveloperLane if lane_id is not yet set."""
-        if self.lane_id is None and self.developer_id and self.semester_id and self.start_date and self.end_date:
+        if (
+            self.lane_id is None
+            and self.developer_id
+            and self.semester_id
+            and self.start_date
+            and self.end_date
+        ):
             preferred, _ = DeveloperLane.objects.get_or_create(
                 developer_id=self.developer_id,
                 semester_id=self.semester_id,
@@ -568,7 +578,8 @@ class Phase(models.Model):
 
 def _next_lane_order(developer: DeveloperProfile, semester: Semester) -> int:
     max_order = DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
+        developer=developer,
+        semester=semester,
     ).aggregate(Max("order"))["order__max"]
     return (max_order + 1) if max_order is not None else 0
 
@@ -585,9 +596,12 @@ def _find_or_create_non_overlapping_lane(
     Otherwise try each of the developer's lanes in order; if all overlap, create
     a new lane at max_order+1.
     """
+
     def has_overlap(lane):
         qs = Phase.objects.filter(
-            lane=lane, start_date__lte=end_date, end_date__gte=start_date,
+            lane=lane,
+            start_date__lte=end_date,
+            end_date__gte=start_date,
         )
         if exclude_phase_pk:
             qs = qs.exclude(pk=exclude_phase_pk)
@@ -596,21 +610,30 @@ def _find_or_create_non_overlapping_lane(
     if not has_overlap(preferred_lane):
         return preferred_lane
 
-    for lane in DeveloperLane.objects.filter(
-        developer=developer, semester=semester,
-    ).exclude(pk=preferred_lane.pk).order_by("order", "pk"):
+    for lane in (
+        DeveloperLane.objects.filter(
+            developer=developer,
+            semester=semester,
+        )
+        .exclude(pk=preferred_lane.pk)
+        .order_by("order", "pk")
+    ):
         if not has_overlap(lane):
             return lane
 
     return DeveloperLane.objects.create(
-        developer=developer, semester=semester, order=_next_lane_order(developer, semester),
+        developer=developer,
+        semester=semester,
+        order=_next_lane_order(developer, semester),
     )
 
 
 def _create_next_lane(developer: DeveloperProfile, semester: Semester) -> DeveloperLane:
     """Create a new DeveloperLane with order = max_order + 1."""
     return DeveloperLane.objects.create(
-        developer=developer, semester=semester, order=_next_lane_order(developer, semester),
+        developer=developer,
+        semester=semester,
+        order=_next_lane_order(developer, semester),
     )
 
 

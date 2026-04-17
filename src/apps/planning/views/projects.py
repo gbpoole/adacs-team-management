@@ -17,7 +17,6 @@ from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
-from apps.planning.models import SemesterObserver
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
@@ -26,7 +25,7 @@ from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
 from ._mixins import PMOrParticipantMixin
 from ._mixins import RoleRequiredMixin
-from ._mixins import _is_semester_observer
+from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
 
 
@@ -42,30 +41,9 @@ class ProjectsView(PMOrParticipantMixin, ListView):
             .prefetch_related("tags", "streams", "semester_names")
             .select_related("dev_lead", "science_lead", "continuation_of")
         )
-        user = self.request.user
-        if (
-            _is_semester_observer(user, semester)
-            and not user.is_superuser
-            and user.role != Role.PM
-        ):
-            obs_record = (
-                SemesterObserver.objects.filter(
-                    user=user,
-                    semester=semester,
-                )
-                .prefetch_related("project_access", "stream_access")
-                .first()
-            )
-            if obs_record:
-                direct_pks = set(obs_record.project_access.values_list("pk", flat=True))
-                stream_pks = set(
-                    Project.objects.filter(
-                        streams__in=obs_record.stream_access.all(),
-                    ).values_list("pk", flat=True),
-                )
-                allowed = direct_pks | stream_pks
-                if allowed:
-                    qs = qs.filter(pk__in=allowed)
+        visible_project_ids = _visible_project_ids_for_user(self.request.user, semester)
+        if visible_project_ids is not None:
+            qs = qs.filter(pk__in=visible_project_ids)
         tag_filter = self.request.GET.getlist("tags")
         stream_filter = self.request.GET.getlist("streams")
         if tag_filter:
@@ -110,7 +88,8 @@ class ProjectsView(PMOrParticipantMixin, ListView):
             project.effort_resourced = resourced_map.get(project.pk, 0)
             project.effort_allocated = round(allocated_map.get(project.pk, 0), 2)
             project.effort_discrepancy = round(
-                project.effort_resourced - project.effort_allocated, 2,
+                project.effort_resourced - project.effort_allocated,
+                2,
             )
             if project.continuation_of:
                 project.continuation_display_name = (
@@ -122,7 +101,9 @@ class ProjectsView(PMOrParticipantMixin, ListView):
         # Build per-semester project data for continuation-of selectors and migration modal.
         # Includes effort_resourced and effort_unallocated so the migrate modal can pre-fill weeks.
         other_semesters = list(
-            Semester.objects.exclude(pk=semester.pk).order_by("-year", "-semester_type"),
+            Semester.objects.exclude(pk=semester.pk).order_by(
+                "-year", "-semester_type",
+            ),
         )
 
         # Bulk-fetch allocations and phase totals for all other semesters
@@ -202,7 +183,9 @@ class ProjectCreateView(RoleRequiredMixin, View):
         _apply_continuation(project, request)
         project.save()
         ProjectSemesterName.objects.create(
-            project=project, semester=semester, name=name,
+            project=project,
+            semester=semester,
+            name=name,
         )
         stream_names = request.POST.getlist("streams")
         project.streams.set(_get_or_create_streams(stream_names))
@@ -226,10 +209,14 @@ class ProjectDownloadView(RoleRequiredMixin, View):
         psns = (
             ProjectSemesterName.objects.filter(semester=semester)
             .select_related(
-                "project__dev_lead", "project__science_lead", "project__continuation_of",
+                "project__dev_lead",
+                "project__science_lead",
+                "project__continuation_of",
             )
             .prefetch_related(
-                "project__tags", "project__streams", "project__semester_names",
+                "project__tags",
+                "project__streams",
+                "project__semester_names",
             )
             .order_by("name")
         )
@@ -271,7 +258,8 @@ class ProjectDownloadView(RoleRequiredMixin, View):
             )
             writer.writerow([psn.name, streams, tags, effort, sci, dev, cont])
         response = HttpResponse(
-            output.getvalue(), content_type="application/octet-stream",
+            output.getvalue(),
+            content_type="application/octet-stream",
         )
         response["Content-Disposition"] = (
             f'attachment; filename="projects_{semester}.tsv"'
@@ -294,7 +282,8 @@ class ProjectUpdateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if name:
             psn, _ = ProjectSemesterName.objects.get_or_create(
-                project=project, semester=semester,
+                project=project,
+                semester=semester,
             )
             psn.name = name
             psn.save(update_fields=["name"])
@@ -356,7 +345,9 @@ class ProjectMigrateView(RoleRequiredMixin, View):
                 continue
             effort_str = request.POST.get(f"effort_{pk_str}", "").strip()
             effort = _parse_effort_weeks(
-                request, effort_str, source.name_for_semester(source_semester),
+                request,
+                effort_str,
+                source.name_for_semester(source_semester),
             )
             if effort is None:
                 return redirect("planning:projects")

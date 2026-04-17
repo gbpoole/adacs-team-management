@@ -39,8 +39,9 @@ class PeopleView(RoleRequiredMixin, ListView):
 
         # Observer records for the highlighted semester
         obs_records = list(
-            SemesterObserver.objects.filter(semester=highlighted)
-            .prefetch_related("project_access__semester_names", "stream_access"),
+            SemesterObserver.objects.filter(semester=highlighted).prefetch_related(
+                "project_access__semester_names", "stream_access",
+            ),
         )
         for so in obs_records:
             for proj in so.project_access.all():
@@ -49,12 +50,14 @@ class PeopleView(RoleRequiredMixin, ListView):
 
         # Sets of user PKs for icon flags (selected semester only)
         dev_pks = set(
-            SemesterDeveloper.objects.filter(semester=highlighted)
-            .values_list("developer__user_id", flat=True),
+            SemesterDeveloper.objects.filter(semester=highlighted).values_list(
+                "developer__user_id", flat=True,
+            ),
         )
         obs_pks = set(
-            SemesterObserver.objects.filter(semester=highlighted)
-            .values_list("user_id", flat=True),
+            SemesterObserver.objects.filter(semester=highlighted).values_list(
+                "user_id", flat=True,
+            ),
         )
 
         for user in ctx["people"]:
@@ -68,7 +71,9 @@ class PeopleView(RoleRequiredMixin, ListView):
             p.display_name = p.name_for_semester(highlighted)
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
-        ctx["can_edit"] = self.request.user.role == Role.PM or self.request.user.is_superuser
+        ctx["can_edit"] = (
+            self.request.user.role == Role.PM or self.request.user.is_superuser
+        )
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = self.request.GET.getlist("tags")
         ctx["highlighted_semester"] = highlighted
@@ -93,22 +98,18 @@ class PersonUpdateView(RoleRequiredMixin, View):
         profile.tags.set(request.POST.getlist("tags"))
 
         semester = get_selected_semester(request)
-        # Only create/update the SemesterObserver if the user can actually be an
-        # observer (i.e. they do not already have developer capacity this semester).
-        # Never create a record unconditionally on every person edit — that produces
-        # spurious empty observer rows for developers and silently discards errors.
-        is_developer = SemesterDeveloper.objects.filter(
-            developer__user=user, semester=semester, effort_available__gt=0,
-        ).exists()
-        if not is_developer:
-            project_pks = request.POST.getlist("project_access")
-            stream_pks = request.POST.getlist("stream_access")
-            existing_obs = SemesterObserver.objects.filter(user=user, semester=semester).first()
-            # Create a new record only when access is explicitly being granted.
-            # Always update an existing record, including to clear its access.
-            if existing_obs is not None or project_pks or stream_pks:
-                obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=semester)
-                obs.project_access.set(project_pks)
-                obs.stream_access.set(stream_pks)
+        project_pks = request.POST.getlist("project_access")
+        stream_pks = request.POST.getlist("stream_access")
+        existing_obs = SemesterObserver.objects.filter(
+            user=user, semester=semester,
+        ).first()
+        # Missing record means unrestricted access. Create/update a record only when
+        # restrictions are explicitly set, or when updating an existing record.
+        if existing_obs is not None or project_pks or stream_pks:
+            obs, _ = SemesterObserver.objects.get_or_create(
+                user=user, semester=semester,
+            )
+            obs.project_access.set(project_pks)
+            obs.stream_access.set(stream_pks)
 
         return redirect("planning:people")

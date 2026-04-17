@@ -7,6 +7,7 @@ from django.views import View
 from django.views.generic import ListView
 
 from apps.planning.models import Project
+from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterObserver
 from apps.planning.models import Stream
 from apps.users.models import Role
@@ -22,8 +23,13 @@ class ObserversView(RoleRequiredMixin, ListView):
 
     def get_queryset(self):
         semester = get_selected_semester(self.request)
+        developer_user_ids = SemesterDeveloper.objects.filter(
+            semester=semester,
+            effort_available__gt=0,
+        ).values_list("developer__user_id", flat=True)
         return (
             SemesterObserver.objects.filter(semester=semester)
+            .exclude(user_id__in=developer_user_ids)
             .select_related("user")
             .prefetch_related("project_access", "stream_access")
             .order_by("user__name", "user__email")
@@ -39,7 +45,9 @@ class ObserversView(RoleRequiredMixin, ListView):
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
         existing_user_pks = set(
-            SemesterObserver.objects.filter(semester=semester).values_list("user_id", flat=True),
+            SemesterObserver.objects.filter(semester=semester).values_list(
+                "user_id", flat=True,
+            ),
         )
         User = get_user_model()
         ctx["available_users"] = list(
@@ -50,12 +58,14 @@ class ObserversView(RoleRequiredMixin, ListView):
         for obs in ctx["observers"]:
             obs.project_pills = [
                 (project_map[p.pk].display_name, project_map[p.pk].colour)
-                if p.pk in project_map else (str(p), "")
+                if p.pk in project_map
+                else (str(p), "")
                 for p in obs.project_access.all()
             ]
             obs.stream_pills = [
                 (stream_map[s.pk].name, stream_map[s.pk].colour)
-                if s.pk in stream_map else (str(s), "")
+                if s.pk in stream_map
+                else (str(s), "")
                 for s in obs.stream_access.all()
             ]
         return ctx
@@ -78,8 +88,11 @@ class ObserverCreateView(RoleRequiredMixin, View):
         # the record.  Calling get_or_create first and then full_clean() later
         # leaves a dangling SemesterObserver row in the DB when validation fails.
         from apps.planning.models import SemesterDeveloper
+
         if SemesterDeveloper.objects.filter(
-            developer__user=user, semester=semester, effort_available__gt=0,
+            developer__user=user,
+            semester=semester,
+            effort_available__gt=0,
         ).exists():
             messages.error(
                 request,
