@@ -17,9 +17,9 @@ from apps.planning.models import ProjectAllocation
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
-from apps.planning.models import SemesterObserver
 from apps.planning.models import Stream
 from apps.planning.models import Tag
+from apps.planning.models import UserProjectAccess
 from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
 from apps.planning.tests.factories import PMUserFactory
@@ -27,11 +27,11 @@ from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterFactory
-from apps.planning.tests.factories import SemesterObserverFactory
 from apps.planning.tests.factories import SemesterType
 from apps.planning.tests.factories import StreamFactory
 from apps.planning.tests.factories import TagFactory
 from apps.planning.tests.factories import UserFactory
+from apps.planning.tests.factories import UserProjectAccessFactory
 from apps.planning.tests.factories import make_semester_developer
 from apps.planning.tests.factories import make_semester_observer
 
@@ -101,7 +101,7 @@ class HomeViewTests(TestCase):
         self.assertNotIn("my_profile", response.context)
 
     def test_observer_project_count_in_context(self):
-        obs = SemesterObserverFactory()
+        obs = UserProjectAccessFactory()
         project = ProjectFactory()
         obs.project_access.add(project)
         self.client.force_login(obs.user)
@@ -165,7 +165,7 @@ class ObserversViewTests(PlanningTestCase):
         )
 
     def test_shows_observer_in_table(self):
-        obs = SemesterObserverFactory()
+        obs = UserProjectAccessFactory()
         admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
@@ -179,7 +179,7 @@ class ObserversViewTests(PlanningTestCase):
             semester=semester,
             name="My Real Project",
         )
-        obs = SemesterObserverFactory(semester=semester)
+        obs = UserProjectAccessFactory()
         obs.project_access.add(project)
         admin = PMUserFactory()
         self.client.force_login(admin)
@@ -188,7 +188,7 @@ class ObserversViewTests(PlanningTestCase):
         self.assertNotContains(response, f"Project #{project.pk}")
 
     def test_observer_with_no_projects_shows_none(self):
-        SemesterObserverFactory()
+        UserProjectAccessFactory()
         admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
@@ -221,7 +221,7 @@ class ProjectsViewTests(PlanningTestCase):
             name="Hidden Project",
         )
 
-        obs = SemesterObserverFactory(semester=self.semester)
+        obs = UserProjectAccessFactory()
         obs.project_access.add(project_visible)
         self.client.force_login(obs.user)
 
@@ -233,13 +233,17 @@ class ProjectsViewTests(PlanningTestCase):
     def test_observer_with_empty_restrictions_sees_all_projects(self):
         project1 = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project1, semester=self.semester, name="Alpha Project",
+            project=project1,
+            semester=self.semester,
+            name="Alpha Project",
         )
         project2 = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project2, semester=self.semester, name="Beta Project",
+            project=project2,
+            semester=self.semester,
+            name="Beta Project",
         )
-        obs = SemesterObserverFactory(semester=self.semester)
+        obs = UserProjectAccessFactory()
         # project_access and stream_access are both empty → full access
         self.client.force_login(obs.user)
         response = self.client.get(self.url)
@@ -252,13 +256,17 @@ class ProjectsViewTests(PlanningTestCase):
         project_in = ProjectFactory()
         project_in.streams.add(stream)
         ProjectSemesterNameFactory(
-            project=project_in, semester=self.semester, name="Stream Project",
+            project=project_in,
+            semester=self.semester,
+            name="Stream Project",
         )
         project_out = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project_out, semester=self.semester, name="Other Project",
+            project=project_out,
+            semester=self.semester,
+            name="Other Project",
         )
-        obs = SemesterObserverFactory(semester=self.semester)
+        obs = UserProjectAccessFactory()
         obs.stream_access.add(stream)
         self.client.force_login(obs.user)
         response = self.client.get(self.url)
@@ -270,18 +278,24 @@ class ProjectsViewTests(PlanningTestCase):
         stream = StreamFactory()
         project_direct = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project_direct, semester=self.semester, name="Direct Project",
+            project=project_direct,
+            semester=self.semester,
+            name="Direct Project",
         )
         project_via_stream = ProjectFactory()
         project_via_stream.streams.add(stream)
         ProjectSemesterNameFactory(
-            project=project_via_stream, semester=self.semester, name="Stream Project",
+            project=project_via_stream,
+            semester=self.semester,
+            name="Stream Project",
         )
         project_hidden = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=project_hidden, semester=self.semester, name="Hidden Project",
+            project=project_hidden,
+            semester=self.semester,
+            name="Hidden Project",
         )
-        obs = SemesterObserverFactory(semester=self.semester)
+        obs = UserProjectAccessFactory()
         obs.project_access.add(project_direct)
         obs.stream_access.add(stream)
         self.client.force_login(obs.user)
@@ -305,7 +319,7 @@ class ProjectsViewTests(PlanningTestCase):
             semester=self.semester,
             name="Hidden Project",
         )
-        access = SemesterObserverFactory(user=dev.user, semester=self.semester)
+        access = UserProjectAccessFactory(user=dev.user)
         access.project_access.add(project_visible)
 
         self.client.force_login(dev.user)
@@ -328,7 +342,7 @@ class ProjectsViewTests(PlanningTestCase):
             semester=self.semester,
             name="Beta Project",
         )
-        SemesterObserverFactory(user=dev.user, semester=self.semester)
+        UserProjectAccessFactory(user=dev.user)
 
         self.client.force_login(dev.user)
         response = self.client.get(self.url)
@@ -446,10 +460,12 @@ class PlanningViewTests(PlanningTestCase):
         visible = ProjectFactory()
         hidden = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=visible, semester=sem, name="Visible Project",
+            project=visible,
+            semester=sem,
+            name="Visible Project",
         )
         ProjectSemesterNameFactory(project=hidden, semester=sem, name="Hidden Project")
-        access = SemesterObserverFactory(user=dev_profile.user, semester=sem)
+        access = UserProjectAccessFactory(user=dev_profile.user)
         access.project_access.add(visible)
 
         self.client.force_login(dev_profile.user)
@@ -468,7 +484,9 @@ class PlanningViewTests(PlanningTestCase):
         visible = ProjectFactory()
         hidden = ProjectFactory()
         ProjectSemesterNameFactory(
-            project=visible, semester=sem, name="Visible Project",
+            project=visible,
+            semester=sem,
+            name="Visible Project",
         )
         ProjectSemesterNameFactory(project=hidden, semester=sem, name="Hidden Project")
         Phase.objects.create(
@@ -485,7 +503,7 @@ class PlanningViewTests(PlanningTestCase):
             start_date=sem.start_date,
             end_date=sem.start_date + datetime.timedelta(days=6),
         )
-        access = SemesterObserverFactory(user=dev_profile.user, semester=sem)
+        access = UserProjectAccessFactory(user=dev_profile.user)
         access.project_access.add(visible)
 
         self.client.force_login(dev_profile.user)
@@ -1133,20 +1151,22 @@ class ObserverCreateViewTests(PlanningTestCase):
     def test_creates_semester_observer(self):
         self.client.force_login(self.pm)
         self.client.post(self.url, self.post_data)
-        self.assertTrue(SemesterObserver.objects.filter(user=self.target_user).exists())
+        self.assertTrue(
+            UserProjectAccess.objects.filter(user=self.target_user).exists(),
+        )
 
     def test_sets_project_access(self):
         project = ProjectFactory()
         self.client.force_login(self.pm)
         self.client.post(self.url, {**self.post_data, "project_access": [project.pk]})
-        obs = SemesterObserver.objects.get(user=self.target_user)
+        obs = UserProjectAccess.objects.get(user=self.target_user)
         self.assertIn(project, obs.project_access.all())
 
 
 class ObserverUpdateViewTests(PlanningTestCase):
     def setUp(self):
         self.pm = PMUserFactory()
-        self.obs = SemesterObserverFactory()
+        self.obs = UserProjectAccessFactory()
         self.url = reverse("planning:observer_edit", args=[self.obs.pk])
         self.post_data = {
             "name": "Updated Observer",
@@ -1181,11 +1201,11 @@ class ObserverUpdateViewTests(PlanningTestCase):
 class ObserverDeleteViewTests(PlanningTestCase):
     def setUp(self):
         self.pm = PMUserFactory()
-        self.obs = SemesterObserverFactory()
+        self.obs = UserProjectAccessFactory()
         self.url = reverse("planning:observer_delete", args=[self.obs.pk])
 
     def test_pm_can_revoke_access(self):
-        obs = SemesterObserverFactory()
+        obs = UserProjectAccessFactory()
         project = ProjectFactory()
         obs.project_access.add(project)
         self.client.force_login(PMUserFactory())
@@ -1209,13 +1229,13 @@ class ObserverDeleteViewTests(PlanningTestCase):
         self.obs.project_access.add(project)
         self.client.force_login(self.pm)
         self.client.post(self.url, {})
-        self.assertTrue(SemesterObserver.objects.filter(pk=obs_pk).exists())
+        self.assertTrue(UserProjectAccess.objects.filter(pk=obs_pk).exists())
         self.assertTrue(get_user_model().objects.filter(pk=user_pk).exists())
         self.obs.refresh_from_db()
         self.assertEqual(self.obs.project_access.count(), 0)
 
     def test_semester_observer_record_persists_after_revoke(self):
-        """The SemesterObserver record itself is not deleted when access is revoked."""
+        """The UserProjectAccess record itself is not deleted when access is revoked."""
         project = ProjectFactory()
         stream = Stream.objects.create(name="TestStream", colour="#aabbcc")
         self.obs.project_access.add(project)
@@ -1223,7 +1243,7 @@ class ObserverDeleteViewTests(PlanningTestCase):
         obs_pk = self.obs.pk
         self.client.force_login(self.pm)
         self.client.post(self.url, {})
-        self.assertTrue(SemesterObserver.objects.filter(pk=obs_pk).exists())
+        self.assertTrue(UserProjectAccess.objects.filter(pk=obs_pk).exists())
         self.obs.refresh_from_db()
         self.assertEqual(self.obs.project_access.count(), 0)
         self.assertEqual(self.obs.stream_access.count(), 0)
@@ -1497,12 +1517,14 @@ class ProjectDeleteViewTests(PlanningTestCase):
         self.assertTrue(Project.objects.filter(pk=project.pk).exists())
         self.assertFalse(
             ProjectSemesterName.objects.filter(
-                project=project, semester=sem_a,
+                project=project,
+                semester=sem_a,
             ).exists(),
         )
         self.assertTrue(
             ProjectSemesterName.objects.filter(
-                project=project, semester=sem_b,
+                project=project,
+                semester=sem_b,
             ).exists(),
         )
 
@@ -2381,7 +2403,7 @@ class PersonUpdateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_observer_denied(self):
-        obs = SemesterObserverFactory()
+        obs = UserProjectAccessFactory()
         self.client.force_login(obs.user)
         response = self.client.post(self.url, {"base_effort_weeks": "10"})
         self.assertEqual(response.status_code, 403)
@@ -2402,30 +2424,27 @@ class PersonUpdateViewTests(PlanningTestCase):
 
 
 class ObserversViewSemesterFilterTests(PlanningTestCase):
-    def test_shows_only_observers_for_selected_semester(self):
-        sem_a = SemesterFactory(year=2026, semester_type=SemesterType.A)
-        sem_b = SemesterFactory(year=2026, semester_type=SemesterType.B)
-        obs_a = SemesterObserverFactory(semester=sem_a)
-        obs_b = SemesterObserverFactory(semester=sem_b)
+    def test_shows_users_with_access_records(self):
+        SemesterFactory(year=2026, semester_type=SemesterType.A)
+        obs_a = UserProjectAccessFactory()
+        obs_b = UserProjectAccessFactory()
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(reverse("planning:observers"))
+        pks = [o.pk for o in response.context["observers"]]
+        self.assertIn(obs_a.pk, pks)
+        self.assertIn(obs_b.pk, pks)
+
+    def test_uses_selected_semester_to_filter_out_developers(self):
+        sem_current = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        obs_current = UserProjectAccessFactory()
+        make_semester_developer(semester=sem_current)
         self.client.force_login(PMUserFactory())
         session = self.client.session
         session["selected_semester"] = "2026A"
         session.save()
         response = self.client.get(reverse("planning:observers"))
         pks = [o.pk for o in response.context["observers"]]
-        self.assertIn(obs_a.pk, pks)
-        self.assertNotIn(obs_b.pk, pks)
-
-    def test_uses_current_semester_when_session_unset(self):
-        sem_current = Semester.get_current()
-        obs_current = SemesterObserverFactory(semester=sem_current)
-        other_sem = SemesterFactory(year=1999, semester_type=SemesterType.A)
-        obs_other = SemesterObserverFactory(semester=other_sem)
-        self.client.force_login(PMUserFactory())
-        response = self.client.get(reverse("planning:observers"))
-        pks = [o.pk for o in response.context["observers"]]
         self.assertIn(obs_current.pk, pks)
-        self.assertNotIn(obs_other.pk, pks)
 
     def test_context_contains_selected_semester(self):
         sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
@@ -2439,7 +2458,7 @@ class ObserversViewSemesterFilterTests(PlanningTestCase):
     def test_developers_with_access_records_are_not_listed_as_observers(self):
         sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
         dev = make_semester_developer(semester=sem)
-        access = SemesterObserverFactory(user=dev.user, semester=sem)
+        access = UserProjectAccessFactory(user=dev.user)
         self.client.force_login(PMUserFactory())
         session = self.client.session
         session["selected_semester"] = "2026A"
@@ -2457,43 +2476,42 @@ class ObserversViewSemesterFilterTests(PlanningTestCase):
 
 class ObserverCreateNoDanglingRecordTests(PlanningTestCase):
     """When adding observer access fails because the user is a developer,
-    no dangling SemesterObserver row should be created."""
+    no dangling UserProjectAccess row should be created."""
 
     def test_no_dangling_record_when_user_is_developer(self):
         pm = PMUserFactory()
         # Create a user who already has developer capacity in the current semester
         dev = make_semester_developer()
         url = reverse("planning:observer_add")
-        before = SemesterObserver.objects.count()
+        before = UserProjectAccess.objects.count()
         self.client.force_login(pm)
         self.client.post(url, {"user": dev.user.pk})
         self.assertEqual(
-            SemesterObserver.objects.count(),
+            UserProjectAccess.objects.count(),
             before,
-            "A dangling SemesterObserver row was created for an existing developer",
+            "A dangling UserProjectAccess row was created for an existing developer",
         )
 
 
 class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
-    """Editing a developer's profile must not create a spurious SemesterObserver."""
+    """Editing a developer's profile must not create a spurious UserProjectAccess."""
 
     def test_no_spurious_observer_created_for_developer(self):
         pm = PMUserFactory()
         dev = make_semester_developer()
         url = reverse("planning:person_edit", args=[dev.user.pk])
-        before = SemesterObserver.objects.count()
+        before = UserProjectAccess.objects.count()
         self.client.force_login(pm)
         self.client.post(url, {"base_effort_weeks": "20"})
         self.assertEqual(
-            SemesterObserver.objects.count(),
+            UserProjectAccess.objects.count(),
             before,
-            "A spurious SemesterObserver row was created when editing a developer's profile",
+            "A spurious UserProjectAccess row was created when editing a developer's profile",
         )
 
     def test_developer_restrictions_can_be_saved_from_people_edit(self):
         pm = PMUserFactory()
-        sem = Semester.get_current()
-        dev = make_semester_developer(semester=sem)
+        dev = make_semester_developer()
         project = ProjectFactory()
         url = reverse("planning:person_edit", args=[dev.user.pk])
 
@@ -2507,7 +2525,7 @@ class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
         )
         self.assertEqual(response.status_code, 302)
 
-        access = SemesterObserver.objects.get(user=dev.user, semester=sem)
+        access = UserProjectAccess.objects.get(user=dev.user)
         self.assertIn(project, access.project_access.all())
 
     def test_non_numeric_effort_leaves_base_effort_unchanged(self):

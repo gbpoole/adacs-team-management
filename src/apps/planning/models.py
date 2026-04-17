@@ -46,7 +46,9 @@ def _assign_colour_if_blank(instance, model_class) -> None:
     used equally rather than repeating the first colour indefinitely."""
     if not instance.colour:
         used = set(
-            model_class.objects.exclude(pk=instance.pk).values_list("colour", flat=True),
+            model_class.objects.exclude(pk=instance.pk).values_list(
+                "colour", flat=True,
+            ),
         )
         if len(used) < len(COLOUR_PALETTE):
             instance.colour = _next_colour(used)
@@ -63,7 +65,10 @@ def _assign_colour_if_blank(instance, model_class) -> None:
 class Tag(models.Model):
     name = models.CharField(_("name"), max_length=100, unique=True)
     colour = models.CharField(
-        _("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True,
+        _("colour"),
+        max_length=7,
+        choices=COLOUR_CHOICES,
+        blank=True,
     )
 
     class Meta:
@@ -176,7 +181,10 @@ class Stream(models.Model):
 
     name = models.CharField(_("name"), max_length=100, unique=True)
     colour = models.CharField(
-        _("colour"), max_length=7, choices=COLOUR_CHOICES, blank=True,
+        _("colour"),
+        max_length=7,
+        choices=COLOUR_CHOICES,
+        blank=True,
     )
 
     class Meta:
@@ -351,7 +359,9 @@ class SemesterDeveloper(models.Model):
         validators=[MinValueValidator(0)],
     )
     tags = models.ManyToManyField(
-        Tag, blank=True, related_name="semester_developer_records",
+        Tag,
+        blank=True,
+        related_name="semester_developer_records",
     )
 
     class Meta:
@@ -399,6 +409,40 @@ SemesterObserver.add_to_class(
         help_text=_("Projects this observer can view for this semester."),
     ),
 )
+
+
+class UserProjectAccess(models.Model):
+    """Global per-user project/stream visibility restrictions.
+
+    Absence of a row means unrestricted access.
+    A row with both access sets empty also means unrestricted access.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="project_access_policy",
+    )
+    project_access = models.ManyToManyField(
+        Project,
+        blank=True,
+        related_name="user_project_access_policies",
+        help_text=_("Projects this user can view."),
+    )
+    stream_access = models.ManyToManyField(
+        Stream,
+        blank=True,
+        related_name="user_stream_access_policies",
+        help_text=_("Streams this user can view."),
+    )
+
+    class Meta:
+        verbose_name = _("User Project Access")
+        verbose_name_plural = _("User Project Access")
+
+    def __str__(self):
+        return f"{self.user} project access"
+
 
 SemesterObserver.add_to_class(
     "stream_access",

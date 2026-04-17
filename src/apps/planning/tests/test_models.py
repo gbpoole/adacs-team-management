@@ -16,8 +16,8 @@ from apps.planning.models import Project
 from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
-from apps.planning.models import SemesterObserver
 from apps.planning.models import SemesterType
+from apps.planning.models import UserProjectAccess
 from apps.planning.models import _assign_colour_if_blank
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
@@ -31,7 +31,7 @@ from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
-from apps.planning.tests.factories import SemesterObserverFactory
+from apps.planning.tests.factories import UserProjectAccessFactory
 
 
 class TestNextColour(TestCase):
@@ -139,10 +139,14 @@ class TestProjectNameForSemester(TestCase):
         sem_2025b = SemesterFactory(year=2025, semester_type=SemesterType.B)
         sem_2026b = SemesterFactory(year=2026, semester_type=SemesterType.B)
         ProjectSemesterNameFactory(
-            project=self.project, semester=sem_2025a, name="Old Name",
+            project=self.project,
+            semester=sem_2025a,
+            name="Old Name",
         )
         ProjectSemesterNameFactory(
-            project=self.project, semester=sem_2025b, name="Newer Name",
+            project=self.project,
+            semester=sem_2025b,
+            name="Newer Name",
         )
         # 2026B has no direct name; should fall back to 2025B, not 2025A
         self.assertEqual(self.project.name_for_semester(sem_2026b), "Newer Name")
@@ -218,7 +222,8 @@ class TestPhaseLaneAutoAssignment(TestCase):
         phase1 = self._make_phase(datetime.date(2026, 1, 5), datetime.date(2026, 3, 2))
         phase2 = self._make_phase(datetime.date(2026, 1, 12), datetime.date(2026, 3, 9))
         phase3 = self._make_phase(
-            datetime.date(2026, 1, 19), datetime.date(2026, 3, 16),
+            datetime.date(2026, 1, 19),
+            datetime.date(2026, 3, 16),
         )
         lanes = {phase1.lane_id, phase2.lane_id, phase3.lane_id}
         self.assertEqual(len(lanes), 3)
@@ -235,7 +240,9 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
         self.sem = SemesterFactory()
         self.project = ProjectFactory()
         self.preferred = DeveloperLaneFactory(
-            developer=self.dev, semester=self.sem, order=0,
+            developer=self.dev,
+            semester=self.sem,
+            order=0,
         )
 
     def _phase_in_lane(self, lane, start, end):
@@ -309,7 +316,8 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
             lane=self.preferred,
         )
         before_count = DeveloperLane.objects.filter(
-            developer=self.dev, semester=self.sem,
+            developer=self.dev,
+            semester=self.sem,
         ).count()
         result = _find_or_create_non_overlapping_lane(
             self.dev,
@@ -319,7 +327,8 @@ class TestFindOrCreateNonOverlappingLane(TestCase):
             self.preferred,
         )
         after_count = DeveloperLane.objects.filter(
-            developer=self.dev, semester=self.sem,
+            developer=self.dev,
+            semester=self.sem,
         ).count()
         self.assertEqual(after_count, before_count + 1)
         self.assertEqual(result.order, self.preferred.order + 1)
@@ -401,7 +410,9 @@ class TestCreateNextLane(TestCase):
     def test_creates_max_plus_one(self):
         for order in (0, 2, 7):
             DeveloperLane.objects.create(
-                developer=self.dev, semester=self.sem, order=order,
+                developer=self.dev,
+                semester=self.sem,
+                order=order,
             )
         lane = _create_next_lane(self.dev, self.sem)
         self.assertEqual(lane.order, 8)
@@ -420,7 +431,9 @@ class TestDeleteEmptyLane(TestCase):
 
     def test_deletes_empty_lane(self):
         lane = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=0,
+            developer=self.dev,
+            semester=self.sem,
+            order=0,
         )
         pk = lane.pk
         _delete_empty_lane(lane)
@@ -428,7 +441,9 @@ class TestDeleteEmptyLane(TestCase):
 
     def test_keeps_lane_with_phases(self):
         lane = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=0,
+            developer=self.dev,
+            semester=self.sem,
+            order=0,
         )
         Phase.objects.create(
             developer=self.dev,
@@ -560,7 +575,9 @@ class TestPhaseEffortWeeks(TestCase):
 
     def test_effort_multiplier_zero_returns_zero(self):
         phase = self._phase(
-            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=0.0,
+            datetime.date(2026, 1, 5),
+            datetime.date(2026, 1, 9),
+            multiplier=0.0,
         )
         self.assertAlmostEqual(phase.effort_weeks(), 0.0)
 
@@ -592,13 +609,13 @@ class TestProjectColour(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# SemesterObserver.project_access M2M
+# UserProjectAccess.project_access M2M
 # ---------------------------------------------------------------------------
 
 
-class TestSemesterObserverProjectAccess(TestCase):
+class TestUserProjectAccessProjectAccess(TestCase):
     def setUp(self):
-        self.obs = SemesterObserverFactory()
+        self.obs = UserProjectAccessFactory()
         self.project = ProjectFactory()
 
     def test_no_access_by_default(self):
@@ -639,7 +656,9 @@ class TestDeveloperLaneModel(TestCase):
 
     def test_str_contains_order_and_semester(self):
         lane = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=0,
+            developer=self.dev,
+            semester=self.sem,
+            order=0,
         )
         s = str(lane)
         self.assertIn("0", s)
@@ -652,13 +671,19 @@ class TestDeveloperLaneModel(TestCase):
 
     def test_ordering_by_order_then_pk(self):
         l2 = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=2,
+            developer=self.dev,
+            semester=self.sem,
+            order=2,
         )
         l0 = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=0,
+            developer=self.dev,
+            semester=self.sem,
+            order=0,
         )
         l1 = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=1,
+            developer=self.dev,
+            semester=self.sem,
+            order=1,
         )
         lanes = list(
             DeveloperLane.objects.filter(developer=self.dev, semester=self.sem),
@@ -667,7 +692,9 @@ class TestDeveloperLaneModel(TestCase):
 
     def test_lane_protected_when_it_has_phases(self):
         lane = DeveloperLane.objects.create(
-            developer=self.dev, semester=self.sem, order=0,
+            developer=self.dev,
+            semester=self.sem,
+            order=0,
         )
         Phase.objects.create(
             developer=self.dev,
@@ -737,11 +764,15 @@ class TestSemesterDeveloperModel(TestCase):
 
     def test_unique_together_prevents_duplicate(self):
         SemesterDeveloper.objects.create(
-            developer=self.dev, semester=self.sem, effort_available=26,
+            developer=self.dev,
+            semester=self.sem,
+            effort_available=26,
         )
         with self.assertRaises(IntegrityError):
             SemesterDeveloper.objects.create(
-                developer=self.dev, semester=self.sem, effort_available=20,
+                developer=self.dev,
+                semester=self.sem,
+                effort_available=20,
             )
 
     def test_cascade_delete_with_developer(self):
@@ -773,7 +804,9 @@ class TestProjectSemesterNameModel(TestCase):
 
     def test_unique_together_prevents_duplicate(self):
         ProjectSemesterNameFactory(
-            project=self.project, semester=self.sem, name="First",
+            project=self.project,
+            semester=self.sem,
+            name="First",
         )
         with self.assertRaises(IntegrityError):
             ProjectSemesterName.objects.create(
@@ -867,21 +900,25 @@ class TestPhaseValidation(TestCase):
 
     def test_effort_multiplier_rejects_negative(self):
         phase = self._phase(
-            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=-0.1,
+            datetime.date(2026, 1, 5),
+            datetime.date(2026, 1, 9),
+            multiplier=-0.1,
         )
         with self.assertRaises(ValidationError):
             phase.full_clean()
 
     def test_effort_multiplier_rejects_above_one(self):
         phase = self._phase(
-            datetime.date(2026, 1, 5), datetime.date(2026, 1, 9), multiplier=1.5,
+            datetime.date(2026, 1, 5),
+            datetime.date(2026, 1, 9),
+            multiplier=1.5,
         )
         with self.assertRaises(ValidationError):
             phase.full_clean()
 
 
 # ---------------------------------------------------------------------------
-# SemesterDeveloper / SemesterObserver coexistence
+# SemesterDeveloper / UserProjectAccess coexistence
 # ---------------------------------------------------------------------------
 
 
@@ -890,15 +927,14 @@ class SemesterMembershipCoexistenceTests(TestCase):
         dev = DeveloperProfileFactory()
         sem = SemesterFactory()
         sd = SemesterDeveloper(developer=dev, semester=sem, effort_available=15)
-        obs = SemesterObserver(user=dev.user, semester=sem)
+        obs = UserProjectAccess(user=dev.user)
 
         sd.full_clean()
         obs.full_clean()
 
-    def test_observer_record_with_empty_access_is_valid(self):
+    def test_access_record_with_empty_access_is_valid(self):
         from apps.planning.tests.factories import UserFactory
 
         user = UserFactory()
-        sem = SemesterFactory()
-        obs = SemesterObserver(user=user, semester=sem)
+        obs = UserProjectAccess(user=user)
         obs.full_clean()

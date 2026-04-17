@@ -7,9 +7,9 @@ from django.views.generic import ListView
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Project
 from apps.planning.models import SemesterDeveloper
-from apps.planning.models import SemesterObserver
 from apps.planning.models import Stream
 from apps.planning.models import Tag
+from apps.planning.models import UserProjectAccess
 from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
@@ -37,33 +37,28 @@ class PeopleView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         highlighted = get_selected_semester(self.request)
 
-        # Observer records for the highlighted semester
-        obs_records = list(
-            SemesterObserver.objects.filter(semester=highlighted).prefetch_related(
-                "project_access__semester_names", "stream_access",
+        access_records = list(
+            UserProjectAccess.objects.prefetch_related(
+                "project_access__semester_names",
+                "stream_access",
             ),
         )
-        for so in obs_records:
-            for proj in so.project_access.all():
+        for policy in access_records:
+            for proj in policy.project_access.all():
                 proj.display_name = proj.name_for_semester(highlighted)
-        obs_map = {so.user_id: so for so in obs_records}
+        access_map = {policy.user_id: policy for policy in access_records}
 
         # Sets of user PKs for icon flags (selected semester only)
         dev_pks = set(
             SemesterDeveloper.objects.filter(semester=highlighted).values_list(
-                "developer__user_id", flat=True,
+                "developer__user_id",
+                flat=True,
             ),
         )
-        obs_pks = set(
-            SemesterObserver.objects.filter(semester=highlighted).values_list(
-                "user_id", flat=True,
-            ),
-        )
-
         for user in ctx["people"]:
-            user.semester_observer = obs_map.get(user.pk)
+            user.access_policy_record = access_map.get(user.pk)
             user.icon_dev = user.pk in dev_pks
-            user.icon_obs = user.pk in obs_pks
+            user.icon_obs = user.access_policy_record is not None and not user.icon_dev
             user.icon_pm = user.role == Role.PM or user.is_superuser
 
         all_projects = list(Project.objects.prefetch_related("semester_names").all())
@@ -97,19 +92,14 @@ class PersonUpdateView(RoleRequiredMixin, View):
                 pass
         profile.tags.set(request.POST.getlist("tags"))
 
-        semester = get_selected_semester(request)
         project_pks = request.POST.getlist("project_access")
         stream_pks = request.POST.getlist("stream_access")
-        existing_obs = SemesterObserver.objects.filter(
-            user=user, semester=semester,
-        ).first()
+        access = UserProjectAccess.objects.filter(user=user).first()
         # Missing record means unrestricted access. Create/update a record only when
         # restrictions are explicitly set, or when updating an existing record.
-        if existing_obs is not None or project_pks or stream_pks:
-            obs, _ = SemesterObserver.objects.get_or_create(
-                user=user, semester=semester,
-            )
-            obs.project_access.set(project_pks)
-            obs.stream_access.set(stream_pks)
+        if access is not None or project_pks or stream_pks:
+            access, _ = UserProjectAccess.objects.get_or_create(user=user)
+            access.project_access.set(project_pks)
+            access.stream_access.set(stream_pks)
 
         return redirect("planning:people")

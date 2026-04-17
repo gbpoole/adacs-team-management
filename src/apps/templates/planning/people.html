@@ -70,8 +70,8 @@
             data-pk="{{ person.pk }}"
             data-effort="{% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks|floatformat:1 }}{% else %}20.0{% endif %}"
             data-tags="{% if person.developer_profile %}{% for t in person.developer_profile.tags.all %}{{ t.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
-            data-projects="{% if person.semester_observer %}{% for p in person.semester_observer.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
-            data-streams="{% if person.semester_observer %}{% for s in person.semester_observer.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"{% endif %}
+            data-projects="{% if person.access_policy_record %}{% for p in person.access_policy_record.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
+            data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"{% endif %}
             data-name="{{ person.name|default:'' }}"
             data-email="{{ person.email }}"
             data-icon-pm="{% if person.icon_pm %}1{% endif %}"
@@ -101,15 +101,15 @@
             {% endwith %}
           </td>
           <td>
-            {% if person.semester_observer %}
-              {% for proj in person.semester_observer.project_access.all %}
+            {% if person.access_policy_record %}
+              {% for proj in person.access_policy_record.project_access.all %}
                 <span class="badge badge-sm" style="background-color: {{ proj.colour }}; color: white; border-color: {{ proj.colour }};">{{ proj.display_name }}</span>
               {% empty %}—{% endfor %}
             {% else %}—{% endif %}
           </td>
           <td>
-            {% if person.semester_observer %}
-              {% for stream in person.semester_observer.stream_access.all %}
+            {% if person.access_policy_record %}
+              {% for stream in person.access_policy_record.stream_access.all %}
                 <span class="badge badge-sm" style="background-color: {{ stream.colour }}; color: white; border-color: {{ stream.colour }};">{{ stream.name }}</span>
               {% empty %}—{% endfor %}
             {% else %}—{% endif %}
@@ -156,7 +156,7 @@
         {% endif %}
       </div>
 
-      {# Observer section #}
+      {# Access restrictions section #}
       <div>
         {% if all_streams %}
         <div class="form-control mb-3">
@@ -202,7 +202,7 @@
       saveFailedStatus: "{% trans 'Save failed' %}",
       rolePm: "{% trans 'Project Manager' %}",
       roleDev: "{% trans 'Developer (selected semester)' %}",
-      roleObs: "{% trans 'Observer (selected semester)' %}",
+       roleObs: "{% trans 'Restricted-access user' %}",
     },
   };
 </script>

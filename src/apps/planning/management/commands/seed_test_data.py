@@ -12,6 +12,7 @@ Usage:
     python manage.py seed_test_data
     python manage.py seed_test_data --clear  # wipe planning data first
 """
+
 import csv
 import datetime
 import io
@@ -36,6 +37,7 @@ from apps.planning.models import SemesterObserver
 from apps.planning.models import SemesterType
 from apps.planning.models import Stream
 from apps.planning.models import Tag
+from apps.planning.models import UserProjectAccess
 from apps.planning.views._csv_import import _validate_developer_rows
 from apps.planning.views._csv_import import _validate_observer_rows
 from apps.planning.views._csv_import import _validate_project_rows
@@ -59,7 +61,11 @@ EFFORT_MULTIPLIER_WEIGHTS = [0.5, 1.0, 1.0, 1.0]
 
 def _read_tsv(path):
     """Return a list of dicts from a tab-separated file with a header row."""
-    return list(csv.DictReader(io.StringIO(Path(path).read_text(encoding="utf-8-sig")), delimiter="\t"))
+    return list(
+        csv.DictReader(
+            io.StringIO(Path(path).read_text(encoding="utf-8-sig")), delimiter="\t",
+        ),
+    )
 
 
 def _get_or_create_tags(names):
@@ -88,14 +94,22 @@ class Command(BaseCommand):
         obs_rows = _read_tsv(DATA_DIR / "observers.tsv")
 
         # Build the set of project names from the projects file for observer validation.
-        proj_names = {r.get("name", "").strip() for r in proj_rows if r.get("name", "").strip()}
+        proj_names = {
+            r.get("name", "").strip() for r in proj_rows if r.get("name", "").strip()
+        }
         all_errors = (
             [f"developers.tsv — {e}" for e in _validate_developer_rows(dev_rows)]
             + [f"projects.tsv — {e}" for e in _validate_project_rows(proj_rows)]
-            + [f"observers.tsv — {e}" for e in _validate_observer_rows(obs_rows, proj_names)]
+            + [
+                f"observers.tsv — {e}"
+                for e in _validate_observer_rows(obs_rows, proj_names)
+            ]
         )
         if all_errors:
-            raise CommandError("Seed data validation failed:\n" + "\n".join(f"  • {e}" for e in all_errors))
+            raise CommandError(
+                "Seed data validation failed:\n"
+                + "\n".join(f"  • {e}" for e in all_errors),
+            )
 
         if options["clear"]:
             self.stdout.write("Clearing existing planning data...")
@@ -105,6 +119,7 @@ class Command(BaseCommand):
             ProjectAllocation.objects.all().delete()
             ProjectSemesterName.objects.all().delete()
             SemesterObserver.objects.all().delete()
+            UserProjectAccess.objects.all().delete()
             DeveloperProfile.objects.all().delete()
             Project.objects.all().delete()
             Stream.objects.all().delete()
@@ -113,8 +128,17 @@ class Command(BaseCommand):
             User.objects.filter(role__in=[Role.USER, Role.PM]).delete()
 
         self.stdout.write("Creating fixed seed accounts...")
-        self._create_seed_account("pm@adacs.org.au", "PM User", Role.PM, "testpass123", is_staff=True, is_superuser=True)
-        self._create_seed_account("developer@adacs.org.au", "Developer User", Role.USER, "testpass123")
+        self._create_seed_account(
+            "pm@adacs.org.au",
+            "PM User",
+            Role.PM,
+            "testpass123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self._create_seed_account(
+            "developer@adacs.org.au", "Developer User", Role.USER, "testpass123",
+        )
 
         self.stdout.write("Creating semesters...")
         seed_year = datetime.date.today().year
@@ -140,7 +164,9 @@ class Command(BaseCommand):
                 user.set_password("testpass123")
                 user.save()
             profile, _ = DeveloperProfile.objects.get_or_create(user=user)
-            tag_names = [t.strip() for t in (row.get("tags") or "").split(",") if t.strip()]
+            tag_names = [
+                t.strip() for t in (row.get("tags") or "").split(",") if t.strip()
+            ]
             if tag_names:
                 profile.tags.set(_get_or_create_tags(tag_names))
             effort_str = row.get("effort_available", "").strip()
@@ -150,7 +176,8 @@ class Command(BaseCommand):
             base_tags = list(profile.tags.all())
             for i, sem in enumerate([sem_a, sem_b]):
                 sd, _ = SemesterDeveloper.objects.get_or_create(
-                    developer=profile, semester=sem,
+                    developer=profile,
+                    semester=sem,
                     defaults={"effort_available": effort},
                 )
                 if i == 0:
@@ -175,22 +202,33 @@ class Command(BaseCommand):
             name = row.get("name", "").strip()
             if not name:
                 continue
-            existing = ProjectSemesterName.objects.filter(name=name, semester__in=[sem_a, sem_b]).first()
+            existing = ProjectSemesterName.objects.filter(
+                name=name, semester__in=[sem_a, sem_b],
+            ).first()
             if existing:
                 project = existing.project
             else:
                 project = Project()
                 project.save()
-                ProjectSemesterName.objects.get_or_create(project=project, semester=sem_a, defaults={"name": name})
-                ProjectSemesterName.objects.get_or_create(project=project, semester=sem_b, defaults={"name": name})
-            stream_names = [s.strip() for s in (row.get("streams") or "").split(",") if s.strip()]
+                ProjectSemesterName.objects.get_or_create(
+                    project=project, semester=sem_a, defaults={"name": name},
+                )
+                ProjectSemesterName.objects.get_or_create(
+                    project=project, semester=sem_b, defaults={"name": name},
+                )
+            stream_names = [
+                s.strip() for s in (row.get("streams") or "").split(",") if s.strip()
+            ]
             project.streams.set(_get_or_create_streams(stream_names))
-            tag_names = [t.strip() for t in (row.get("tags") or "").split(",") if t.strip()]
+            tag_names = [
+                t.strip() for t in (row.get("tags") or "").split(",") if t.strip()
+            ]
             if tag_names:
                 project.tags.set(_get_or_create_tags(tag_names))
             for sem in [sem_a, sem_b]:
                 ProjectAllocation.objects.get_or_create(
-                    project=project, semester=sem,
+                    project=project,
+                    semester=sem,
                     defaults={
                         "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
                         "weeks_carryover": 0,
@@ -223,26 +261,39 @@ class Command(BaseCommand):
             if created:
                 user.set_password("testpass123")
                 user.save()
-            access_names = [n.strip() for n in row.get("project_access", "").split(",") if n.strip()]
-            access_projects = [project_by_name[n] for n in access_names if n in project_by_name]
-            stream_names = [n.strip() for n in (row.get("stream_access") or "").split(",") if n.strip()]
+            access_names = [
+                n.strip() for n in row.get("project_access", "").split(",") if n.strip()
+            ]
+            access_projects = [
+                project_by_name[n] for n in access_names if n in project_by_name
+            ]
+            stream_names = [
+                n.strip()
+                for n in (row.get("stream_access") or "").split(",")
+                if n.strip()
+            ]
             access_streams = list(Stream.objects.filter(name__in=stream_names))
-            for sem in [sem_a, sem_b]:
-                obs, _ = SemesterObserver.objects.get_or_create(user=user, semester=sem)
-                if access_projects:
-                    obs.project_access.set(access_projects)
-                if access_streams:
-                    obs.stream_access.set(access_streams)
+            access, _ = UserProjectAccess.objects.get_or_create(user=user)
+            if access_projects:
+                access.project_access.set(access_projects)
+            if access_streams:
+                access.stream_access.set(access_streams)
             obs_count += 1
         self.stdout.write(f"  {obs_count} observers loaded.")
 
         # ── Leave ─────────────────────────────────────────────────────────────
         self.stdout.write("Generating leave periods...")
         leave_count = 0
-        for profile in random.sample(dev_profiles, k=min(MAX_LEAVE_DEVELOPERS, len(dev_profiles))):
-            start = datetime.date(2026, random.randint(1, 10), random.choice([1, 8, 15, 22]))
+        for profile in random.sample(
+            dev_profiles, k=min(MAX_LEAVE_DEVELOPERS, len(dev_profiles)),
+        ):
+            start = datetime.date(
+                2026, random.randint(1, 10), random.choice([1, 8, 15, 22]),
+            )
             end = start + datetime.timedelta(days=random.choice([4, 7, 9, 14]))
-            Leave.objects.get_or_create(developer=profile, start_date=start, defaults={"end_date": end})
+            Leave.objects.get_or_create(
+                developer=profile, start_date=start, defaults={"end_date": end},
+            )
             leave_count += 1
 
         # ── Phases ────────────────────────────────────────────────────────────
@@ -250,29 +301,45 @@ class Command(BaseCommand):
         phase_count = 0
         sem_project_pairs = []
         for sem in [sem_a, sem_b]:
-            for project in random.sample(projects, k=min(MAX_PHASE_PROJECTS, len(projects))):
+            for project in random.sample(
+                projects, k=min(MAX_PHASE_PROJECTS, len(projects)),
+            ):
                 sem_project_pairs.append((sem, project))
 
         for profile in dev_profiles:
-            pairs = random.sample(sem_project_pairs, k=random.randint(*PHASES_PER_DEVELOPER_RANGE))
+            pairs = random.sample(
+                sem_project_pairs, k=random.randint(*PHASES_PER_DEVELOPER_RANGE),
+            )
             for sem, project in pairs:
                 offset_weeks = random.randint(*PHASE_OFFSET_WEEKS_RANGE)
                 duration_weeks = random.randint(*PHASE_DURATION_WEEKS_RANGE)
                 start = sem.start_date + datetime.timedelta(weeks=offset_weeks)
-                end = min(start + datetime.timedelta(weeks=duration_weeks) - datetime.timedelta(days=1), sem.end_date)
+                end = min(
+                    start
+                    + datetime.timedelta(weeks=duration_weeks)
+                    - datetime.timedelta(days=1),
+                    sem.end_date,
+                )
                 multiplier = random.choice(EFFORT_MULTIPLIER_WEIGHTS)
                 Phase.objects.get_or_create(
-                    developer=profile, project=project, semester=sem, start_date=start,
+                    developer=profile,
+                    project=project,
+                    semester=sem,
+                    start_date=start,
                     defaults={"end_date": end, "effort_multiplier": multiplier},
                 )
                 phase_count += 1
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Done: {len(dev_profiles)} developers, {len(projects)} projects, "
-            f"{obs_count} observers, 2 semesters, {leave_count} leave periods, {phase_count} phases.",
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Done: {len(dev_profiles)} developers, {len(projects)} projects, "
+                f"{obs_count} observers, 2 semesters, {leave_count} leave periods, {phase_count} phases.",
+            ),
+        )
 
-    def _create_seed_account(self, email, name, role, password, is_staff=False, is_superuser=False):
+    def _create_seed_account(
+        self, email, name, role, password, is_staff=False, is_superuser=False,
+    ):
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
@@ -287,14 +354,17 @@ class Command(BaseCommand):
             user.set_password(password)
             user.save()
         EmailAddress.objects.get_or_create(
-            user=user, email=email,
+            user=user,
+            email=email,
             defaults={"primary": True, "verified": True},
         )
         self.stdout.write(f"  {role} account: {email} / {password}")
         return user
 
     def _get_or_create_semester(self, year, semester_type):
-        sem, created = Semester.objects.get_or_create(year=year, semester_type=semester_type)
+        sem, created = Semester.objects.get_or_create(
+            year=year, semester_type=semester_type,
+        )
         if created:
             self.stdout.write(f"  Created {sem}")
         return sem

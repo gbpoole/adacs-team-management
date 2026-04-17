@@ -16,6 +16,7 @@ from apps.planning.models import SemesterObserver
 from apps.planning.models import SemesterType
 from apps.planning.models import Stream
 from apps.planning.models import Tag
+from apps.planning.models import UserProjectAccess
 from apps.users.models import Role
 from apps.users.models import User
 
@@ -100,6 +101,13 @@ class SemesterObserverFactory(DjangoModelFactory):
     semester = factory.SubFactory(SemesterFactory)
 
 
+class UserProjectAccessFactory(DjangoModelFactory):
+    class Meta:
+        model = UserProjectAccess
+
+    user = factory.SubFactory(UserFactory)
+
+
 class SemesterDeveloperFactory(DjangoModelFactory):
     class Meta:
         model = SemesterDeveloper
@@ -148,7 +156,7 @@ def make_semester_developer(semester=None):
 
 
 def make_semester_observer(semester=None):
-    """Create a User + SemesterObserver for the given semester."""
-    sem = semester or Semester.get_current()
+    """Create a User + UserProjectAccess restriction record."""
+    _ = semester or Semester.get_current()  # retained for call compatibility
     user = UserFactory()
-    return SemesterObserverFactory(user=user, semester=sem)
+    return UserProjectAccessFactory(user=user)

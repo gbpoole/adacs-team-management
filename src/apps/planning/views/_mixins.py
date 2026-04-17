@@ -29,13 +29,23 @@ def _is_semester_developer(user, semester):
     ).exists()
 
 
+def _has_project_access_policy(user):
+    """True when a user has an explicit global access policy row."""
+    from apps.planning.models import UserProjectAccess
+
+    return UserProjectAccess.objects.filter(user=user).exists()
+
+
 def _is_semester_observer(user, semester):
-    """True for explicit semester observers (non-developers with observer record)."""
-    from apps.planning.models import SemesterObserver
+    """Compatibility helper for observer-style access checks.
+
+    Returns true when the user is not a selected-semester developer and has
+    an explicit global project-access policy.
+    """
 
     if _is_semester_developer(user, semester):
         return False
-    return SemesterObserver.objects.filter(user=user, semester=semester).exists()
+    return _has_project_access_policy(user)
 
 
 def _visible_project_ids_for_user(user, semester):
@@ -46,19 +56,22 @@ def _visible_project_ids_for_user(user, semester):
 
     Restriction semantics:
     - PM and superusers are unrestricted.
-    - Missing SemesterObserver row means unrestricted.
+    - Missing UserProjectAccess row means unrestricted.
     - Existing row with both project_access and stream_access empty means unrestricted.
     - Otherwise visibility is union(project_access, projects in stream_access).
     """
     from apps.planning.models import Project
-    from apps.planning.models import SemesterObserver
+    from apps.planning.models import UserProjectAccess
 
     if user.is_superuser or user.role == Role.PM:
         return None
 
     record = (
-        SemesterObserver.objects.filter(user=user, semester=semester)
-        .prefetch_related("project_access", "stream_access")
+        UserProjectAccess.objects.filter(user=user)
+        .prefetch_related(
+            "project_access",
+            "stream_access",
+        )
         .first()
     )
     if record is None:
@@ -108,7 +121,7 @@ class PMOrDeveloperMixin(LoginRequiredMixin):
 
 
 class PMOrObserverMixin(LoginRequiredMixin):
-    """PM always allowed; others allowed only if semester observer."""
+    """PM always allowed; others allowed only with observer-style access."""
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -124,7 +137,7 @@ class PMOrObserverMixin(LoginRequiredMixin):
 
 
 class PMOrParticipantMixin(LoginRequiredMixin):
-    """PM always allowed; others allowed if semester developer OR observer."""
+    """PM always allowed; others allowed if semester developer or observer-style."""
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:

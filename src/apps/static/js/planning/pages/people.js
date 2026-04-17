@@ -170,7 +170,7 @@
           roles.push(iconDev + " <span>" + label("roleDev", "Developer (selected semester)") + "</span>");
         }
         if (row.dataset.iconObs) {
-          roles.push(iconObs + " <span>" + label("roleObs", "Observer (selected semester)") + "</span>");
+          roles.push(iconObs + " <span>" + label("roleObs", "Restricted-access user") + "</span>");
         }
         roles.forEach(function (role) {
           lines.push('<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' + role + "</div>");
