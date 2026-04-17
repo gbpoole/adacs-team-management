@@ -29,6 +29,7 @@ from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import SemesterObserverFactory
 from apps.planning.tests.factories import SemesterType
+from apps.planning.tests.factories import StreamFactory
 from apps.planning.tests.factories import TagFactory
 from apps.planning.tests.factories import UserFactory
 from apps.planning.tests.factories import make_semester_developer
@@ -122,12 +123,12 @@ class DevelopersViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, allowed=["pm", "developer"], denied=["observer"],
+            self.url, allowed=["pm"], denied=["developer", "observer"],
         )
 
     def test_shows_developer_in_table(self):
         dev_profile = make_semester_developer()
-        self.client.force_login(dev_profile.user)
+        self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         # Template shows name when set, falling back to email
         expected = dev_profile.user.name or dev_profile.user.email
@@ -138,12 +139,6 @@ class DevelopersViewTests(PlanningTestCase):
         self.client.force_login(user)
         response = self.client.get(self.url)
         self.assertContains(response, "Add Developer")
-
-    def test_developer_does_not_see_add_button(self):
-        dev_profile = make_semester_developer()
-        self.client.force_login(dev_profile.user)
-        response = self.client.get(self.url)
-        self.assertNotContains(response, "Add Developer")
 
 
 class ObserversViewTests(PlanningTestCase):
@@ -223,6 +218,53 @@ class ProjectsViewTests(PlanningTestCase):
         self.assertContains(response, "Visible Project")
         self.assertNotContains(response, "Hidden Project")
 
+    def test_observer_with_empty_restrictions_sees_all_projects(self):
+        project1 = ProjectFactory()
+        ProjectSemesterNameFactory(project=project1, semester=self.semester, name="Alpha Project")
+        project2 = ProjectFactory()
+        ProjectSemesterNameFactory(project=project2, semester=self.semester, name="Beta Project")
+        obs = SemesterObserverFactory(semester=self.semester)
+        # project_access and stream_access are both empty → full access
+        self.client.force_login(obs.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Alpha Project")
+        self.assertContains(response, "Beta Project")
+
+    def test_observer_with_stream_access_sees_stream_projects(self):
+        stream = StreamFactory()
+        project_in = ProjectFactory()
+        project_in.streams.add(stream)
+        ProjectSemesterNameFactory(project=project_in, semester=self.semester, name="Stream Project")
+        project_out = ProjectFactory()
+        ProjectSemesterNameFactory(project=project_out, semester=self.semester, name="Other Project")
+        obs = SemesterObserverFactory(semester=self.semester)
+        obs.stream_access.add(stream)
+        self.client.force_login(obs.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Stream Project")
+        self.assertNotContains(response, "Other Project")
+
+    def test_observer_with_combined_access_sees_union(self):
+        stream = StreamFactory()
+        project_direct = ProjectFactory()
+        ProjectSemesterNameFactory(project=project_direct, semester=self.semester, name="Direct Project")
+        project_via_stream = ProjectFactory()
+        project_via_stream.streams.add(stream)
+        ProjectSemesterNameFactory(project=project_via_stream, semester=self.semester, name="Stream Project")
+        project_hidden = ProjectFactory()
+        ProjectSemesterNameFactory(project=project_hidden, semester=self.semester, name="Hidden Project")
+        obs = SemesterObserverFactory(semester=self.semester)
+        obs.project_access.add(project_direct)
+        obs.stream_access.add(stream)
+        self.client.force_login(obs.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Direct Project")
+        self.assertContains(response, "Stream Project")
+        self.assertNotContains(response, "Hidden Project")
+
     def test_shows_project_display_name(self):
         project = ProjectFactory()
         ProjectSemesterNameFactory(
@@ -250,7 +292,7 @@ class PlanningViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, allowed=["pm", "observer"], denied=["developer"],
+            self.url, allowed=["pm", "developer"], denied=["observer"],
         )
 
     def test_context_contains_developer_rows(self):
@@ -294,6 +336,32 @@ class PlanningViewTests(PlanningTestCase):
         pks = [row["developer"].pk for row in response.context["developer_rows"]]
         self.assertIn(dev_with.pk, pks)
         self.assertNotIn(dev_without.pk, pks)
+
+    def test_developer_can_access_planning(self):
+        dev = make_semester_developer()
+        self.client.force_login(dev.user)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_observer_cannot_access_planning(self):
+        obs = make_semester_observer()
+        self.client.force_login(obs.user)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+
+    def test_developer_sees_can_edit_false(self):
+        dev = make_semester_developer()
+        self.client.force_login(dev.user)
+        response = self.client.get(self.url)
+        self.assertFalse(response.context["can_edit"])
+
+    def test_developer_sees_all_developer_rows_on_planning(self):
+        """Developer has unrestricted access — all developer rows appear in context."""
+        sem = Semester.get_current()
+        dev_profile = make_semester_developer(semester=sem)
+        self.client.force_login(dev_profile.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        developer_pks = [row["developer"].pk for row in response.context["developer_rows"]]
+        self.assertIn(dev_profile.pk, developer_pks)
 
 
 # ---------------------------------------------------------------------------
@@ -2043,7 +2111,7 @@ class PeopleViewTests(PlanningTestCase):
 
     def test_role_access(self):
         self.assertRoleAccess(
-            self.url, allowed=["pm", "developer", "observer"], denied=[],
+            self.url, allowed=["pm"], denied=["developer", "observer"],
         )
 
     def test_shows_all_users(self):
@@ -2066,12 +2134,6 @@ class PeopleViewTests(PlanningTestCase):
         self.client.force_login(PMUserFactory())
         response = self.client.get(self.url)
         self.assertTrue(response.context["can_edit"])
-
-    def test_developer_sees_can_edit_false(self):
-        dev = make_semester_developer()
-        self.client.force_login(dev.user)
-        response = self.client.get(self.url)
-        self.assertFalse(response.context["can_edit"])
 
     def test_context_has_all_tags(self):
         tag = Tag.objects.create(name="tag-pv-ctx")

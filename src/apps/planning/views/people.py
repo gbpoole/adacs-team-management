@@ -12,12 +12,12 @@ from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
 
-from ._mixins import PMOrParticipantMixin
 from ._mixins import RoleRequiredMixin
 from ._semester import get_selected_semester
 
 
-class PeopleView(PMOrParticipantMixin, ListView):
+class PeopleView(RoleRequiredMixin, ListView):
+    allowed_roles = (Role.PM,)
     template_name = "planning/people.html"
     context_object_name = "people"
 

@@ -8,20 +8,18 @@ from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
-from apps.planning.models import SemesterObserver
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
 
-from ._mixins import PMOrObserverMixin
-from ._mixins import _is_semester_observer
+from ._mixins import PMOrDeveloperMixin
 from ._semester import get_selected_semester
 from ._timeline import _build_lane_cells
 from ._timeline import _coverage
 from ._timeline import _week_starts
 
 
-class PlanningView(PMOrObserverMixin, TemplateView):
+class PlanningView(PMOrDeveloperMixin, TemplateView):
     template_name = "planning/planning.html"
 
     def get_context_data(self, **kwargs):
@@ -31,28 +29,8 @@ class PlanningView(PMOrObserverMixin, TemplateView):
 
         weeks = _week_starts(semester.start_date, semester.end_date)
 
-        is_observer = _is_semester_observer(user, semester) and not user.is_superuser and user.role != Role.PM
-
-        # Determine accessible project PKs for observers (direct + via stream access)
-        accessible_project_pks = None
-        if is_observer:
-            obs_record = SemesterObserver.objects.filter(
-                user=user, semester=semester,
-            ).prefetch_related("project_access", "stream_access").first()
-            if obs_record:
-                accessible_project_pks = set(
-                    obs_record.project_access.values_list("pk", flat=True),
-                )
-                accessible_project_pks |= set(
-                    Project.objects.filter(
-                        streams__in=obs_record.stream_access.all(),
-                    ).values_list("pk", flat=True),
-                )
-            else:
-                accessible_project_pks = set()
-
-        tag_filter = [] if is_observer else self.request.GET.getlist("tags")
-        stream_filter = [] if is_observer else self.request.GET.getlist("streams")
+        tag_filter = self.request.GET.getlist("tags")
+        stream_filter = self.request.GET.getlist("streams")
 
         dev_qs = (
             DeveloperProfile.objects
@@ -80,12 +58,6 @@ class PlanningView(PMOrObserverMixin, TemplateView):
             )
         else:
             phases = []
-
-        # For observers, restrict phases to accessible projects and devs to those with visible phases
-        if is_observer and accessible_project_pks is not None:
-            phases = [p for p in phases if p.project_id in accessible_project_pks]
-            dev_pks_with_phases = {p.developer_id for p in phases}
-            devs = [d for d in devs if d.pk in dev_pks_with_phases]
 
         # Fetch all lanes for these developers in the current semester
         lanes_qs = DeveloperLane.objects.filter(
@@ -160,9 +132,8 @@ class PlanningView(PMOrObserverMixin, TemplateView):
         ctx["weeks_json"] = json.dumps([w.isoformat() for w in weeks])
         ctx["developer_rows"] = developer_rows
         ctx["semester"] = semester
-        ctx["is_observer"] = is_observer
-        ctx["all_tags"] = Tag.objects.all() if not is_observer else []
-        ctx["all_streams"] = Stream.objects.all() if not is_observer else []
+        ctx["all_tags"] = Tag.objects.all()
+        ctx["all_streams"] = Stream.objects.all()
         ctx["selected_tags"] = tag_filter
         ctx["selected_streams"] = stream_filter
         ctx["can_edit"] = user.role == Role.PM or user.is_superuser

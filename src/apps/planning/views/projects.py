@@ -63,9 +63,9 @@ class ProjectsView(PMOrParticipantMixin, ListView):
                         streams__in=obs_record.stream_access.all(),
                     ).values_list("pk", flat=True),
                 )
-                qs = qs.filter(pk__in=direct_pks | stream_pks)
-            else:
-                qs = qs.none()
+                allowed = direct_pks | stream_pks
+                if allowed:
+                    qs = qs.filter(pk__in=allowed)
         tag_filter = self.request.GET.getlist("tags")
         stream_filter = self.request.GET.getlist("streams")
         if tag_filter:

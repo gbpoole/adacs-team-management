@@ -17,7 +17,6 @@ from apps.planning.models import Tag
 from apps.users.models import Role
 
 from ._csv_import import _get_or_create_tags
-from ._mixins import PMOrDeveloperMixin
 from ._mixins import RoleRequiredMixin
 from ._semester import get_selected_semester
 
@@ -40,7 +39,8 @@ def _upsert_semester_developer(profile, effort_str, semester):
     return sd, created
 
 
-class DevelopersView(PMOrDeveloperMixin, ListView):
+class DevelopersView(RoleRequiredMixin, ListView):
+    allowed_roles = (Role.PM,)
     template_name = "planning/developers.html"
     context_object_name = "developers"
 
