@@ -1,6 +1,8 @@
 
 {% load static i18n %}
 
+{% with cur=request.resolver_match.view_name %}
+
 <header class="sticky top-0 z-50 bg-base-100">
 
   {# ── Primary navbar ─────────────────────────────────────────────────── #}
@@ -22,41 +24,41 @@
             class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
 
           {# App-wide links #}
-          <li><a href="{% url 'home' %}">{% trans "Home" %}</a></li>
+          <li><a href="{% url 'home' %}" {% if cur == 'home' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Home" %}</a></li>
           {% if request.user.is_authenticated %}
             {% if request.user.role == 'pm' or request.user.is_superuser %}
-              <li><a href="{% url 'planning:people' %}">{% trans "People" %}</a></li>
+              <li><a href="{% url 'planning:people' %}" {% if cur == 'planning:people' %}class="menu-active pointer-events-none"{% endif %}>{% trans "People" %}</a></li>
             {% endif %}
             {% if request.user.role == 'pm' or request.user.is_superuser %}
-              <li><a href="{% url 'planning:tags' %}">{% trans "Tags" %}</a></li>
-              <li><a href="{% url 'planning:streams' %}">{% trans "Streams" %}</a></li>
+              <li><a href="{% url 'planning:tags' %}" {% if cur == 'planning:tags' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Tags" %}</a></li>
+              <li><a href="{% url 'planning:streams' %}" {% if cur == 'planning:streams' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Streams" %}</a></li>
             {% endif %}
             {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
-              <li><a href="{% url 'planning:leave' %}">{% trans "Leave" %}</a></li>
+              <li><a href="{% url 'planning:leave' %}" {% if cur == 'planning:leave' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Leave" %}</a></li>
             {% endif %}
-            <li><a href="{% url 'users:detail' request.user.pk %}">{% trans "My Profile" %}</a></li>
-            <li><a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a></li>
+            <li><a href="{% url 'users:detail' request.user.pk %}" {% if cur == 'users:detail' %}class="menu-active pointer-events-none"{% endif %}>{% trans "My Profile" %}</a></li>
+            <li><a href="{% url 'account_logout' %}" {% if cur == 'account_logout' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Sign Out" %}</a></li>
           {% else %}
             {% if ACCOUNT_ALLOW_REGISTRATION %}
-              <li><a href="{% url 'account_signup' %}">{% trans "Sign Up" %}</a></li>
+              <li><a href="{% url 'account_signup' %}" {% if cur == 'account_signup' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Sign Up" %}</a></li>
             {% endif %}
-            <li><a href="{% url 'account_login' %}">{% trans "Log In" %}</a></li>
+            <li><a href="{% url 'account_login' %}" {% if cur == 'account_login' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Log In" %}</a></li>
           {% endif %}
 
           {# Semester-specific links (with divider) #}
           {% if request.user.is_authenticated %}
             <li class="menu-title text-xs uppercase tracking-wide text-neutral-400 pt-2">{% trans "Semester" %}</li>
             {% if request.user.role == 'pm' or request.user.is_superuser %}
-              <li><a href="{% url 'planning:developers' %}">{% trans "Developers" %}</a></li>
+              <li><a href="{% url 'planning:developers' %}" {% if cur == 'planning:developers' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Developers" %}</a></li>
             {% endif %}
             {% if request.user.role == 'pm' or request.user.is_superuser %}
-              <li><a href="{% url 'planning:observers' %}">{% trans "Observers" %}</a></li>
+              <li><a href="{% url 'planning:observers' %}" {% if cur == 'planning:observers' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Observers" %}</a></li>
             {% endif %}
-            <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
+            <li><a href="{% url 'planning:projects' %}" {% if cur == 'planning:projects' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Projects" %}</a></li>
             {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
-              <li><a href="{% url 'planning:planning' %}">{% trans "Planning" %}</a></li>
+              <li><a href="{% url 'planning:planning' %}" {% if cur == 'planning:planning' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Planning" %}</a></li>
             {% endif %}
-            <li><a href="{% url 'planning:schedule' %}">{% trans "Schedule" %}</a></li>
+            <li><a href="{% url 'planning:schedule' %}" {% if cur == 'planning:schedule' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Schedule" %}</a></li>
           {% endif %}
 
         </ul>
@@ -74,15 +76,15 @@
     {# Desktop centre: app-wide links #}
     <div class="navbar-center hidden lg:flex">
       <ul class="menu menu-horizontal px-1">
-        <li><a href="{% url 'home' %}">{% trans "Home" %}</a></li>
+        <li><a href="{% url 'home' %}" {% if cur == 'home' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Home" %}</a></li>
         {% if request.user.is_authenticated %}
           {% if request.user.role == 'pm' or request.user.is_superuser %}
-            <li><a href="{% url 'planning:people' %}">{% trans "People" %}</a></li>
-            <li><a href="{% url 'planning:tags' %}">{% trans "Tags" %}</a></li>
-            <li><a href="{% url 'planning:streams' %}">{% trans "Streams" %}</a></li>
+            <li><a href="{% url 'planning:people' %}" {% if cur == 'planning:people' %}class="menu-active pointer-events-none"{% endif %}>{% trans "People" %}</a></li>
+            <li><a href="{% url 'planning:tags' %}" {% if cur == 'planning:tags' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Tags" %}</a></li>
+            <li><a href="{% url 'planning:streams' %}" {% if cur == 'planning:streams' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Streams" %}</a></li>
           {% endif %}
           {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
-            <li><a href="{% url 'planning:leave' %}">{% trans "Leave" %}</a></li>
+            <li><a href="{% url 'planning:leave' %}" {% if cur == 'planning:leave' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Leave" %}</a></li>
           {% endif %}
         {% endif %}
       </ul>
@@ -92,13 +94,13 @@
     <div class="navbar-end hidden lg:flex">
       <ul class="menu menu-horizontal">
         {% if request.user.is_authenticated %}
-          <li><a href="{% url 'users:detail' request.user.pk %}">{% trans "My Profile" %}</a></li>
-          <li><a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a></li>
+          <li><a href="{% url 'users:detail' request.user.pk %}" {% if cur == 'users:detail' %}class="menu-active pointer-events-none"{% endif %}>{% trans "My Profile" %}</a></li>
+          <li><a href="{% url 'account_logout' %}" {% if cur == 'account_logout' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Sign Out" %}</a></li>
         {% else %}
           {% if ACCOUNT_ALLOW_REGISTRATION %}
-            <li><a class="hidden lg:flex" href="{% url 'account_signup' %}">{% trans "Sign Up" %}</a></li>
+            <li><a class="hidden lg:flex{% if cur == 'account_signup' %} menu-active pointer-events-none{% endif %}" href="{% url 'account_signup' %}">{% trans "Sign Up" %}</a></li>
           {% endif %}
-          <li><a href="{% url 'account_login' %}">{% trans "Log in" %} <span aria-hidden="true">&rarr;</span></a></li>
+          <li><a href="{% url 'account_login' %}" {% if cur == 'account_login' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Log in" %} <span aria-hidden="true">&rarr;</span></a></li>
         {% endif %}
       </ul>
     </div>
@@ -136,22 +138,24 @@
     {# Semester-specific nav links #}
     <ul class="menu menu-horizontal px-0 text-sm font-semibold gap-0">
       {% if request.user.role == 'pm' or request.user.is_superuser %}
-        <li><a href="{% url 'planning:developers' %}">{% trans "Developers" %}</a></li>
+        <li><a href="{% url 'planning:developers' %}" {% if cur == 'planning:developers' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Developers" %}</a></li>
       {% endif %}
       {% if request.user.role == 'pm' or request.user.is_superuser %}
-        <li><a href="{% url 'planning:observers' %}">{% trans "Observers" %}</a></li>
+        <li><a href="{% url 'planning:observers' %}" {% if cur == 'planning:observers' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Observers" %}</a></li>
       {% endif %}
-      <li><a href="{% url 'planning:projects' %}">{% trans "Projects" %}</a></li>
+      <li><a href="{% url 'planning:projects' %}" {% if cur == 'planning:projects' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Projects" %}</a></li>
       {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
-        <li><a href="{% url 'planning:planning' %}">{% trans "Planning" %}</a></li>
+        <li><a href="{% url 'planning:planning' %}" {% if cur == 'planning:planning' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Planning" %}</a></li>
       {% endif %}
-      <li><a href="{% url 'planning:schedule' %}">{% trans "Schedule" %}</a></li>
+      <li><a href="{% url 'planning:schedule' %}" {% if cur == 'planning:schedule' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Schedule" %}</a></li>
     </ul>
 
   </div>
   {% endif %}{# /sub-bar #}
 
 </header>
+
+{% endwith %}
 
 {% if request.user.is_authenticated %}
 {% if request.user.role == 'pm' or request.user.is_superuser %}
