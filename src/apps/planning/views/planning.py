@@ -145,8 +145,19 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
         for p in all_projects:
             p.display_name = p.name_for_semester(semester)
 
+        today = datetime.date.today()
+        today_col = next(
+            (i for i, w in enumerate(weeks) if w <= today < w + datetime.timedelta(days=7)),
+            -1,
+        )
+        today_day_px = today.weekday() * 64 // 7
+        today_left_px = today_col * 64 + today_day_px if today_col >= 0 else -1
+
         ctx["weeks"] = weeks
         ctx["weeks_json"] = json.dumps([w.isoformat() for w in weeks])
+        ctx["today_col"] = today_col
+        ctx["today_day_px"] = today_day_px
+        ctx["today_left_px"] = today_left_px
         ctx["developer_rows"] = developer_rows
         ctx["semester"] = semester
         ctx["all_tags"] = Tag.objects.all()

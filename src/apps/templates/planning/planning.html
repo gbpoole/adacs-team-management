@@ -74,7 +74,12 @@
         <tr class="bg-base-100 sticky top-0 z-20">
           <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left" style="width: 160px; min-width: 160px;">{% trans "Developer" %}</th>
           {% for week in weeks %}
-          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center" style="width: 64px; min-width: 64px;">{{ week|date:"d M" }}</th>
+          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center" style="width: 64px; min-width: 64px;{% if forloop.counter0 == today_col %} position: relative; overflow: visible;{% endif %}">
+            {{ week|date:"d M" }}
+            {% if forloop.counter0 == today_col %}
+            <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_day_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:1;"></div>
+            {% endif %}
+          </th>
           {% endfor %}
         </tr>
       </thead>
@@ -182,6 +187,9 @@
                      data-col-end="{{ cell.col_end }}"></div>
                 {% endif %}
               {% endfor %}
+              {% if today_col >= 0 %}
+              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:20;"></div>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -209,6 +217,9 @@
                    data-col-start="0"
                    data-col-end="{{ weeks|length|add:-1 }}"></div>
               {% endif %}
+              {% if today_col >= 0 %}
+              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:20;"></div>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -234,6 +245,9 @@
                    data-lane-pk=""
                    data-col-start="0"
                    data-col-end="{{ weeks|length|add:-1 }}"></div>
+              {% endif %}
+              {% if today_col >= 0 %}
+              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:20;"></div>
               {% endif %}
             </td>
           </tr>

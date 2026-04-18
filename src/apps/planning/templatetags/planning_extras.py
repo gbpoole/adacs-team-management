@@ -27,6 +27,12 @@ def multiply(value, arg):
 
 
 @register.filter
+def subtract(value, arg):
+    """Subtract arg from value — used for pixel positioning in the Gantt timeline."""
+    return int(value) - int(arg)
+
+
+@register.filter
 def wks(value):
     """Format a weeks value to 1 decimal place, or return '—' if None."""
     if value is None:

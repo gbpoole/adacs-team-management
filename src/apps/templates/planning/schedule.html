@@ -76,7 +76,12 @@
           <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-48">{% trans "Project" %}</th>
           <th class="sticky left-48 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-36">{% trans "Developer" %}</th>
           {% for week in weeks %}
-          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16">{{ week|date:"d M" }}</th>
+          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16" {% if forloop.counter0 == today_col %}style="position: relative; overflow: visible;"{% endif %}>
+            {{ week|date:"d M" }}
+            {% if forloop.counter0 == today_col %}
+            <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_day_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:1;"></div>
+            {% endif %}
+          </th>
           {% endfor %}
         </tr>
       </thead>
@@ -98,7 +103,7 @@
             </td>
             {% for cell in layer.cells %}
               {% if cell.type == "phase" %}
-              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8">
+              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8" style="position: relative;">
                 <div class="tooltip w-full h-full"
                      data-tip="{{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
                   <div class="h-full rounded text-xs text-white flex items-center px-2 overflow-hidden whitespace-nowrap cursor-default"
@@ -106,9 +111,16 @@
                     {{ cell.phase.effort_display }} wks
                   </div>
                 </div>
+                {% if cell.today_px >= 0 %}
+                <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ cell.today_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:10;"></div>
+                {% endif %}
               </td>
               {% else %}
-              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8"></td>
+              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8" style="position: relative;">
+                {% if cell.today_px >= 0 %}
+                <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ cell.today_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:10;"></div>
+                {% endif %}
+              </td>
               {% endif %}
             {% endfor %}
           </tr>
@@ -129,7 +141,11 @@
               <span class="text-xs italic text-neutral-400 tracking-wide">{% trans "Fully scheduled" %}</span>
               {% endif %}
             </td>
-            <td colspan="{{ weeks|length }}" class="border-l border-base-200 h-8"></td>
+            <td colspan="{{ weeks|length }}" class="border-l border-base-200 h-8" style="position: relative;">
+              {% if today_left_px >= 0 %}
+              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:10;"></div>
+              {% endif %}
+            </td>
           </tr>
         {% empty %}
         <tr>

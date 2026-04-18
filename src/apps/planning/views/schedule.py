@@ -40,6 +40,14 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
         tag_filter = [] if is_observer else self.request.GET.getlist("tags")
         stream_filter = [] if is_observer else self.request.GET.getlist("streams")
 
+        today = datetime.date.today()
+        today_col = next(
+            (i for i, w in enumerate(weeks) if w <= today < w + datetime.timedelta(days=7)),
+            -1,
+        )
+        today_day_px = today.weekday() * 64 // 7
+        today_left_px = today_col * 64 + today_day_px if today_col >= 0 else -1
+
         if weeks:
             phase_qs = (
                 Phase.objects.filter(
@@ -124,15 +132,17 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
                 while col < len(weeks):
                     if col in phase_at:
                         s, sp, ph = phase_at[col]
-                        dev_cells.append({"type": "phase", "colspan": sp, "phase": ph})
+                        cell_today_px = (today_left_px - s * 64) if today_col >= 0 and s <= today_col <= s + sp - 1 else -1
+                        dev_cells.append({"type": "phase", "colspan": sp, "phase": ph, "col_start": s, "col_end": s + sp - 1, "today_px": cell_today_px})
                         col += sp
                     else:
                         next_p = min(
                             (s for s in phase_at if s > col),
                             default=len(weeks),
                         )
+                        cell_today_px = (today_left_px - col * 64) if today_col >= 0 and col <= today_col <= next_p - 1 else -1
                         dev_cells.append(
-                            {"type": "empty", "colspan": next_p - col, "phase": None},
+                            {"type": "empty", "colspan": next_p - col, "phase": None, "col_start": col, "col_end": next_p - 1, "today_px": cell_today_px},
                         )
                         col = next_p
                 if dev_cells:
@@ -153,6 +163,9 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
             )
 
         ctx["weeks"] = weeks
+        ctx["today_col"] = today_col
+        ctx["today_day_px"] = today_day_px
+        ctx["today_left_px"] = today_left_px
         ctx["project_rows"] = project_rows
         ctx["semester"] = semester
         ctx["is_observer"] = is_observer
