@@ -89,5 +89,9 @@
     });
   }
 
-  document.addEventListener("DOMContentLoaded", initFilterPersistence);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initFilterPersistence);
+  } else {
+    initFilterPersistence();
+  }
 })();

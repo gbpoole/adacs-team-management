@@ -62,7 +62,7 @@
     );
   };
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function init() {
     var editForm = document.getElementById("observer-edit-form");
     if (editForm) {
       editForm.addEventListener("submit", function (event) {
@@ -75,5 +75,11 @@
         );
       });
     }
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();

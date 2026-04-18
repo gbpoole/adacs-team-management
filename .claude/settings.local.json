@@ -10,7 +10,8 @@
       "Skill(run-tests)",
       "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run coverage run manage.py test apps.planning tests)",
       "Bash(poetry run:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning.tests.test_views.ScheduleViewTests)"
     ]
   }
 }

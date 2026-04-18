@@ -52,6 +52,7 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
             phase_qs = (
                 Phase.objects.filter(
                     developer__in=devs,
+                    semester=semester,
                     start_date__lte=weeks[-1] + datetime.timedelta(days=6),
                     end_date__gte=weeks[0],
                 )
@@ -138,7 +139,9 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
                 },
             )
 
-        projects_qs = Project.objects.prefetch_related("semester_names")
+        projects_qs = Project.objects.filter(
+            semester_names__semester=semester,
+        ).prefetch_related("semester_names")
         if visible_project_ids is not None:
             projects_qs = projects_qs.filter(pk__in=visible_project_ids)
         all_projects = list(projects_qs)

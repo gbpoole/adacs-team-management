@@ -545,6 +545,7 @@ class ScheduleViewTests(PlanningTestCase):
         sem = Semester.get_current()
         dev = DeveloperProfileFactory()
         project = ProjectFactory()
+        ProjectSemesterNameFactory(project=project, semester=sem)
         # Use start of semester so it's within the rendered range
         start = sem.start_date
         end = start + datetime.timedelta(days=6)

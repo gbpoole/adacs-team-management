@@ -52,6 +52,7 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
         if weeks:
             phase_qs = (
                 Phase.objects.filter(
+                    semester=semester,
                     start_date__lte=weeks[-1] + datetime.timedelta(days=6),
                     end_date__gte=weeks[0],
                 )
@@ -76,7 +77,9 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
         for phase in phases:
             project_dev_phases[phase.project_id][phase.developer_id].append(phase)
 
-        project_qs = Project.objects.prefetch_related("semester_names").order_by("id")
+        project_qs = Project.objects.filter(
+            semester_names__semester=semester,
+        ).prefetch_related("semester_names").order_by("id")
         if visible_project_ids is not None:
             project_qs = project_qs.filter(pk__in=visible_project_ids)
         if tag_filter:

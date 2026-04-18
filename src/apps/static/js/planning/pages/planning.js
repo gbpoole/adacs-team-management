@@ -772,7 +772,7 @@
     });
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function init() {
     initFilterPersistence();
     restoreScrollPosition();
     initDeleteButtons();
@@ -784,5 +784,11 @@
     initPhaseCreateDrag();
     initPhaseResize();
     initPhaseMove();
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
