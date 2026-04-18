@@ -14,8 +14,8 @@
       {% if can_edit %}
       <div class="flex gap-2">
         <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-developer-modal').showModal()">+ {% trans "Add Developers" %}</button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="downloadDevelopersTSV()">{% trans "Download TSV" %}</button>
         <button class="btn btn-outline btn-sm" onclick="document.getElementById('migrate-developer-modal').showModal()">{% trans "Migrate from Semester" %}</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="downloadDevelopersTSV()">{% trans "Download TSV" %}</button>
       </div>
       {% endif %}
     </div>
