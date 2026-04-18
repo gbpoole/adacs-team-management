@@ -23,13 +23,14 @@ from apps.users.models import Role
 
 from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
-from ._mixins import PMOrParticipantMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+
 from ._mixins import RoleRequiredMixin
 from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
 
 
-class ProjectsView(PMOrParticipantMixin, ListView):
+class ProjectsView(LoginRequiredMixin, ListView):
     template_name = "planning/projects.html"
     context_object_name = "projects"
 

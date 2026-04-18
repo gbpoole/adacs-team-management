@@ -11,7 +11,8 @@ from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
 
-from ._mixins import PMOrObserverMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+
 from ._mixins import _has_restricted_view_access
 from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
@@ -19,7 +20,7 @@ from ._timeline import _coverage
 from ._timeline import _week_starts
 
 
-class ScheduleView(PMOrObserverMixin, TemplateView):
+class ScheduleView(LoginRequiredMixin, TemplateView):
     template_name = "planning/schedule.html"
 
     def get_context_data(self, **kwargs):
@@ -57,7 +58,7 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
                 .select_related("developer__user", "project")
                 .prefetch_related("developer__leave_periods")
             )
-            if is_observer and visible_project_ids is not None:
+            if visible_project_ids is not None:
                 phase_qs = phase_qs.filter(project_id__in=visible_project_ids)
             if tag_filter:
                 phase_qs = phase_qs.filter(
@@ -76,7 +77,7 @@ class ScheduleView(PMOrObserverMixin, TemplateView):
             project_dev_phases[phase.project_id][phase.developer_id].append(phase)
 
         project_qs = Project.objects.prefetch_related("semester_names").order_by("id")
-        if is_observer and visible_project_ids is not None:
+        if visible_project_ids is not None:
             project_qs = project_qs.filter(pk__in=visible_project_ids)
         if tag_filter:
             project_qs = project_qs.filter(tags__name__in=tag_filter).distinct()

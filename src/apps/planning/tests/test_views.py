@@ -207,7 +207,7 @@ class ProjectsViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_role_access(self):
-        self.assertRoleAccess(self.url, allowed=["pm", "developer"])
+        self.assertRoleAccess(self.url, allowed=["pm", "developer", "observer"])
 
     def test_observer_sees_only_authorized_projects(self):
         project_visible = ProjectFactory()
@@ -538,8 +538,7 @@ class ScheduleViewTests(PlanningTestCase):
     def test_role_access(self):
         self.assertRoleAccess(
             self.url,
-            allowed=["pm", "observer"],
-            denied=["developer"],
+            allowed=["pm", "developer", "observer"],
         )
 
     def _make_phase_in_current_semester(self, multiplier):
