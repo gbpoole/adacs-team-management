@@ -1,6 +1,7 @@
 from django.utils import timezone
 
 from apps.planning.models import Semester
+from apps.planning.views._mixins import _has_developer_profile
 from apps.planning.views._mixins import _has_project_access_policy
 from apps.planning.views._mixins import _has_restricted_view_access
 from apps.planning.views._mixins import _is_semester_developer
@@ -30,6 +31,7 @@ def semester_context(request):
         "selected_semester": sem,
         "all_semesters": all_sems,
         "user_is_semester_developer": _is_semester_developer(request.user, sem),
+        "user_has_developer_profile": _has_developer_profile(request.user),
         "user_has_restricted_view_access": _has_restricted_view_access(
             request.user,
             sem,

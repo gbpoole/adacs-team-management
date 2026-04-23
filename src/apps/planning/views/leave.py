@@ -12,7 +12,7 @@ from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.users.models import Role
 
-from ._mixins import PMOrDeveloperMixin
+from ._mixins import PMOrHasDeveloperProfileMixin
 from ._mixins import _get_next_url
 
 
@@ -26,7 +26,7 @@ def _check_leave_ownership(user, leave):
     return None
 
 
-class LeaveView(PMOrDeveloperMixin, ListView):
+class LeaveView(PMOrHasDeveloperProfileMixin, ListView):
     model = Leave
     template_name = "planning/leave.html"
     context_object_name = "leave_periods"
@@ -58,7 +58,7 @@ class LeaveView(PMOrDeveloperMixin, ListView):
         return ctx
 
 
-class LeaveCreateView(PMOrDeveloperMixin, View):
+class LeaveCreateView(PMOrHasDeveloperProfileMixin, View):
     def post(self, request, *args, **kwargs):
         developer_id = request.POST.get("developer")
         user = request.user
@@ -85,7 +85,7 @@ class LeaveCreateView(PMOrDeveloperMixin, View):
         return redirect(next_url)
 
 
-class LeaveDeleteView(PMOrDeveloperMixin, View):
+class LeaveDeleteView(PMOrHasDeveloperProfileMixin, View):
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
         if denied := _check_leave_ownership(request.user, leave):
@@ -94,7 +94,7 @@ class LeaveDeleteView(PMOrDeveloperMixin, View):
         return redirect("planning:leave")
 
 
-class LeaveUpdateView(PMOrDeveloperMixin, View):
+class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)

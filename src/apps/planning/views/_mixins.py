@@ -18,6 +18,13 @@ def _update_user_profile_fields(user, post):
     user.save(update_fields=["name", "organisation"])
 
 
+def _has_developer_profile(user):
+    """True if the user has a DeveloperProfile (semester-independent)."""
+    from apps.planning.models import DeveloperProfile
+
+    return DeveloperProfile.objects.filter(user=user).exists()
+
+
 def _is_semester_developer(user, semester):
     """True if the user has effort_available > 0 for this semester."""
     from apps.planning.models import SemesterDeveloper
@@ -121,6 +128,19 @@ class PMOrDeveloperMixin(LoginRequiredMixin):
 
         semester = get_selected_semester(request)
         if not _is_semester_developer(request.user, semester):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+class PMOrHasDeveloperProfileMixin(LoginRequiredMixin):
+    """PM/superuser always allowed; others allowed if they have a DeveloperProfile."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return super().dispatch(request, *args, **kwargs)
+        if request.user.is_superuser or request.user.role == Role.PM:
+            return super().dispatch(request, *args, **kwargs)
+        if not _has_developer_profile(request.user):
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
 

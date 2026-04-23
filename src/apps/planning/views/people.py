@@ -6,7 +6,6 @@ from django.views.generic import ListView
 
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Project
-from apps.planning.models import SemesterDeveloper
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.planning.models import UserProjectAccess
@@ -48,18 +47,8 @@ class PeopleView(RoleRequiredMixin, ListView):
                 proj.display_name = proj.name_for_semester(highlighted)
         access_map = {policy.user_id: policy for policy in access_records}
 
-        # Sets of user PKs for icon flags (selected semester only)
-        dev_pks = set(
-            SemesterDeveloper.objects.filter(semester=highlighted).values_list(
-                "developer__user_id",
-                flat=True,
-            ),
-        )
         for user in ctx["people"]:
             user.access_policy_record = access_map.get(user.pk)
-            user.icon_dev = user.pk in dev_pks
-            user.icon_obs = user.access_policy_record is not None and not user.icon_dev
-            user.icon_pm = user.role == Role.PM or user.is_superuser
 
         all_projects = list(Project.objects.prefetch_related("semester_names").all())
         for p in all_projects:
@@ -71,7 +60,6 @@ class PeopleView(RoleRequiredMixin, ListView):
         )
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = self.request.GET.getlist("tags")
-        ctx["highlighted_semester"] = highlighted
         return ctx
 
 

@@ -33,7 +33,7 @@
               <li><a href="{% url 'planning:tags' %}" {% if cur == 'planning:tags' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Tags" %}</a></li>
               <li><a href="{% url 'planning:streams' %}" {% if cur == 'planning:streams' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Streams" %}</a></li>
             {% endif %}
-            {% if request.user.role == 'pm' or user_is_semester_developer or request.user.is_superuser %}
+            {% if request.user.role == 'pm' or user_has_developer_profile or request.user.is_superuser %}
               <li><a href="{% url 'planning:leave' %}" {% if cur == 'planning:leave' %}class="menu-active pointer-events-none"{% endif %}>{% trans "Leave" %}</a></li>
             {% endif %}
             <li><a href="{% url 'users:detail' request.user.pk %}" {% if cur == 'users:detail' %}class="menu-active pointer-events-none"{% endif %}>{% trans "My Profile" %}</a></li>
