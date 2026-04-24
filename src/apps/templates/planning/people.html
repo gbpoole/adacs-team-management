@@ -71,7 +71,9 @@
             data-effort="{% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks|floatformat:1 }}{% else %}20.0{% endif %}"
             data-tags="{% if person.developer_profile %}{% for t in person.developer_profile.tags.all %}{{ t.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
             data-projects="{% if person.access_policy_record %}{% for p in person.access_policy_record.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
-            data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"{% endif %}
+            data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
+            data-all-projects="{% if person.access_policy_record and person.access_policy_record.all_project_access %}true{% else %}false{% endif %}"
+            data-all-streams="{% if person.access_policy_record and person.access_policy_record.all_stream_access %}true{% else %}false{% endif %}"{% endif %}
             data-name="{{ person.name|default:'' }}"
             data-email="{{ person.email }}"
             data-sort-name="{{ person.name|default:person.email|lower }}"
@@ -91,18 +93,22 @@
             {% endwith %}
           </td>
           <td>
-            {% if person.access_policy_record %}
+            {% if not person.access_policy_record or person.access_policy_record.all_project_access %}
+              <span class="badge badge-sm badge-ghost text-neutral-400">{% trans "All projects" %}</span>
+            {% else %}
               {% for proj in person.access_policy_record.project_access.all %}
                 <span class="badge badge-sm" style="background-color: {{ proj.colour }}; color: white; border-color: {{ proj.colour }};">{{ proj.display_name }}</span>
-              {% empty %}—{% endfor %}
-            {% else %}—{% endif %}
+              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+            {% endif %}
           </td>
           <td>
-            {% if person.access_policy_record %}
+            {% if not person.access_policy_record or person.access_policy_record.all_stream_access %}
+              <span class="badge badge-sm badge-ghost text-neutral-400">{% trans "All streams" %}</span>
+            {% else %}
               {% for stream in person.access_policy_record.stream_access.all %}
                 <span class="badge badge-sm" style="background-color: {{ stream.colour }}; color: white; border-color: {{ stream.colour }};">{{ stream.name }}</span>
-              {% empty %}—{% endfor %}
-            {% else %}—{% endif %}
+              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+            {% endif %}
           </td>
         </tr>
         {% empty %}
@@ -149,6 +155,10 @@
         {% if all_streams %}
         <div class="form-control mb-3">
           <label class="label label-text">{% trans "Stream Access Restrictions" %}</label>
+          <label class="flex items-center gap-2 mb-1 cursor-pointer">
+            <input type="checkbox" id="edit-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
+            <span class="text-sm">{% trans "All streams" %}</span>
+          </label>
           <div id="edit-person-stream-buttons" class="flex flex-wrap gap-2 mt-1">
             {% for stream in all_streams %}
             <label class="btn btn-sm btn-outline cursor-pointer">
@@ -162,6 +172,10 @@
         {% if all_projects %}
         <div class="form-control mb-3">
           <label class="label label-text">{% trans "Project Access Restrictions" %}</label>
+          <label class="flex items-center gap-2 mb-1 cursor-pointer">
+            <input type="checkbox" id="edit-all-projects" name="all_project_access" class="checkbox checkbox-sm">
+            <span class="text-sm">{% trans "All projects" %}</span>
+          </label>
           <select id="edit-projects" name="project_access" multiple class="select select-bordered h-28 w-full">
             {% for project in all_projects %}
             <option value="{{ project.pk }}">{{ project.display_name }}</option>

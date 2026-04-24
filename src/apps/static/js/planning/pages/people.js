@@ -193,6 +193,33 @@
           cb.dispatchEvent(new Event("change"));
         });
 
+      var allProjectsCb = document.getElementById("edit-all-projects");
+      if (allProjectsCb) {
+        allProjectsCb.checked = row.dataset.allProjects === "true";
+        function syncProjects() {
+          if (projSel) { projSel.disabled = allProjectsCb.checked; }
+        }
+        allProjectsCb.onchange = syncProjects;
+        syncProjects();
+      }
+
+      var allStreamsCb = document.getElementById("edit-all-streams");
+      if (allStreamsCb) {
+        allStreamsCb.checked = row.dataset.allStreams === "true";
+        function syncStreams() {
+          var container = document.getElementById("edit-person-stream-buttons");
+          if (container) {
+            container.querySelectorAll("input").forEach(function (cb) {
+              cb.disabled = allStreamsCb.checked;
+            });
+            container.style.opacity = allStreamsCb.checked ? "0.4" : "";
+            container.style.pointerEvents = allStreamsCb.checked ? "none" : "";
+          }
+        }
+        allStreamsCb.onchange = syncStreams;
+        syncStreams();
+      }
+
       document.getElementById("person-edit-form").action =
         "/planning/people/" + row.dataset.pk + "/edit/";
       document.getElementById("person-edit-modal").showModal();

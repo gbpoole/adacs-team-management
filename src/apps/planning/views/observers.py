@@ -99,6 +99,9 @@ class ObserverCreateView(RoleRequiredMixin, View):
         obs, _ = UserProjectAccess.objects.get_or_create(user=user)
         obs.project_access.set(request.POST.getlist("project_access"))
         obs.stream_access.set(request.POST.getlist("stream_access"))
+        obs.all_project_access = "all_project_access" in request.POST
+        obs.all_stream_access = "all_stream_access" in request.POST
+        obs.save(update_fields=["all_project_access", "all_stream_access"])
         return redirect("planning:observers")
 
 
@@ -109,6 +112,9 @@ class ObserverUpdateView(RoleRequiredMixin, View):
         obs = get_object_or_404(UserProjectAccess, pk=pk)
         obs.project_access.set(request.POST.getlist("project_access"))
         obs.stream_access.set(request.POST.getlist("stream_access"))
+        obs.all_project_access = "all_project_access" in request.POST
+        obs.all_stream_access = "all_stream_access" in request.POST
+        obs.save(update_fields=["all_project_access", "all_stream_access"])
         return redirect("planning:observers")
 
 
@@ -121,4 +127,7 @@ class ObserverDeleteView(RoleRequiredMixin, View):
         obs = get_object_or_404(UserProjectAccess, pk=pk)
         obs.project_access.clear()
         obs.stream_access.clear()
+        obs.all_project_access = False
+        obs.all_stream_access = False
+        obs.save(update_fields=["all_project_access", "all_stream_access"])
         return HttpResponse(status=204)

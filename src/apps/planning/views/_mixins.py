@@ -69,9 +69,15 @@ def _visible_project_ids_for_user(user, semester):
     Restriction semantics:
     - PM and superusers are unrestricted.
     - Missing UserProjectAccess row means unrestricted.
-    - Existing row with both project_access and stream_access empty means unrestricted.
-    - Otherwise visibility is union(project_access, projects in stream_access).
+    - Existing row with all_project_access or all_stream_access flag set means unrestricted.
+    - Otherwise visibility is union of:
+        - explicit project_access entries
+        - projects reachable via stream_access entries
+        - projects where the user has a phase this semester
+        - projects where the user is dev lead or science lead
+    - Both access sets empty with no all_* flag means no access (empty set returned).
     """
+    from apps.planning.models import Phase
     from apps.planning.models import Project
     from apps.planning.models import UserProjectAccess
 
@@ -89,18 +95,42 @@ def _visible_project_ids_for_user(user, semester):
     if record is None:
         return None
 
-    direct_ids = set(record.project_access.values_list("pk", flat=True))
-    stream_qs = record.stream_access.all()
-    stream_ids = set(stream_qs.values_list("pk", flat=True))
-    if not direct_ids and not stream_ids:
+    if record.all_project_access or record.all_stream_access:
         return None
 
+    # Explicit direct project access
+    direct_ids = set(record.project_access.values_list("pk", flat=True))
+
+    # Stream-based access
+    stream_qs = record.stream_access.all()
     via_stream_ids = set()
-    if stream_ids:
+    if stream_qs.exists():
         via_stream_ids = set(
             Project.objects.filter(streams__in=stream_qs).values_list("pk", flat=True),
         )
-    return direct_ids | via_stream_ids
+
+    # Team membership: phases in this semester
+    phase_project_ids = set(
+        Phase.objects.filter(
+            developer__user=user,
+            semester=semester,
+        ).values_list("project_id", flat=True)
+    )
+
+    # Team membership: dev lead or science lead (scoped to projects in this semester)
+    lead_project_ids = set(
+        Project.objects.filter(
+            semester_names__semester=semester,
+            dev_lead=user,
+        ).values_list("pk", flat=True)
+    ) | set(
+        Project.objects.filter(
+            semester_names__semester=semester,
+            science_lead=user,
+        ).values_list("pk", flat=True)
+    )
+
+    return direct_ids | via_stream_ids | phase_project_ids | lead_project_ids
 
 
 class RoleRequiredMixin(LoginRequiredMixin):

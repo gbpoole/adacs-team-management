@@ -82,12 +82,17 @@ class PersonUpdateView(RoleRequiredMixin, View):
 
         project_pks = request.POST.getlist("project_access")
         stream_pks = request.POST.getlist("stream_access")
+        all_projects = "all_project_access" in request.POST
+        all_streams = "all_stream_access" in request.POST
         access = UserProjectAccess.objects.filter(user=user).first()
         # Missing record means unrestricted access. Create/update a record only when
         # restrictions are explicitly set, or when updating an existing record.
-        if access is not None or project_pks or stream_pks:
+        if access is not None or project_pks or stream_pks or all_projects or all_streams:
             access, _ = UserProjectAccess.objects.get_or_create(user=user)
             access.project_access.set(project_pks)
             access.stream_access.set(stream_pks)
+            access.all_project_access = all_projects
+            access.all_stream_access = all_streams
+            access.save(update_fields=["all_project_access", "all_stream_access"])
 
         return redirect("planning:people")

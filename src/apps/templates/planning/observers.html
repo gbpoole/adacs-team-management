@@ -42,18 +42,28 @@
             data-email="{{ obs.user.email }}"
             data-organisation="{{ obs.user.organisation|default:'' }}"
             data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
-            data-streams="{% for s in obs.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
+            data-streams="{% for s in obs.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-all-projects="{% if obs.all_project_access %}true{% else %}false{% endif %}"
+            data-all-streams="{% if obs.all_stream_access %}true{% else %}false{% endif %}">
           <td>{{ obs.user.name|default:"—" }}</td>
           <td>{{ obs.user.organisation|default:"—" }}</td>
           <td>
-            {% for name, colour in obs.project_pills %}
-            <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-            {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
+            {% if obs.all_project_access %}
+              <span class="badge badge-sm badge-ghost text-neutral-400">{% trans "All projects" %}</span>
+            {% else %}
+              {% for name, colour in obs.project_pills %}
+              <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
+              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+            {% endif %}
           </td>
           <td>
-            {% for name, colour in obs.stream_pills %}
-            <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-            {% empty %}<span class="text-neutral-400">{% trans "None" %}</span>{% endfor %}
+            {% if obs.all_stream_access %}
+              <span class="badge badge-sm badge-ghost text-neutral-400">{% trans "All streams" %}</span>
+            {% else %}
+              {% for name, colour in obs.stream_pills %}
+              <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
+              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+            {% endif %}
           </td>
         </tr>
         {% empty %}
@@ -85,7 +95,11 @@
         {% if all_projects %}
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Project Access" %}</label>
-          <select name="project_access" multiple class="select select-bordered h-36">
+          <label class="flex items-center gap-2 mb-1 cursor-pointer">
+            <input type="checkbox" id="add-all-projects" name="all_project_access" class="checkbox checkbox-sm">
+            <span class="text-sm">{% trans "All projects" %}</span>
+          </label>
+          <select id="add-observer-projects" name="project_access" multiple class="select select-bordered h-36">
             {% for project in all_projects %}
             <option value="{{ project.pk }}">{{ project.display_name }}</option>
             {% endfor %}
@@ -96,7 +110,11 @@
         {% if all_streams %}
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Stream Access" %}</label>
-          <select name="stream_access" multiple class="select select-bordered h-36">
+          <label class="flex items-center gap-2 mb-1 cursor-pointer">
+            <input type="checkbox" id="add-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
+            <span class="text-sm">{% trans "All streams" %}</span>
+          </label>
+          <select id="add-observer-streams" name="stream_access" multiple class="select select-bordered h-36">
             {% for stream in all_streams %}
             <option value="{{ stream.pk }}">{{ stream.name }}</option>
             {% endfor %}
@@ -130,6 +148,10 @@
         {% if all_projects %}
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Project Access" %}</label>
+          <label class="flex items-center gap-2 mb-1 cursor-pointer">
+            <input type="checkbox" id="edit-all-projects" name="all_project_access" class="checkbox checkbox-sm">
+            <span class="text-sm">{% trans "All projects" %}</span>
+          </label>
           <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-36">
             {% for project in all_projects %}
             <option value="{{ project.pk }}">{{ project.display_name }}</option>
@@ -141,6 +163,10 @@
         {% if all_streams %}
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Stream Access" %}</label>
+          <label class="flex items-center gap-2 mb-1 cursor-pointer">
+            <input type="checkbox" id="edit-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
+            <span class="text-sm">{% trans "All streams" %}</span>
+          </label>
           <select id="edit-observer-streams" name="stream_access" multiple class="select select-bordered h-36">
             {% for stream in all_streams %}
             <option value="{{ stream.pk }}">{{ stream.name }}</option>

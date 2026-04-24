@@ -232,7 +232,7 @@ class ProjectsViewTests(PlanningTestCase):
         self.assertContains(response, "Visible Project")
         self.assertNotContains(response, "Hidden Project")
 
-    def test_observer_with_empty_restrictions_sees_all_projects(self):
+    def test_observer_with_empty_restrictions_sees_no_projects(self):
         project1 = ProjectFactory()
         ProjectSemesterNameFactory(
             project=project1,
@@ -246,7 +246,29 @@ class ProjectsViewTests(PlanningTestCase):
             name="Beta Project",
         )
         obs = UserProjectAccessFactory()
-        # project_access and stream_access are both empty → full access
+        # project_access and stream_access both empty → no access
+        self.client.force_login(obs.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Alpha Project")
+        self.assertNotContains(response, "Beta Project")
+
+    def test_observer_with_all_project_access_flag_sees_all_projects(self):
+        project1 = ProjectFactory()
+        ProjectSemesterNameFactory(
+            project=project1,
+            semester=self.semester,
+            name="Alpha Project",
+        )
+        project2 = ProjectFactory()
+        ProjectSemesterNameFactory(
+            project=project2,
+            semester=self.semester,
+            name="Beta Project",
+        )
+        obs = UserProjectAccessFactory()
+        obs.all_project_access = True
+        obs.save()
         self.client.force_login(obs.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
@@ -330,7 +352,7 @@ class ProjectsViewTests(PlanningTestCase):
         self.assertContains(response, "Visible Project")
         self.assertNotContains(response, "Hidden Project")
 
-    def test_developer_with_empty_access_record_sees_all_projects(self):
+    def test_developer_with_empty_access_record_sees_no_projects(self):
         dev = make_semester_developer(semester=self.semester)
         project1 = ProjectFactory()
         ProjectSemesterNameFactory(
@@ -345,12 +367,65 @@ class ProjectsViewTests(PlanningTestCase):
             name="Beta Project",
         )
         UserProjectAccessFactory(user=dev.user)
+        # empty access record + no phases on these projects = no access
 
         self.client.force_login(dev.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Alpha Project")
-        self.assertContains(response, "Beta Project")
+        self.assertNotContains(response, "Alpha Project")
+        self.assertNotContains(response, "Beta Project")
+
+    def test_user_with_phase_sees_project_despite_empty_access_record(self):
+        dev = make_semester_developer(semester=self.semester)
+        project_with_phase = ProjectFactory()
+        ProjectSemesterNameFactory(
+            project=project_with_phase,
+            semester=self.semester,
+            name="Phase Project",
+        )
+        project_without_phase = ProjectFactory()
+        ProjectSemesterNameFactory(
+            project=project_without_phase,
+            semester=self.semester,
+            name="Hidden Project",
+        )
+        access = UserProjectAccessFactory(user=dev.user)
+        Phase.objects.create(
+            developer=dev,
+            project=project_with_phase,
+            semester=self.semester,
+            start_date=self.semester.start_date,
+            end_date=self.semester.start_date + datetime.timedelta(days=6),
+        )
+
+        self.client.force_login(dev.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Phase Project")
+        self.assertNotContains(response, "Hidden Project")
+        del access  # suppress unused-variable warning
+
+    def test_user_as_dev_lead_sees_project_despite_empty_access_record(self):
+        dev = make_semester_developer(semester=self.semester)
+        project_lead = ProjectFactory(dev_lead=dev.user)
+        ProjectSemesterNameFactory(
+            project=project_lead,
+            semester=self.semester,
+            name="Lead Project",
+        )
+        project_other = ProjectFactory()
+        ProjectSemesterNameFactory(
+            project=project_other,
+            semester=self.semester,
+            name="Hidden Project",
+        )
+        UserProjectAccessFactory(user=dev.user)
+
+        self.client.force_login(dev.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lead Project")
+        self.assertNotContains(response, "Hidden Project")
 
     def test_shows_project_display_name(self):
         project = ProjectFactory()
@@ -478,9 +553,11 @@ class PlanningViewTests(PlanningTestCase):
         self.assertIn("Visible Project", project_names)
         self.assertNotIn("Hidden Project", project_names)
 
-    def test_developer_with_project_restrictions_only_sees_phases_on_allowed_projects(
+    def test_developer_with_phases_sees_all_phase_projects_via_team_membership(
         self,
     ):
+        # Team membership (having a phase) grants access regardless of explicit
+        # project_access restrictions.
         sem = Semester.get_current()
         dev_profile = make_semester_developer(semester=sem)
         visible = ProjectFactory()
@@ -519,8 +596,9 @@ class PlanningViewTests(PlanningTestCase):
                     if cell["type"] == "phase":
                         seen_names.add(cell["phase"].display_name)
 
+        # Both projects are visible because the developer has phases on both
         self.assertIn("Visible Project", seen_names)
-        self.assertNotIn("Hidden Project", seen_names)
+        self.assertIn("Hidden Project", seen_names)
 
 
 # ---------------------------------------------------------------------------

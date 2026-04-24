@@ -22,8 +22,8 @@
 
   window.openEditObserver = function (row) {
     var pk = row.dataset.pk;
-    var projectPks = row.dataset.projects ? row.dataset.projects.split(",") : [];
-    var streamPks = row.dataset.streams ? row.dataset.streams.split(",") : [];
+    var projectPks = row.dataset.projects ? row.dataset.projects.split(",").filter(Boolean) : [];
+    var streamPks = row.dataset.streams ? row.dataset.streams.split(",").filter(Boolean) : [];
     document.getElementById("edit-observer-id").value = pk;
     document.getElementById("edit-observer-name-heading").textContent = row.dataset.name || row.dataset.email;
     document.getElementById("edit-observer-email-subheading").textContent = row.dataset.email;
@@ -40,6 +40,27 @@
         opt.selected = streamPks.indexOf(opt.value) !== -1;
       });
     }
+
+    var allProjectsCb = document.getElementById("edit-all-projects");
+    if (allProjectsCb) {
+      allProjectsCb.checked = row.dataset.allProjects === "true";
+      function syncProjects() {
+        if (projSel) { projSel.disabled = allProjectsCb.checked; }
+      }
+      allProjectsCb.onchange = syncProjects;
+      syncProjects();
+    }
+
+    var allStreamsCb = document.getElementById("edit-all-streams");
+    if (allStreamsCb) {
+      allStreamsCb.checked = row.dataset.allStreams === "true";
+      function syncStreams() {
+        if (streamSel) { streamSel.disabled = allStreamsCb.checked; }
+      }
+      allStreamsCb.onchange = syncStreams;
+      syncStreams();
+    }
+
     document.getElementById("observer-edit-form").action =
       "/planning/observers/" + pk + "/edit/";
     document.getElementById("observer-edit-modal").showModal();
@@ -62,6 +83,15 @@
     );
   };
 
+  function initAllCheckbox(cbId, selectId) {
+    var cb = document.getElementById(cbId);
+    var sel = document.getElementById(selectId);
+    if (!cb || !sel) { return; }
+    function sync() { sel.disabled = cb.checked; }
+    cb.addEventListener("change", sync);
+    sync();
+  }
+
   function init() {
     var editForm = document.getElementById("observer-edit-form");
     if (editForm) {
@@ -75,6 +105,8 @@
         );
       });
     }
+    initAllCheckbox("add-all-projects", "add-observer-projects");
+    initAllCheckbox("add-all-streams", "add-observer-streams");
   }
 
   if (document.readyState === "loading") {

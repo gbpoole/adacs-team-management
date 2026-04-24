@@ -415,7 +415,8 @@ class UserProjectAccess(models.Model):
     """Global per-user project/stream visibility restrictions.
 
     Absence of a row means unrestricted access.
-    A row with both access sets empty also means unrestricted access.
+    A row with both access sets empty and neither all_* flag set means no access.
+    Team membership (phases or lead role) is always OR'd into the visible set.
     """
 
     user = models.OneToOneField(
@@ -434,6 +435,14 @@ class UserProjectAccess(models.Model):
         blank=True,
         related_name="user_stream_access_policies",
         help_text=_("Streams this user can view."),
+    )
+    all_project_access = models.BooleanField(
+        default=False,
+        help_text=_("When true, user can view all projects regardless of project_access list."),
+    )
+    all_stream_access = models.BooleanField(
+        default=False,
+        help_text=_("When true, user can view all projects in all streams."),
     )
 
     class Meta:
