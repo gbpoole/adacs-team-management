@@ -139,6 +139,9 @@ class Command(BaseCommand):
         self._create_seed_account(
             "developer@adacs.org.au", "Developer User", Role.USER, "testpass123",
         )
+        observer_user = self._create_seed_account(
+            "observer@adacs.org.au", "Observer User", Role.USER, "testpass123",
+        )
 
         self.stdout.write("Creating semesters...")
         seed_year = datetime.date.today().year
@@ -236,6 +239,11 @@ class Command(BaseCommand):
                 )
             projects.append(project)
         self.stdout.write(f"  {len(projects)} projects loaded.")
+
+        # Give the fixed observer account access to the first few projects
+        if projects:
+            observer_access, _ = UserProjectAccess.objects.get_or_create(user=observer_user)
+            observer_access.project_access.set(projects[:3])
 
         # ── Observers ─────────────────────────────────────────────────────────
         self.stdout.write(f"Loading observers from {DATA_DIR / 'observers.tsv'} ...")
