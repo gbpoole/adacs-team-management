@@ -98,7 +98,7 @@
             {% else %}
               {% for proj in person.access_policy_record.project_access.all %}
                 <span class="badge badge-sm" style="background-color: {{ proj.colour }}; color: white; border-color: {{ proj.colour }};">{{ proj.display_name }}</span>
-              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+              {% empty %}<span class="badge badge-sm bg-neutral-400 text-white border-neutral-400">{% trans "No projects" %}</span>{% endfor %}
             {% endif %}
           </td>
           <td>
@@ -107,7 +107,7 @@
             {% else %}
               {% for stream in person.access_policy_record.stream_access.all %}
                 <span class="badge badge-sm" style="background-color: {{ stream.colour }}; color: white; border-color: {{ stream.colour }};">{{ stream.name }}</span>
-              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+              {% empty %}<span class="badge badge-sm bg-neutral-400 text-white border-neutral-400">{% trans "No streams" %}</span>{% endfor %}
             {% endif %}
           </td>
         </tr>

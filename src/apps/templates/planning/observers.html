@@ -53,7 +53,7 @@
             {% else %}
               {% for name, colour in obs.project_pills %}
               <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+              {% empty %}<span class="badge badge-sm bg-neutral-400 text-white border-neutral-400">{% trans "No projects" %}</span>{% endfor %}
             {% endif %}
           </td>
           <td>
@@ -62,7 +62,7 @@
             {% else %}
               {% for name, colour in obs.stream_pills %}
               <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-              {% empty %}<span class="badge badge-sm badge-ghost text-neutral-400 italic">{% trans "None" %}</span>{% endfor %}
+              {% empty %}<span class="badge badge-sm bg-neutral-400 text-white border-neutral-400">{% trans "No streams" %}</span>{% endfor %}
             {% endif %}
           </td>
         </tr>
