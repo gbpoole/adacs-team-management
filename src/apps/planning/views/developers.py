@@ -178,7 +178,7 @@ class DeveloperDownloadView(RoleRequiredMixin, View):
         writer.writerow(["email", "name", "organisation", "effort_available", "tags"])
         for sd in sd_records:
             user = sd.developer.user
-            tags = ",".join(t.name for t in sd.tags.all())
+            tags = "||".join(t.name for t in sd.tags.all())
             writer.writerow([
                 user.email,
                 user.name or "",

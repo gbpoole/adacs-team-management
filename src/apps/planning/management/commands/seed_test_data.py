@@ -168,7 +168,7 @@ class Command(BaseCommand):
                 user.save()
             profile, _ = DeveloperProfile.objects.get_or_create(user=user)
             tag_names = [
-                t.strip() for t in (row.get("tags") or "").split(",") if t.strip()
+                t.strip() for t in (row.get("tags") or "").split("||") if t.strip()
             ]
             if tag_names:
                 profile.tags.set(_get_or_create_tags(tag_names))
@@ -220,11 +220,11 @@ class Command(BaseCommand):
                     project=project, semester=sem_b, defaults={"name": name},
                 )
             stream_names = [
-                s.strip() for s in (row.get("streams") or "").split(",") if s.strip()
+                s.strip() for s in (row.get("streams") or "").split("||") if s.strip()
             ]
             project.streams.set(_get_or_create_streams(stream_names))
             tag_names = [
-                t.strip() for t in (row.get("tags") or "").split(",") if t.strip()
+                t.strip() for t in (row.get("tags") or "").split("||") if t.strip()
             ]
             if tag_names:
                 project.tags.set(_get_or_create_tags(tag_names))
@@ -270,14 +270,14 @@ class Command(BaseCommand):
                 user.set_password("testpass123")
                 user.save()
             access_names = [
-                n.strip() for n in row.get("project_access", "").split(",") if n.strip()
+                n.strip() for n in row.get("project_access", "").split("||") if n.strip()
             ]
             access_projects = [
                 project_by_name[n] for n in access_names if n in project_by_name
             ]
             stream_names = [
                 n.strip()
-                for n in (row.get("stream_access") or "").split(",")
+                for n in (row.get("stream_access") or "").split("||")
                 if n.strip()
             ]
             access_streams = list(Stream.objects.filter(name__in=stream_names))

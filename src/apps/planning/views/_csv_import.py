@@ -90,7 +90,7 @@ def _validate_observer_rows(rows, valid_project_names: set[str]):
             errors.append(f"Row {i}: {name_err}")
         unknown = [
             f"Row {i}: unknown project '{n}'"
-            for n in (p.strip() for p in row.get("project_access", "").split(","))
+            for n in (p.strip() for p in row.get("project_access", "").split("||"))
             if n and n not in valid_project_names
         ]
         errors.extend(unknown)

@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -35,6 +36,9 @@ class TagCreateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if not name:
             return redirect("planning:tags")
+        if "||" in name or "\t" in name:
+            messages.error(request, "Tag name may not contain '||' or tab characters.")
+            return redirect("planning:tags")
         colour = request.POST.get("colour", "").strip()
         tag = Tag(name=name, colour=colour)
         tag.save()
@@ -48,6 +52,9 @@ class TagUpdateView(RoleRequiredMixin, View):
         tag = get_object_or_404(Tag, pk=pk)
         name = request.POST.get("name", "").strip()
         if name:
+            if "|" in name:
+                messages.error(request, "Tag name may not contain '|'.")
+                return redirect("planning:tags")
             tag.name = name
         colour = request.POST.get("colour", "").strip()
         if colour:

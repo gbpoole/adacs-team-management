@@ -242,8 +242,8 @@ class ProjectDownloadView(RoleRequiredMixin, View):
         )
         for psn in psns:
             p = psn.project
-            streams = ",".join(s.name for s in p.streams.all())
-            tags = ",".join(t.name for t in p.tags.all())
+            streams = "||".join(s.name for s in p.streams.all())
+            tags = "||".join(t.name for t in p.tags.all())
             effort = resourced_map.get(p.pk, 0)
             if p.science_lead:
                 sci = p.science_lead.name or p.science_lead.email
@@ -282,6 +282,9 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             return redirect("planning:projects")
         name = request.POST.get("name", "").strip()
         if name:
+            if "||" in name or "\t" in name:
+                messages.error(request, "Project name may not contain '||' or tab characters.")
+                return redirect("planning:projects")
             psn, _ = ProjectSemesterName.objects.get_or_create(
                 project=project,
                 semester=semester,

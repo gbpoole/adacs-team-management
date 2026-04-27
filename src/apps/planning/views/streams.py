@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -34,6 +35,9 @@ class StreamCreateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if not name:
             return redirect("planning:streams")
+        if "||" in name or "\t" in name:
+            messages.error(request, "Stream name may not contain '||' or tab characters.")
+            return redirect("planning:streams")
         colour = request.POST.get("colour", "").strip()
         stream = Stream(name=name, colour=colour)
         stream.save()
@@ -47,6 +51,9 @@ class StreamUpdateView(RoleRequiredMixin, View):
         stream = get_object_or_404(Stream, pk=pk)
         name = request.POST.get("name", "").strip()
         if name:
+            if "|" in name:
+                messages.error(request, "Stream name may not contain '|'.")
+                return redirect("planning:streams")
             stream.name = name
         colour = request.POST.get("colour", "").strip()
         if colour:

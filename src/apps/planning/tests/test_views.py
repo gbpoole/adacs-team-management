@@ -194,7 +194,7 @@ class ObserversViewTests(PlanningTestCase):
         admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
-        self.assertContains(response, "None")
+        self.assertContains(response, "No projects")
 
 
 class ProjectsViewTests(PlanningTestCase):

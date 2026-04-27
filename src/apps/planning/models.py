@@ -4,9 +4,16 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.core.validators import MinValueValidator
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Max
 from django.utils.translation import gettext_lazy as _
+
+def _validate_name_chars(value):
+    if "||" in value:
+        raise ValidationError("Name may not contain '||'.")
+    if "\t" in value:
+        raise ValidationError("Name may not contain tab characters.")
 
 # ---------------------------------------------------------------------------
 # Colour palette
@@ -63,7 +70,7 @@ def _assign_colour_if_blank(instance, model_class) -> None:
 
 
 class Tag(models.Model):
-    name = models.CharField(_("name"), max_length=100, unique=True)
+    name = models.CharField(_("name"), max_length=100, unique=True, validators=[_validate_name_chars])
     colour = models.CharField(
         _("colour"),
         max_length=7,
@@ -179,7 +186,7 @@ class Semester(models.Model):
 class Stream(models.Model):
     """Named stream (work category) for grouping projects."""
 
-    name = models.CharField(_("name"), max_length=100, unique=True)
+    name = models.CharField(_("name"), max_length=100, unique=True, validators=[_validate_name_chars])
     colour = models.CharField(
         _("colour"),
         max_length=7,
@@ -282,7 +289,7 @@ class ProjectSemesterName(models.Model):
         on_delete=models.CASCADE,
         related_name="project_names",
     )
-    name = models.CharField(_("name"), max_length=255)
+    name = models.CharField(_("name"), max_length=255, validators=[_validate_name_chars])
 
     class Meta:
         unique_together = [("project", "semester")]

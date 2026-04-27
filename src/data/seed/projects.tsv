@@ -1,32 +1,32 @@
 name	streams	tags
-GALAH Stellar Spectra Pipeline	Astronomy	python,data-pipeline
-SKA Precursor Data Processing	Astronomy,MAP	hpc,gpu
-OzGrav Gravitational Wave Analysis	Astronomy	hpc,data-pipeline
-TAIPAN Survey Tools	Astronomy	python,api
-4MOST Targeting Software	Astronomy,Fee for service	python,database
-ASKAP Continuum Imaging	Astronomy	hpc,gpu
-MWA Calibration Framework	Astronomy	hpc,python
-NCI Data Portal	Astronomy,MAP	web,api
-Galaxy Zoo ML Classifier	Astronomy	ml,python
-Exoplanet Transit Detector	Astronomy	ml,data-pipeline
-Microbiome Assembly Pipeline	Bioinformatics	python,data-pipeline
-Protein Folding Database	Bioinformatics,Fee for service	database,ml
-Climate Model Post-Processing	Climate Science	python,data-pipeline
-BOM Data Ingestion Framework	Climate Science,MAP	data-pipeline,database
-ACCESS Climate Portal	Climate Science	web,api
-Seismic Event Classifier	Geoscience	ml,python
-Geodynamics Simulation Tools	Geoscience	hpc,gpu
-CubeSat Telemetry Dashboard	Physics	web,api
-Dark Matter Map Generator	Physics	hpc,ml
-Radio Transient Finder	Physics	ml,data-pipeline
-Pulsar Timing Array Tools	Physics	hpc,python
-Next-Gen Spectrograph Control	Physics,Fee for service	python,devops
-ATNF Catalogue Updater	Physics	database,api
-Biobank Data QC Pipeline	Bioinformatics	data-pipeline,python
-Phylogenomics Workflow	Bioinformatics	hpc,data-pipeline
-Coral Reef Monitoring Dashboard	Climate Science	web,visualisation
-Antarctic Ice Core Analysis	Climate Science,MAP	database,visualisation
+GALAH Stellar Spectra Pipeline	Astronomy	python||data-pipeline
+SKA Precursor Data Processing	Astronomy||MAP	hpc||gpu
+OzGrav Gravitational Wave Analysis	Astronomy	hpc||data-pipeline
+TAIPAN Survey Tools	Astronomy	python||api
+4MOST Targeting Software	Astronomy||Fee for service	python||database
+ASKAP Continuum Imaging	Astronomy	hpc||gpu
+MWA Calibration Framework	Astronomy	hpc||python
+NCI Data Portal	Astronomy||MAP	web||api
+Galaxy Zoo ML Classifier	Astronomy	ml||python
+Exoplanet Transit Detector	Astronomy	ml||data-pipeline
+Microbiome Assembly Pipeline	Bioinformatics	python||data-pipeline
+Protein Folding Database	Bioinformatics||Fee for service	database||ml
+Climate Model Post-Processing	Climate Science	python||data-pipeline
+BOM Data Ingestion Framework	Climate Science||MAP	data-pipeline||database
+ACCESS Climate Portal	Climate Science	web||api
+Seismic Event Classifier	Geoscience	ml||python
+Geodynamics Simulation Tools	Geoscience	hpc||gpu
+CubeSat Telemetry Dashboard	Physics	web||api
+Dark Matter Map Generator	Physics	hpc||ml
+Radio Transient Finder	Physics	ml||data-pipeline
+Pulsar Timing Array Tools	Physics	hpc||python
+Next-Gen Spectrograph Control	Physics||Fee for service	python||devops
+ATNF Catalogue Updater	Physics	database||api
+Biobank Data QC Pipeline	Bioinformatics	data-pipeline||python
+Phylogenomics Workflow	Bioinformatics	hpc||data-pipeline
+Coral Reef Monitoring Dashboard	Climate Science	web||visualisation
+Antarctic Ice Core Analysis	Climate Science||MAP	database||visualisation
 Team Planning & Coordination	Internal
 Infrastructure & CI/CD Maintenance	Internal	devops
 Developer Onboarding & Training	Internal
-Research Software Review	Internal,MAP	python
+Research Software Review	Internal||MAP	python
