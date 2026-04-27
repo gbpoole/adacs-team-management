@@ -51,8 +51,8 @@ class StreamUpdateView(RoleRequiredMixin, View):
         stream = get_object_or_404(Stream, pk=pk)
         name = request.POST.get("name", "").strip()
         if name:
-            if "|" in name:
-                messages.error(request, "Stream name may not contain '|'.")
+            if "||" in name or "\t" in name:
+                messages.error(request, "Stream name may not contain '||' or tab characters.")
                 return redirect("planning:streams")
             stream.name = name
         colour = request.POST.get("colour", "").strip()

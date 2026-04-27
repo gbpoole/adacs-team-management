@@ -170,12 +170,12 @@
 <dialog id="add-project-modal" class="modal">
   <div class="modal-box max-w-2xl">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Project" %}</h3>
-    <form method="post" action="{% url 'planning:project_add' %}">
+    <form id="add-project-form" method="post" action="{% url 'planning:project_add' %}" hx-boost="false">
       {% csrf_token %}
       <div class="flex gap-3 mb-3">
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
-          <input type="text" name="name" class="input input-bordered" required autocomplete="off" data-lpignore="true" data-form-type="other">
+          <input id="add-project-name" type="text" name="name" class="input input-bordered" required autocomplete="off" data-lpignore="true" data-form-type="other">
         </div>
         <div class="form-control" style="width: 140px;">
           <label class="label label-text">{% trans "Resourced (wks)" %}</label>
@@ -388,7 +388,7 @@
 <dialog id="migrate-project-modal" class="modal">
   <div class="modal-box max-w-2xl">
     <h3 class="font-bold text-lg mb-4">{% trans "Migrate Projects from Another Semester" %}</h3>
-    <form id="migrate-project-form" method="post" action="{% url 'planning:project_migrate' %}">
+    <form id="migrate-project-form" method="post" action="{% url 'planning:project_migrate' %}" hx-boost="false">
       {% csrf_token %}
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Source Semester" %}</label>

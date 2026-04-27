@@ -174,7 +174,7 @@
 <dialog id="migrate-developer-modal" class="modal">
   <div class="modal-box max-w-lg">
     <h3 class="font-bold text-lg mb-4">{% trans "Migrate from Semester" %}</h3>
-    <form method="post" action="{% url 'planning:developer_migrate' %}">
+    <form method="post" action="{% url 'planning:developer_migrate' %}" hx-boost="false">
       {% csrf_token %}
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Source semester" %}</label>

@@ -172,6 +172,9 @@ class ProjectCreateView(RoleRequiredMixin, View):
         if not name:
             messages.error(request, "Project name is required.")
             return redirect("planning:projects")
+        if "||" in name or "\t" in name:
+            messages.error(request, "Project name may not contain '||' or tab characters.")
+            return redirect("planning:projects")
         effort_weeks = _parse_effort_weeks(
             request,
             request.POST.get("effort_resourced", "").strip(),
@@ -188,9 +191,9 @@ class ProjectCreateView(RoleRequiredMixin, View):
             semester=semester,
             name=name,
         )
-        stream_names = request.POST.getlist("streams")
+        stream_names = [n for n in request.POST.getlist("streams") if "||" not in n and "\t" not in n]
         project.streams.set(_get_or_create_streams(stream_names))
-        tag_names = request.POST.getlist("tags")
+        tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
         if tag_names:
             project.tags.set(_get_or_create_tags(tag_names))
         ProjectAllocation.objects.create(
@@ -291,9 +294,9 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             )
             psn.name = name
             psn.save(update_fields=["name"])
-        stream_names = request.POST.getlist("streams")
+        stream_names = [n for n in request.POST.getlist("streams") if "||" not in n and "\t" not in n]
         project.streams.set(_get_or_create_streams(stream_names))
-        tag_names = request.POST.getlist("tags")
+        tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
         project.tags.set(_get_or_create_tags(tag_names))
         _apply_lead_fields(project, request)
         _apply_continuation(project, request)

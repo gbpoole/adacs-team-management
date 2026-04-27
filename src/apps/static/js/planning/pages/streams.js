@@ -11,5 +11,6 @@
     openFunctionName: "openEditStream",
     confirmDeleteFunctionName: "confirmDeleteStream",
     defaultDeleteConfirm: "Delete this stream?",
+    addFormId: "add-stream-form",
   });
 })();

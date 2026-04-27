@@ -11,5 +11,6 @@
     openFunctionName: "openEditTag",
     confirmDeleteFunctionName: "confirmDeleteTag",
     defaultDeleteConfirm: "Delete this tag?",
+    addFormId: "add-tag-form",
   });
 })();

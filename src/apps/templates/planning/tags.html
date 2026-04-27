@@ -49,7 +49,7 @@
 <dialog id="add-tag-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Tag" %}</h3>
-    <form method="post" action="{% url 'planning:tag_add' %}">
+    <form id="add-tag-form" method="post" action="{% url 'planning:tag_add' %}" hx-boost="false">
       {% csrf_token %}
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>

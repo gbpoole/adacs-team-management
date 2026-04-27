@@ -441,7 +441,12 @@
     if (!input) {
       return;
     }
-    addTagButton("edit-dev-tag-buttons", input.value.trim());
+    var name = input.value.trim();
+    if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+      alert("Tag name may not contain '||' or tab characters.");
+      return;
+    }
+    addTagButton("edit-dev-tag-buttons", name);
     input.value = "";
     input.focus();
   };

@@ -221,6 +221,7 @@ class DeveloperUpdateView(RoleRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         profile = get_object_or_404(DeveloperProfile, pk=pk)
         tag_names = request.POST.getlist("tags")
+        tag_names = [n for n in tag_names if "||" not in n and "\t" not in n]
         tags = _get_or_create_tags(tag_names)
         semester = get_selected_semester(request)
         # Update semester-specific tags

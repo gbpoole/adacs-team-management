@@ -80,7 +80,7 @@
 <dialog id="add-observer-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Observer Access" %}</h3>
-    <form method="post" action="{% url 'planning:observer_add' %}">
+    <form method="post" action="{% url 'planning:observer_add' %}" hx-boost="false">
       {% csrf_token %}
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Person" %} <span class="text-error">*</span></label>

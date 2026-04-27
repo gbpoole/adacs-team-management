@@ -89,6 +89,14 @@
 
       form.addEventListener("submit", function (event) {
         event.preventDefault();
+        var nameInput = document.getElementById(opts.editNameInputId);
+        if (nameInput) {
+          var name = nameInput.value;
+          if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+            alert("Name may not contain '||' or tab characters.");
+            return;
+          }
+        }
         postAndReload(
           this.action,
           new FormData(this),
@@ -96,6 +104,22 @@
           label("saveFailed", "Save failed."),
         );
       });
+
+      if (opts.addFormId) {
+        var addForm = document.getElementById(opts.addFormId);
+        if (addForm) {
+          addForm.addEventListener("submit", function (event) {
+            var nameInput = addForm.querySelector('input[name="name"]');
+            if (nameInput) {
+              var name = nameInput.value;
+              if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+                event.preventDefault();
+                alert("Name may not contain '||' or tab characters.");
+              }
+            }
+          });
+        }
+      }
     },
   };
 })();

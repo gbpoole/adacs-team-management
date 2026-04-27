@@ -237,22 +237,30 @@
     container.appendChild(labelEl);
   }
 
+  function validateNameInput(name, kind) {
+    if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+      alert(kind + " name may not contain '||' or tab characters.");
+      return false;
+    }
+    return true;
+  }
+
   window.projAddStream = function () {
     var input = document.getElementById("proj-new-stream");
-    if (!input) {
-      return;
-    }
-    addCheckboxButton("proj-stream-buttons", "streams", input.value.trim());
+    if (!input) { return; }
+    var name = input.value.trim();
+    if (!validateNameInput(name, "Stream")) { return; }
+    addCheckboxButton("proj-stream-buttons", "streams", name);
     input.value = "";
     input.focus();
   };
 
   window.projAddTag = function () {
     var input = document.getElementById("proj-new-tag");
-    if (!input) {
-      return;
-    }
-    addCheckboxButton("proj-tag-buttons", "tags", input.value.trim());
+    if (!input) { return; }
+    var name = input.value.trim();
+    if (!validateNameInput(name, "Tag")) { return; }
+    addCheckboxButton("proj-tag-buttons", "tags", name);
     input.value = "";
     input.focus();
   };
@@ -306,20 +314,20 @@
 
   window.editProjAddStream = function () {
     var input = document.getElementById("edit-proj-new-stream");
-    if (!input) {
-      return;
-    }
-    addCheckboxButton("edit-proj-stream-buttons", "streams", input.value.trim());
+    if (!input) { return; }
+    var name = input.value.trim();
+    if (!validateNameInput(name, "Stream")) { return; }
+    addCheckboxButton("edit-proj-stream-buttons", "streams", name);
     input.value = "";
     input.focus();
   };
 
   window.editProjAddTag = function () {
     var input = document.getElementById("edit-proj-new-tag");
-    if (!input) {
-      return;
-    }
-    addCheckboxButton("edit-proj-tag-buttons", "tags", input.value.trim());
+    if (!input) { return; }
+    var name = input.value.trim();
+    if (!validateNameInput(name, "Tag")) { return; }
+    addCheckboxButton("edit-proj-tag-buttons", "tags", name);
     input.value = "";
     input.focus();
   };
@@ -741,12 +749,34 @@
       if (editForm) {
         editForm.addEventListener("submit", function (event) {
           event.preventDefault();
+          var nameInput = document.getElementById("edit-project-name");
+          if (nameInput) {
+            var name = nameInput.value;
+            if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+              alert("Project name may not contain '||' or tab characters.");
+              return;
+            }
+          }
           postAndReload(
             this.action,
             new FormData(this),
             label("saveFailedStatus", "Save failed"),
             label("saveFailed", "Save failed."),
           );
+        });
+      }
+
+      var addForm = document.getElementById("add-project-form");
+      if (addForm) {
+        addForm.addEventListener("submit", function (event) {
+          var nameInput = document.getElementById("add-project-name");
+          if (nameInput) {
+            var name = nameInput.value;
+            if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+              event.preventDefault();
+              alert("Project name may not contain '||' or tab characters.");
+            }
+          }
         });
       }
     }
