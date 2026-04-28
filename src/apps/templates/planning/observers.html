@@ -49,20 +49,20 @@
           <td>{{ obs.user.organisation|default:"—" }}</td>
           <td>
             {% if obs.all_project_access %}
-              <span class="badge badge-sm badge-ghost text-neutral-400">{% trans "All projects" %}</span>
+              <span class="text-sm font-medium text-neutral-400">{% trans "All projects" %}</span>
             {% else %}
               {% for name, colour in obs.project_pills %}
               <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-              {% empty %}<span class="badge badge-sm bg-neutral-400 text-white border-neutral-400">{% trans "No projects" %}</span>{% endfor %}
+              {% empty %}—{% endfor %}
             {% endif %}
           </td>
           <td>
             {% if obs.all_stream_access %}
-              <span class="badge badge-sm badge-ghost text-neutral-400">{% trans "All streams" %}</span>
+              <span class="text-sm font-medium text-neutral-400">{% trans "All streams" %}</span>
             {% else %}
               {% for name, colour in obs.stream_pills %}
               <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-              {% empty %}<span class="badge badge-sm bg-neutral-400 text-white border-neutral-400">{% trans "No streams" %}</span>{% endfor %}
+              {% empty %}—{% endfor %}
             {% endif %}
           </td>
         </tr>
