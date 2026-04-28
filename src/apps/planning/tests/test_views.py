@@ -2474,7 +2474,7 @@ class PersonUpdateViewTests(PlanningTestCase):
     def test_pm_can_update_tags(self):
         tag = TagFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {"base_effort_weeks": "20", "tags": [tag.pk]})
+        self.client.post(self.url, {"base_effort_weeks": "20", "tags": [tag.name]})
         self.assertIn(tag, self.dev.tags.all())
 
     def test_developer_denied(self):

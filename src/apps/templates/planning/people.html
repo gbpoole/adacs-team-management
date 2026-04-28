@@ -69,9 +69,9 @@
             onclick="openEditPerson(this)"
             data-pk="{{ person.pk }}"
             data-effort="{% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks|floatformat:1 }}{% else %}20.0{% endif %}"
-            data-tags="{% if person.developer_profile %}{% for t in person.developer_profile.tags.all %}{{ t.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
+            data-tags="{% if person.developer_profile %}{% for t in person.developer_profile.tags.all %}{{ t.name }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
             data-projects="{% if person.access_policy_record %}{% for p in person.access_policy_record.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
-            data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
+            data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
             data-all-projects="{% if person.access_policy_record and person.access_policy_record.all_project_access %}true{% else %}false{% endif %}"
             data-all-streams="{% if person.access_policy_record and person.access_policy_record.all_stream_access %}true{% else %}false{% endif %}"{% endif %}
             data-name="{{ person.name|default:'' }}"
@@ -141,10 +141,14 @@
           <div id="edit-person-tag-buttons" class="flex flex-wrap gap-2 mt-1">
             {% for tag in all_tags %}
             <label class="btn btn-sm btn-outline cursor-pointer">
-              <input type="checkbox" name="tags" value="{{ tag.pk }}" class="hidden">
+              <input type="checkbox" name="tags" value="{{ tag.name }}" class="hidden">
               {{ tag.name }}
             </label>
             {% endfor %}
+          </div>
+          <div class="flex gap-2 mt-2">
+            <input type="text" id="edit-person-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1">
+            <button type="button" class="btn btn-sm btn-ghost" onclick="personAddTag()">+ {% trans "Add" %}</button>
           </div>
         </div>
         {% endif %}
@@ -162,10 +166,14 @@
           <div id="edit-person-stream-buttons" class="flex flex-wrap gap-2 mt-1">
             {% for stream in all_streams %}
             <label class="btn btn-sm btn-outline cursor-pointer">
-              <input type="checkbox" name="stream_access" value="{{ stream.pk }}" class="hidden">
+              <input type="checkbox" name="stream_access" value="{{ stream.name }}" class="hidden">
               {{ stream.name }}
             </label>
             {% endfor %}
+          </div>
+          <div class="flex gap-2 mt-2">
+            <input type="text" id="edit-person-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1">
+            <button type="button" class="btn btn-sm btn-ghost" onclick="personAddStream()">+ {% trans "Add" %}</button>
           </div>
         </div>
         {% endif %}

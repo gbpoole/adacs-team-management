@@ -131,6 +131,62 @@
     applySort();
   }
 
+  function addCheckboxButton(containerId, inputName, name) {
+    if (!name) { return; }
+    var container = document.getElementById(containerId);
+    if (!container) { return; }
+    var safeName = name.replace(/"/g, "\\\"");
+    var existing = container.querySelector('input[name="' + inputName + '"][value="' + safeName + '"]');
+    if (existing) {
+      existing.checked = true;
+      existing.dispatchEvent(new Event("change"));
+      return;
+    }
+    var labelEl = document.createElement("label");
+    labelEl.className = "btn btn-sm btn-primary cursor-pointer";
+    var cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.name = inputName;
+    cb.value = name;
+    cb.checked = true;
+    cb.className = "hidden";
+    cb.addEventListener("change", function () {
+      labelEl.classList.toggle("btn-primary", cb.checked);
+      labelEl.classList.toggle("btn-outline", !cb.checked);
+    });
+    labelEl.appendChild(cb);
+    labelEl.appendChild(document.createTextNode(name));
+    container.appendChild(labelEl);
+  }
+
+  window.personAddTag = function () {
+    var input = document.getElementById("edit-person-new-tag");
+    if (!input) { return; }
+    var name = input.value.trim();
+    if (!name) { return; }
+    if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+      alert("Tag name may not contain '||' or tab characters.");
+      return;
+    }
+    addCheckboxButton("edit-person-tag-buttons", "tags", name);
+    input.value = "";
+    input.focus();
+  };
+
+  window.personAddStream = function () {
+    var input = document.getElementById("edit-person-new-stream");
+    if (!input) { return; }
+    var name = input.value.trim();
+    if (!name) { return; }
+    if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+      alert("Stream name may not contain '||' or tab characters.");
+      return;
+    }
+    addCheckboxButton("edit-person-stream-buttons", "stream_access", name);
+    input.value = "";
+    input.focus();
+  };
+
   function initCheckboxButtons(containerId) {
     var container = document.getElementById(containerId);
     if (!container) {
@@ -167,11 +223,11 @@
         effortEl.value = row.dataset.effort || "";
       }
 
-      var tagPks = row.dataset.tags ? row.dataset.tags.split(",").filter(Boolean) : [];
+      var tagNames = row.dataset.tags ? row.dataset.tags.split(",").filter(Boolean) : [];
       document
         .querySelectorAll('#edit-person-tag-buttons input[type="checkbox"]')
         .forEach(function (cb) {
-          cb.checked = tagPks.indexOf(cb.value) !== -1;
+          cb.checked = tagNames.indexOf(cb.value) !== -1;
           cb.dispatchEvent(new Event("change"));
         });
 
@@ -183,13 +239,13 @@
         });
       }
 
-      var streamPks = row.dataset.streams
+      var streamNames = row.dataset.streams
         ? row.dataset.streams.split(",").filter(Boolean)
         : [];
       document
         .querySelectorAll('#edit-person-stream-buttons input[type="checkbox"]')
         .forEach(function (cb) {
-          cb.checked = streamPks.indexOf(cb.value) !== -1;
+          cb.checked = streamNames.indexOf(cb.value) !== -1;
           cb.dispatchEvent(new Event("change"));
         });
 
@@ -250,6 +306,26 @@
     initCheckboxButtons("edit-person-tag-buttons");
     initCheckboxButtons("edit-person-stream-buttons");
     initEditModal();
+
+    var newTagInput = document.getElementById("edit-person-new-tag");
+    if (newTagInput) {
+      newTagInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          window.personAddTag();
+        }
+      });
+    }
+
+    var newStreamInput = document.getElementById("edit-person-new-stream");
+    if (newStreamInput) {
+      newStreamInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          window.personAddStream();
+        }
+      });
+    }
   }
 
   if (document.readyState === "loading") {
