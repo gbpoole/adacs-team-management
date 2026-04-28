@@ -77,9 +77,9 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     1,
                 )
                 ctx["my_phases"] = my_phases
-                ctx["my_current_phase"] = next(
-                    (ph for ph in my_phases if ph.start_date <= today <= ph.end_date), None
-                )
+                ctx["my_current_phases"] = [
+                    ph for ph in my_phases if ph.start_date <= today <= ph.end_date
+                ]
                 ctx["my_next_phase"] = next(
                     (ph for ph in my_phases if ph.start_date > today), None
                 )

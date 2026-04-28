@@ -109,20 +109,43 @@
   </div>
 
   {# ── Right now / Up next highlight ── #}
-  {% if my_current_phase %}
+  {% if my_current_phases %}
   <div class="card mb-4 border border-amber-300 bg-amber-50">
     <div class="card-body py-3 px-5">
+      {% if my_current_phases|length == 1 %}
+      {% with ph=my_current_phases.0 %}
       <div class="flex items-center gap-3 flex-wrap">
-        <span class="inline-block w-3 h-3 rounded-full shrink-0" style="background-color: {{ my_current_phase.project.colour }};"></span>
-        <span class="font-semibold">{% trans "Currently working on" %} {{ my_current_phase.display_name }}</span>
-        {% if my_current_phase.is_dev_lead %}
+        <span class="inline-block w-3 h-3 rounded-full shrink-0" style="background-color: {{ ph.project.colour }};"></span>
+        <span class="font-semibold">{% trans "Currently working on" %} {{ ph.display_name }}</span>
+        {% if ph.is_dev_lead %}
         <span class="badge badge-sm" style="background-color:#0ea5e9;color:white;border-color:#0ea5e9;">{% trans "Dev Lead" %}</span>
         {% endif %}
-        {% if my_current_phase.is_science_lead %}
+        {% if ph.is_science_lead %}
         <span class="badge badge-sm" style="background-color:#8b5cf6;color:white;border-color:#8b5cf6;">{% trans "Science Lead" %}</span>
         {% endif %}
-        <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ my_current_phase.end_date }}</span>
+        {% if ph.effort_multiplier != 1.0 %}<span class="text-sm text-neutral-500">{{ ph.effort_multiplier|floatformat }} FTE</span>{% endif %}
+        <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ ph.end_date }}</span>
       </div>
+      {% endwith %}
+      {% else %}
+      <div class="font-semibold mb-2">{% trans "Currently working on:" %}</div>
+      <div class="flex flex-col gap-2">
+        {% for ph in my_current_phases %}
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="inline-block w-3 h-3 rounded-full shrink-0" style="background-color: {{ ph.project.colour }};"></span>
+          <span class="font-medium">{{ ph.display_name }}</span>
+          {% if ph.is_dev_lead %}
+          <span class="badge badge-sm" style="background-color:#0ea5e9;color:white;border-color:#0ea5e9;">{% trans "Dev Lead" %}</span>
+          {% endif %}
+          {% if ph.is_science_lead %}
+          <span class="badge badge-sm" style="background-color:#8b5cf6;color:white;border-color:#8b5cf6;">{% trans "Science Lead" %}</span>
+          {% endif %}
+          {% if ph.effort_multiplier != 1.0 %}<span class="text-sm text-neutral-500">{{ ph.effort_multiplier|floatformat }} FTE</span>{% endif %}
+          <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ ph.end_date }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
   </div>
   {% elif my_next_phase %}
