@@ -87,6 +87,20 @@
         );
       };
 
+      if (opts.addModalId) {
+        var addDialog = document.getElementById(opts.addModalId);
+        if (addDialog) {
+          addDialog.addEventListener("close", function () {
+            var addForm = addDialog.querySelector("form[method='post']");
+            if (addForm) { addForm.reset(); }
+            document.querySelectorAll("#" + opts.addSwatchesId + " .colour-swatch").forEach(function (el) {
+              el.style.outline = "none";
+              el.style.outlineOffset = "0";
+            });
+          });
+        }
+      }
+
       form.addEventListener("submit", function (event) {
         event.preventDefault();
         var nameInput = document.getElementById(opts.editNameInputId);
@@ -105,21 +119,6 @@
         );
       });
 
-      if (opts.addFormId) {
-        var addForm = document.getElementById(opts.addFormId);
-        if (addForm) {
-          addForm.addEventListener("submit", function (event) {
-            var nameInput = addForm.querySelector('input[name="name"]');
-            if (nameInput) {
-              var name = nameInput.value;
-              if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
-                event.preventDefault();
-                alert("Name may not contain '||' or tab characters.");
-              }
-            }
-          });
-        }
-      }
     },
   };
 })();

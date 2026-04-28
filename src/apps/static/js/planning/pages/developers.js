@@ -570,6 +570,24 @@
         });
       }
 
+      var addDevModal = document.getElementById("add-developer-modal");
+      if (addDevModal) {
+        addDevModal.addEventListener("close", function () {
+          var form = document.getElementById("add-developer-form");
+          if (form) {
+            form.reset();
+            form.querySelectorAll("input.input-error").forEach(function (el) {
+              el.classList.remove("input-error");
+            });
+          }
+          var errDiv = document.getElementById("add-dev-effort-error");
+          if (errDiv) { errDiv.classList.add("hidden"); }
+          document.querySelectorAll("#add-dev-list .add-dev-item").forEach(function (el) {
+            el.style.display = "";
+          });
+        });
+      }
+
       var migrateModal = document.getElementById("migrate-developer-modal");
       if (migrateModal) {
         migrateModal.addEventListener("close", function () {

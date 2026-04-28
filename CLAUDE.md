@@ -55,9 +55,15 @@ docker compose exec django poetry run python manage.py seed_test_data
 ```
 
 **Docker — picking up source code changes:**
-Source code is baked into the image at build time (`COPY src /app/src`). There is no live volume mount. After any code change, rebuild before testing in Docker:
+Source code is baked into the image at build time (`COPY src /app/src`). There is no live volume mount. After any code change, rebuild before testing in Docker.
+
+The `nginx` container bakes in static files (JS, CSS, hashed filenames) independently from the `django` container. You must rebuild **both** when JS, CSS, or templates change:
 ```bash
+# Python/Django-only changes (models, views, URL conf, etc.):
 docker compose build django && docker compose up -d django
+
+# JS, CSS, or template changes — nginx serves static files baked in at build time:
+docker compose build django nginx && docker compose up -d django nginx
 ```
 
 ## Architecture
@@ -68,7 +74,7 @@ docker compose build django && docker compose up -d django
 - **Auth:** django-allauth with email-only login (no username), mandatory email verification
 
 ### App structure
-- `src/apps/users/` — custom `User` model (email-based, no username) with `Role` choices: `pm`, `user` (default). Developer/observer access is determined by `SemesterDeveloper`/`SemesterObserver` records, not by the role field.
+- `src/apps/users/` — custom `User` model (email-based, no username) with `Role` choices: `pm`, `user` (default). Developer access is determined by `SemesterDeveloper` records; observer-style restricted access is determined by `UserProjectAccess` records, not by the role field.
 - `src/apps/planning/` — all domain logic, models, views, templates, tests
 - `src/config/` — settings (base/development/test/prod), URL conf, API router
 
@@ -77,31 +83,36 @@ docker compose build django && docker compose up -d django
 - **`Semester`** — year + type (A=Jan-Jun, B=Jul-Dec); `Semester.get_current()` auto-creates if missing
 - **`Project`** — belongs to `Stream`(s), has colour, tags, and per-semester names via `ProjectSemesterName`; `project.name_for_semester(semester)` resolves the display name with fallback
 - **`ProjectAllocation`** — weeks (new + carryover) per project per semester
-- **`SemesterDeveloper`** — effort available (weeks) per developer per semester; mutually exclusive with `SemesterObserver` for the same user+semester
-- **`SemesterObserver`** — per-semester observer access record; grants a user view access to specific projects and/or streams; mutually exclusive with `SemesterDeveloper`
+- **`SemesterDeveloper`** — effort available (weeks) per developer per semester
+- **`SemesterObserver`** — legacy per-semester observer record (still in DB schema); access control now uses `UserProjectAccess` instead
+- **`UserProjectAccess`** — global (not per-semester) project/stream visibility policy for a user; absence of a row means unrestricted access; a row with both access sets empty and no `all_*` flag means no access; team membership (phases, dev/science lead) is always OR'd into the visible set; this is the primary access-control model for non-developer users
 - **`Leave`** — date ranges for a developer; affects `Phase.effort_weeks()` calculation
 - **`Phase`** — a developer working on a project for a date range within a semester; `effort_weeks()` counts working days minus leave, divided by 5, times `effort_multiplier`
 - **`DeveloperLane`** — a visual row on the Gantt for one developer in one semester; a developer can have multiple lanes when phases overlap
 - **`Tag`** — shared across developers and projects for filtering
 
 ### Access control
-Three mixins in `views/_mixins.py` gate access based on role + semester participation:
+Four mixins in `views/_mixins.py` gate access based on role + semester participation:
 - `RoleRequiredMixin` — restricts to `allowed_roles`; all write views use `allowed_roles = (Role.PM,)`
 - `PMOrDeveloperMixin` — PM always allowed; others only if they have a `SemesterDeveloper` record with `effort_available > 0`
-- `PMOrObserverMixin` — PM always allowed; others only if they have a `SemesterObserver` record
-- `PMOrParticipantMixin` — PM always allowed; others if they are either a semester developer or observer
+- `PMOrHasDeveloperProfileMixin` — PM/superuser always allowed; others if they have a `DeveloperProfile` (semester-independent)
+- `PMOrObserverMixin` — PM always allowed; others only if they have a `UserProjectAccess` record and are not a semester developer (i.e. observer-style restricted access)
+- `PMOrParticipantMixin` — PM always allowed; others if they are either a semester developer or have a `UserProjectAccess` record
 
 ### Views & URL structure (`/planning/`)
 URL namespace is `planning`.
 
 | URL | View | Access |
 |-----|------|--------|
-| `/planning/developers/` | `DevelopersView` | PM or semester developer |
+| `/planning/developers/` | `DevelopersView` | PM only |
 | `/planning/observers/` | `ObserversView` | PM only |
-| `/planning/projects/` | `ProjectsView` | PM or semester participant |
-| `/planning/leave/` | `LeaveView` | PM or semester developer |
-| `/planning/planning/` | `PlanningView` | PM only |
-| `/planning/schedule/` | `ScheduleView` | PM only |
+| `/planning/people/` | `PeopleView` | PM only |
+| `/planning/tags/` | `TagsView` | PM only |
+| `/planning/streams/` | `StreamsView` | PM only |
+| `/planning/projects/` | `ProjectsView` | Any authenticated user (filtered by `UserProjectAccess` policy) |
+| `/planning/schedule/` | `ScheduleView` | Any authenticated user (filtered by `UserProjectAccess` policy) |
+| `/planning/leave/` | `LeaveView` | PM or user with a `DeveloperProfile` |
+| `/planning/planning/` | `PlanningView` | PM or semester developer |
 
 The Planning and Schedule pages render week-by-week Gantt-style timelines. The shared helpers `_week_starts`, `_coverage`, and `_build_timeline_layers` in `views.py` build the grid data passed to templates. Phases are placed into non-overlapping layers; leave periods fill gaps between phases.
 

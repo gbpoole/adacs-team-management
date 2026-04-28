@@ -107,6 +107,18 @@
     }
     initAllCheckbox("add-all-projects", "add-observer-projects");
     initAllCheckbox("add-all-streams", "add-observer-streams");
+
+    var addObserverDialog = document.getElementById("add-observer-modal");
+    if (addObserverDialog) {
+      addObserverDialog.addEventListener("close", function () {
+        var form = document.getElementById("add-observer-form");
+        if (form) { form.reset(); }
+        var projSel = document.getElementById("add-observer-projects");
+        if (projSel) { projSel.disabled = false; }
+        var streamSel = document.getElementById("add-observer-streams");
+        if (streamSel) { streamSel.disabled = false; }
+      });
+    }
   }
 
   if (document.readyState === "loading") {

@@ -202,7 +202,7 @@
       });
   }
 
-  function addCheckboxButton(containerId, fieldName, name) {
+  function addCheckboxButton(containerId, fieldName, name, isDynamic) {
     if (!name) {
       return;
     }
@@ -222,6 +222,7 @@
 
     var labelEl = document.createElement("label");
     labelEl.className = "btn btn-sm btn-primary cursor-pointer";
+    if (isDynamic) { labelEl.dataset.dynamic = "true"; }
     var cb = document.createElement("input");
     cb.type = "checkbox";
     cb.name = fieldName;
@@ -250,7 +251,7 @@
     if (!input) { return; }
     var name = input.value.trim();
     if (!validateNameInput(name, "Stream")) { return; }
-    addCheckboxButton("proj-stream-buttons", "streams", name);
+    addCheckboxButton("proj-stream-buttons", "streams", name, true);
     input.value = "";
     input.focus();
   };
@@ -260,7 +261,7 @@
     if (!input) { return; }
     var name = input.value.trim();
     if (!validateNameInput(name, "Tag")) { return; }
-    addCheckboxButton("proj-tag-buttons", "tags", name);
+    addCheckboxButton("proj-tag-buttons", "tags", name, true);
     input.value = "";
     input.focus();
   };
@@ -665,6 +666,21 @@
     });
   };
 
+  window.submitAddProject = function () {
+    var form = document.getElementById("add-project-form");
+    if (!form) { return; }
+    var nameInput = document.getElementById("add-project-name");
+    if (nameInput) {
+      var name = nameInput.value.trim();
+      if (!name) { alert("Project name is required."); return; }
+      if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
+        alert("Project name may not contain '||' or tab characters.");
+        return;
+      }
+    }
+    form.submit();
+  };
+
   window.openMigrateProjects = function () {
     if (!hasContinuationSemesters) {
       return;
@@ -695,11 +711,44 @@
       });
   };
 
+  function resetAddProjectModal() {
+    var form = document.getElementById("add-project-form");
+    if (form) { form.reset(); }
+    // Remove dynamically added stream/tag buttons
+    document.querySelectorAll("#proj-stream-buttons [data-dynamic]").forEach(function (el) { el.remove(); });
+    document.querySelectorAll("#proj-tag-buttons [data-dynamic]").forEach(function (el) { el.remove(); });
+    // Uncheck all remaining checkbox buttons and sync visual state
+    ["proj-stream-buttons", "proj-tag-buttons"].forEach(function (id) {
+      document.querySelectorAll("#" + id + ' input[type="checkbox"]').forEach(function (cb) {
+        cb.checked = false;
+        var lbl = cb.closest("label");
+        if (lbl) { lbl.classList.remove("btn-primary"); lbl.classList.add("btn-outline"); }
+      });
+    });
+    // Reset sci lead UI to "people"
+    window.toggleSciLeadAdd("people");
+    var peopleRadio = document.querySelector('input[name="add_sci_lead_type"][value="people"]');
+    if (peopleRadio) { peopleRadio.checked = true; }
+    // Reset continuation selects
+    var contSem = document.getElementById("add-cont-semester");
+    if (contSem) { contSem.value = ""; }
+    var contProj = document.getElementById("add-cont-project");
+    if (contProj) {
+      contProj.innerHTML = '<option value="">' + label("selectProject", "— select project —") + "</option>";
+      contProj.disabled = true;
+    }
+  }
+
   function init() {
     initFilterPersistence();
     initSort();
     initCheckboxButtons("proj-stream-buttons");
     initCheckboxButtons("proj-tag-buttons");
+
+    var addProjectDialog = document.getElementById("add-project-modal");
+    if (addProjectDialog) {
+      addProjectDialog.addEventListener("close", resetAddProjectModal);
+    }
 
     var projStreamInput = document.getElementById("proj-new-stream");
     if (projStreamInput) {
@@ -766,19 +815,6 @@
         });
       }
 
-      var addForm = document.getElementById("add-project-form");
-      if (addForm) {
-        addForm.addEventListener("submit", function (event) {
-          var nameInput = document.getElementById("add-project-name");
-          if (nameInput) {
-            var name = nameInput.value;
-            if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
-              event.preventDefault();
-              alert("Project name may not contain '||' or tab characters.");
-            }
-          }
-        });
-      }
     }
   }
 
