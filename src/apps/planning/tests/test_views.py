@@ -189,12 +189,12 @@ class ObserversViewTests(PlanningTestCase):
         self.assertContains(response, "My Real Project")
         self.assertNotContains(response, f"Project #{project.pk}")
 
-    def test_observer_with_no_projects_shows_none(self):
+    def test_observer_with_no_projects_shows_dash(self):
         UserProjectAccessFactory()
         admin = PMUserFactory()
         self.client.force_login(admin)
         response = self.client.get(self.url)
-        self.assertContains(response, "No projects")
+        self.assertContains(response, "—")
 
 
 class ProjectsViewTests(PlanningTestCase):

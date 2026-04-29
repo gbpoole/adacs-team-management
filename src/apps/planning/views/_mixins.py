@@ -26,13 +26,17 @@ def _has_developer_profile(user):
 
 
 def _is_semester_developer(user, semester):
-    """True if the user has effort_available > 0 for this semester."""
+    """True if the user has effort_available > 0 for this semester, or is dev lead on any project in this semester."""
+    from apps.planning.models import Project
     from apps.planning.models import SemesterDeveloper
 
     return SemesterDeveloper.objects.filter(
         developer__user=user,
         semester=semester,
         effort_available__gt=0,
+    ).exists() or Project.objects.filter(
+        semester_names__semester=semester,
+        dev_lead=user,
     ).exists()
 
 
