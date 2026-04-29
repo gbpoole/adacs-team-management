@@ -78,7 +78,7 @@
 
 {# Add Observer Access modal #}
 <dialog id="add-observer-modal" class="modal">
-  <div class="modal-box">
+  <div class="modal-box w-11/12 max-w-2xl">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Observer Access" %}</h3>
     <form id="add-observer-form" method="post" action="{% url 'planning:observer_add' %}" hx-boost="false">
       {% csrf_token %}
@@ -93,13 +93,13 @@
       </div>
       <div class="flex gap-3 mb-4">
         {% if all_projects %}
-        <div class="form-control flex-1">
+        <div class="form-control flex-1 min-w-0">
           <label class="label label-text">{% trans "Project Access" %}</label>
           <label class="flex items-center gap-2 mb-1 cursor-pointer">
             <input type="checkbox" id="add-all-projects" name="all_project_access" class="checkbox checkbox-sm">
             <span class="text-sm">{% trans "All projects" %}</span>
           </label>
-          <select id="add-observer-projects" name="project_access" multiple class="select select-bordered h-36">
+          <select id="add-observer-projects" name="project_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
             {% for project in all_projects %}
             <option value="{{ project.pk }}">{{ project.display_name }}</option>
             {% endfor %}
@@ -108,13 +108,13 @@
         </div>
         {% endif %}
         {% if all_streams %}
-        <div class="form-control flex-1">
+        <div class="form-control flex-1 min-w-0">
           <label class="label label-text">{% trans "Stream Access" %}</label>
           <label class="flex items-center gap-2 mb-1 cursor-pointer">
             <input type="checkbox" id="add-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
             <span class="text-sm">{% trans "All streams" %}</span>
           </label>
-          <select id="add-observer-streams" name="stream_access" multiple class="select select-bordered h-36">
+          <select id="add-observer-streams" name="stream_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
             {% for stream in all_streams %}
             <option value="{{ stream.pk }}">{{ stream.name }}</option>
             {% endfor %}
@@ -134,7 +134,7 @@
 
 {# Edit Observer modal #}
 <dialog id="observer-edit-modal" class="modal">
-  <div class="modal-box">
+  <div class="modal-box w-11/12 max-w-2xl">
     <h3 id="edit-observer-name-heading" class="font-bold text-lg mb-1"></h3>
     <p class="text-sm text-neutral-500 mb-4">
       <span id="edit-observer-email-subheading"></span>
@@ -146,13 +146,13 @@
       <input type="hidden" id="edit-observer-id" value="">
       <div class="flex gap-3 mb-4">
         {% if all_projects %}
-        <div class="form-control flex-1">
+        <div class="form-control flex-1 min-w-0">
           <label class="label label-text">{% trans "Project Access" %}</label>
           <label class="flex items-center gap-2 mb-1 cursor-pointer">
             <input type="checkbox" id="edit-all-projects" name="all_project_access" class="checkbox checkbox-sm">
             <span class="text-sm">{% trans "All projects" %}</span>
           </label>
-          <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-36">
+          <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
             {% for project in all_projects %}
             <option value="{{ project.pk }}">{{ project.display_name }}</option>
             {% endfor %}
@@ -161,13 +161,13 @@
         </div>
         {% endif %}
         {% if all_streams %}
-        <div class="form-control flex-1">
+        <div class="form-control flex-1 min-w-0">
           <label class="label label-text">{% trans "Stream Access" %}</label>
           <label class="flex items-center gap-2 mb-1 cursor-pointer">
             <input type="checkbox" id="edit-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
             <span class="text-sm">{% trans "All streams" %}</span>
           </label>
-          <select id="edit-observer-streams" name="stream_access" multiple class="select select-bordered h-36">
+          <select id="edit-observer-streams" name="stream_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
             {% for stream in all_streams %}
             <option value="{{ stream.pk }}">{{ stream.name }}</option>
             {% endfor %}
