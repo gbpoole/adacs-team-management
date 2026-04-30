@@ -391,6 +391,8 @@
   <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
 </dialog>
 
+{% endif %}
+
 <script>
   window.planningPageConfig = {
     weeks: JSON.parse('{{ weeks_json|escapejs }}'),
@@ -413,5 +415,4 @@
   };
 </script>
 <script src="{% static 'js/planning/pages/planning.js' %}" defer></script>
-{% endif %}
 {% endblock %}
