@@ -170,4 +170,7 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
         ctx["can_edit"] = user.role == Role.PM or user.is_superuser
         ctx["projects"] = all_projects
         ctx["developers"] = devs
+        ctx["my_developer_pk"] = (
+            DeveloperProfile.objects.filter(user=user).values_list("pk", flat=True).first()
+        )
         return ctx

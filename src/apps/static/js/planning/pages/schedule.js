@@ -1,4 +1,6 @@
 (function () {
+  var cfg = window.schedulePageConfig || {};
+
   function safeLocalStorageSet(key, value) {
     try {
       localStorage.setItem(key, value);
@@ -89,9 +91,35 @@
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initFilterPersistence);
-  } else {
+  function initMyRowsFocus() {
+    var btn = document.getElementById("focus-my-rows-btn");
+    if (!btn) return;
+    var container = document.getElementById("schedule-scroll-container");
+    var storageKey = "schedule_focus_my_rows";
+    var active = safeLocalStorageGet(storageKey) === "1";
+    if (active && container) container.classList.add("focus-my-rows");
+    updateFocusBtn(btn, active);
+    btn.addEventListener("click", function () {
+      active = !active;
+      if (container) container.classList.toggle("focus-my-rows", active);
+      safeLocalStorageSet(storageKey, active ? "1" : "0");
+      updateFocusBtn(btn, active);
+    });
+  }
+
+  function updateFocusBtn(btn, active) {
+    btn.textContent = active ? "Show all rows" : "Focus my rows";
+    btn.classList.toggle("btn-active", active);
+  }
+
+  function init() {
     initFilterPersistence();
+    initMyRowsFocus();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
   }
 })();

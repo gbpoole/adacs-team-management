@@ -177,4 +177,7 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
         ctx["all_streams"] = Stream.objects.all() if not is_observer else []
         ctx["selected_tags"] = tag_filter
         ctx["selected_streams"] = stream_filter
+        ctx["my_developer_pk"] = (
+            DeveloperProfile.objects.filter(user=user).values_list("pk", flat=True).first()
+        )
         return ctx

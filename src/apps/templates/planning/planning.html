@@ -64,6 +64,11 @@
     </form>
     {% endif %}
     {% endif %}
+    {% if my_developer_pk %}
+    <div class="flex justify-end mb-2">
+      <button id="focus-my-rows-btn" type="button" class="btn btn-sm btn-ghost text-xs">{% trans "Focus my rows" %}</button>
+    </div>
+    {% endif %}
   </div>
 
   {# Timeline table #}
@@ -71,10 +76,10 @@
   <div id="planning-scroll-container" class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
     <table class="border-collapse" style="min-width: max-content; table-layout: fixed;">
       <thead>
-        <tr class="bg-base-100 sticky top-0 z-20">
-          <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left" style="width: 160px; min-width: 160px;">{% trans "Developer" %}</th>
+        <tr class="bg-base-100">
+          <th class="sticky left-0 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left" style="width: 160px; min-width: 160px;">{% trans "Developer" %}</th>
           {% for week in weeks %}
-          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center" style="width: 64px; min-width: 64px;{% if forloop.counter0 == today_col %} position: relative; overflow: visible;{% endif %}">
+          <th class="sticky top-0 z-20 bg-base-100 border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center" style="width: 64px; min-width: 64px;{% if forloop.counter0 == today_col %} position: relative; overflow: visible;{% endif %}">
             {{ week|date:"d M" }}
             {% if forloop.counter0 == today_col %}
             <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_day_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:1;"></div>
@@ -87,9 +92,9 @@
         {% for row in developer_rows %}
           {# ── Real lane rows ── #}
           {% for lane_row in row.lanes %}
-          <tr data-lane-pk="{{ lane_row.lane.pk }}">
+          <tr data-lane-pk="{{ lane_row.lane.pk }}"{% if my_developer_pk == row.developer.pk %} data-my-row="true"{% endif %}>
             {% if forloop.first %}
-            <td class="sticky left-0 bg-base-100 z-20 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
                 rowspan="{{ row.lane_count|add:1 }}" style="width: 160px;">
               <div class="flex items-center gap-1">
                 <span class="inline-block w-3 h-3 rounded-full shrink-0"
@@ -194,8 +199,8 @@
           </tr>
           {% empty %}
           {# Developer has no real lanes — phantom row carries the developer name cell #}
-          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}">
-            <td class="sticky left-0 bg-base-100 z-20 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
+          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}"{% if my_developer_pk == row.developer.pk %} data-my-row="true"{% endif %}>
+            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
                 rowspan="1" style="width: 160px;">
               <div class="flex items-center gap-1">
                 <span class="inline-block w-3 h-3 rounded-full shrink-0"
@@ -225,7 +230,7 @@
           {% endfor %}
           {# ── Phantom lane row (always shown after real lanes when there are any) ── #}
           {% if row.lane_count > 0 %}
-          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}">
+          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}"{% if my_developer_pk == row.developer.pk %} data-my-row="true"{% endif %}>
             <td colspan="{{ weeks|length }}"
                 class="lane-canvas p-0"
                 style="position: relative; height: 32px; overflow: visible;
@@ -268,6 +273,8 @@
 <style>
   .phase-bar:hover { z-index: 25 !important; }
   .phase-bar:hover .phase-delete-btn { display: flex !important; }
+  tr[data-my-row="true"] td { background-color: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+  .focus-my-rows tr:not([data-my-row="true"]) td { opacity: 0.25; }
 </style>
 
 {# Phase / Leave create modal #}
@@ -396,6 +403,7 @@
 <script>
   window.planningPageConfig = {
     weeks: JSON.parse('{{ weeks_json|escapejs }}'),
+    myDeveloperPk: {{ my_developer_pk|default:"null" }},
     developerNames: {
       {% for dev in developers %}'{{ dev.pk }}': '{{ dev.user.name|default:dev.user.email|escapejs }}',
       {% endfor %}

@@ -62,21 +62,25 @@
       </div>
       {% endif %}
     </form>
-    <script src="{% static 'js/planning/pages/schedule.js' %}" defer></script>
     {% endif %}
+    {% endif %}
+    {% if my_developer_pk %}
+    <div class="flex justify-end mb-2">
+      <button id="focus-my-rows-btn" type="button" class="btn btn-sm btn-ghost text-xs">{% trans "Focus my rows" %}</button>
+    </div>
     {% endif %}
   </div>
 
   {# Timeline table #}
   {% if weeks %}
-  <div class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
+  <div id="schedule-scroll-container" class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
     <table class="border-collapse" style="min-width: max-content;">
       <thead>
-        <tr class="bg-base-100 sticky top-0 z-20">
-          <th class="sticky left-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-48">{% trans "Project" %}</th>
-          <th class="sticky left-48 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-36">{% trans "Developer" %}</th>
+        <tr class="bg-base-100">
+          <th class="sticky left-0 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-48">{% trans "Project" %}</th>
+          <th class="sticky left-48 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-36">{% trans "Developer" %}</th>
           {% for week in weeks %}
-          <th class="border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16" {% if forloop.counter0 == today_col %}style="position: relative; overflow: visible;"{% endif %}>
+          <th class="sticky top-0 z-20 bg-base-100 border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16" {% if forloop.counter0 == today_col %}style="position: relative; overflow: visible;"{% endif %}>
             {{ week|date:"d M" }}
             {% if forloop.counter0 == today_col %}
             <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_day_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:1;"></div>
@@ -88,7 +92,7 @@
       <tbody>
         {% for row in project_rows %}
           {% for layer in row.layers %}
-          <tr>
+          <tr{% if my_developer_pk == layer.developer.pk %} data-my-row="true"{% endif %}>
             {% if forloop.first %}
             <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.status_rowspan }}">
               <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
@@ -159,4 +163,13 @@
   <p class="px-6 text-neutral-500">{% trans "No weeks in selected range." %}</p>
   {% endif %}
 </div>
+
+<style>
+  tr[data-my-row="true"] td { background-color: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+  .focus-my-rows tr:not([data-my-row="true"]) td { opacity: 0.25; }
+</style>
+<script>
+  window.schedulePageConfig = { myDeveloperPk: {{ my_developer_pk|default:"null" }} };
+</script>
+<script src="{% static 'js/planning/pages/schedule.js' %}" defer></script>
 {% endblock %}
