@@ -213,33 +213,25 @@
     }
   }
 
-  function initDoubleClickEditors() {
-    document.addEventListener("dblclick", function (event) {
-      var leaveBar = event.target.closest(".leave-bar");
-      if (leaveBar) {
-        var leaveForm = document.getElementById("leave-edit-form");
-        leaveForm.action = "/planning/leave/" + leaveBar.dataset.leaveId + "/update/";
-        document.getElementById("edit-leave-id").value = leaveBar.dataset.leaveId;
-        document.getElementById("leave-edit-start-date").value = leaveBar.dataset.startDate;
-        document.getElementById("leave-edit-end-date").value = leaveBar.dataset.endDate;
-        document.getElementById("leave-edit-modal").showModal();
-        return;
-      }
+  function openPhaseEditModal(phaseBar) {
+    var phaseForm = document.getElementById("phase-edit-form");
+    phaseForm.action = "/planning/phase/" + phaseBar.dataset.phaseId + "/edit/";
+    document.getElementById("edit-phase-id").value = phaseBar.dataset.phaseId;
+    document.getElementById("edit-phase-developer").value = phaseBar.dataset.developerId;
+    document.getElementById("edit-phase-project").value = phaseBar.dataset.projectId;
+    document.getElementById("edit-phase-start-date").value = phaseBar.dataset.startDate;
+    document.getElementById("edit-phase-end-date").value = phaseBar.dataset.endDate;
+    document.getElementById("edit-phase-effort").value = phaseBar.dataset.effortMultiplier;
+    document.getElementById("phase-edit-modal").showModal();
+  }
 
-      var phaseBar = event.target.closest(".phase-bar");
-      if (!phaseBar) {
-        return;
-      }
-      var phaseForm = document.getElementById("phase-edit-form");
-      phaseForm.action = "/planning/phase/" + phaseBar.dataset.phaseId + "/edit/";
-      document.getElementById("edit-phase-id").value = phaseBar.dataset.phaseId;
-      document.getElementById("edit-phase-developer").value = phaseBar.dataset.developerId;
-      document.getElementById("edit-phase-project").value = phaseBar.dataset.projectId;
-      document.getElementById("edit-phase-start-date").value = phaseBar.dataset.startDate;
-      document.getElementById("edit-phase-end-date").value = phaseBar.dataset.endDate;
-      document.getElementById("edit-phase-effort").value = phaseBar.dataset.effortMultiplier;
-      document.getElementById("phase-edit-modal").showModal();
-    });
+  function openLeaveEditModal(leaveBar) {
+    var leaveForm = document.getElementById("leave-edit-form");
+    leaveForm.action = "/planning/leave/" + leaveBar.dataset.leaveId + "/update/";
+    document.getElementById("edit-leave-id").value = leaveBar.dataset.leaveId;
+    document.getElementById("leave-edit-start-date").value = leaveBar.dataset.startDate;
+    document.getElementById("leave-edit-end-date").value = leaveBar.dataset.endDate;
+    document.getElementById("leave-edit-modal").showModal();
   }
 
   var createMode = "phase";
@@ -386,6 +378,7 @@
 
   function initLeaveMove() {
     var moving = null;
+    var hasMoved = false;
 
     document.addEventListener("mousedown", function (event) {
       var leaveBar = event.target.closest(".leave-bar");
@@ -403,6 +396,7 @@
       var colStart = parseInt(leaveBar.dataset.colStart, 10);
       var colEnd = parseInt(leaveBar.dataset.colEnd, 10);
 
+      hasMoved = false;
       moving = {
         leaveBar: leaveBar,
         span: colEnd - colStart + 1,
@@ -417,6 +411,7 @@
       if (!moving) {
         return;
       }
+      hasMoved = true;
       var anchorX = event.clientX - moving.dragOffsetX;
       var newCol = 0;
       for (var i = moving.wRects.length - 1; i >= 0; i -= 1) {
@@ -439,9 +434,15 @@
       }
       var leaveBar = moving.leaveBar;
       var origColStart = moving.origColStart;
+      var didMove = hasMoved;
       moving = null;
+      hasMoved = false;
       document.body.style.cursor = "";
 
+      if (!didMove) {
+        openLeaveEditModal(leaveBar);
+        return;
+      }
       var newColStart = parseInt(leaveBar.dataset.colStart, 10);
       if (newColStart === origColStart) {
         return;
@@ -648,6 +649,7 @@
 
   function initPhaseMove() {
     var moving = null;
+    var hasMoved = false;
 
     document.addEventListener("mousedown", function (event) {
       var phaseBar = event.target.closest(".phase-bar");
@@ -683,6 +685,7 @@
         };
       });
 
+      hasMoved = false;
       moving = {
         phaseBar: phaseBar,
         span: colEnd - colStart + 1,
@@ -702,6 +705,7 @@
       if (!moving) {
         return;
       }
+      hasMoved = true;
 
       var anchorX = event.clientX - moving.dragOffsetX;
       var newCol = 0;
@@ -741,8 +745,15 @@
         return;
       }
       var state = moving;
+      var didMove = hasMoved;
       moving = null;
+      hasMoved = false;
       document.body.style.cursor = "";
+
+      if (!didMove) {
+        openPhaseEditModal(state.phaseBar);
+        return;
+      }
 
       var newColStart = parseInt(state.phaseBar.dataset.colStart, 10);
       var laneChanged = state.currentLanePk !== state.origLanePk;
@@ -799,7 +810,6 @@
     initMyRowsFocus();
     initDeleteButtons();
     initEditForms();
-    initDoubleClickEditors();
     initCreateModal();
     initLeaveResize();
     initLeaveMove();
