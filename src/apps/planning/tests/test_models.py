@@ -13,7 +13,6 @@ from apps.planning.models import DeveloperLane
 from apps.planning.models import Leave
 from apps.planning.models import Phase
 from apps.planning.models import Project
-from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterType
@@ -28,7 +27,6 @@ from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
-from apps.planning.tests.factories import ProjectSemesterNameFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import UserProjectAccessFactory
@@ -106,50 +104,6 @@ class TestSemesterGetCurrent(TestCase):
             s1 = Semester.get_current()
             s2 = Semester.get_current()
         self.assertEqual(s1.pk, s2.pk)
-
-
-class TestProjectNameForSemester(TestCase):
-    def setUp(self):
-        self.sem_a = SemesterFactory(year=2026, semester_type=SemesterType.A)
-        self.sem_b = SemesterFactory(year=2026, semester_type=SemesterType.B)
-        self.project = ProjectFactory()
-
-    def test_returns_name_for_exact_semester(self):
-        ProjectSemesterNameFactory(
-            project=self.project,
-            semester=self.sem_a,
-            name="Alpha",
-        )
-        self.assertEqual(self.project.name_for_semester(self.sem_a), "Alpha")
-
-    def test_returns_fallback_for_later_semester(self):
-        ProjectSemesterNameFactory(
-            project=self.project,
-            semester=self.sem_a,
-            name="Alpha",
-        )
-        self.assertEqual(self.project.name_for_semester(self.sem_b), "Alpha")
-
-    def test_returns_placeholder_when_no_name(self):
-        name = self.project.name_for_semester(self.sem_a)
-        self.assertEqual(name, f"Project #{self.project.pk}")
-
-    def test_fallback_returns_most_recent_of_multiple_priors(self):
-        sem_2025a = SemesterFactory(year=2025, semester_type=SemesterType.A)
-        sem_2025b = SemesterFactory(year=2025, semester_type=SemesterType.B)
-        sem_2026b = SemesterFactory(year=2026, semester_type=SemesterType.B)
-        ProjectSemesterNameFactory(
-            project=self.project,
-            semester=sem_2025a,
-            name="Old Name",
-        )
-        ProjectSemesterNameFactory(
-            project=self.project,
-            semester=sem_2025b,
-            name="Newer Name",
-        )
-        # 2026B has no direct name; should fall back to 2025B, not 2025A
-        self.assertEqual(self.project.name_for_semester(sem_2026b), "Newer Name")
 
 
 class TestProjectAllocationTotalWeeks(TestCase):
@@ -780,50 +734,6 @@ class TestSemesterDeveloperModel(TestCase):
         pk = record.pk
         self.dev.delete()
         self.assertFalse(SemesterDeveloper.objects.filter(pk=pk).exists())
-
-
-# ---------------------------------------------------------------------------
-# ProjectSemesterName model
-# ---------------------------------------------------------------------------
-
-
-class TestProjectSemesterNameModel(TestCase):
-    def setUp(self):
-        self.sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
-        self.project = ProjectFactory()
-
-    def test_str_contains_name_and_semester(self):
-        psn = ProjectSemesterNameFactory(
-            project=self.project,
-            semester=self.sem,
-            name="My Project",
-        )
-        s = str(psn)
-        self.assertIn("My Project", s)
-        self.assertIn("2026A", s)
-
-    def test_unique_together_prevents_duplicate(self):
-        ProjectSemesterNameFactory(
-            project=self.project,
-            semester=self.sem,
-            name="First",
-        )
-        with self.assertRaises(IntegrityError):
-            ProjectSemesterName.objects.create(
-                project=self.project,
-                semester=self.sem,
-                name="Second",
-            )
-
-    def test_cascade_delete_with_project(self):
-        psn = ProjectSemesterNameFactory(
-            project=self.project,
-            semester=self.sem,
-            name="My Project",
-        )
-        pk = psn.pk
-        self.project.delete()
-        self.assertFalse(ProjectSemesterName.objects.filter(pk=pk).exists())
 
 
 class TestAssignColourIfBlank(TestCase):

@@ -35,7 +35,7 @@ def _is_semester_developer(user, semester):
         semester=semester,
         effort_available__gt=0,
     ).exists() or Project.objects.filter(
-        semester_names__semester=semester,
+        semester=semester,
         dev_lead=user,
     ).exists()
 
@@ -118,20 +118,20 @@ def _visible_project_ids_for_user(user, semester):
         Phase.objects.filter(
             developer__user=user,
             semester=semester,
-        ).values_list("project_id", flat=True)
+        ).values_list("project_id", flat=True),
     )
 
     # Team membership: dev lead or science lead (scoped to projects in this semester)
     lead_project_ids = set(
         Project.objects.filter(
-            semester_names__semester=semester,
+            semester=semester,
             dev_lead=user,
-        ).values_list("pk", flat=True)
+        ).values_list("pk", flat=True),
     ) | set(
         Project.objects.filter(
-            semester_names__semester=semester,
+            semester=semester,
             science_lead=user,
-        ).values_list("pk", flat=True)
+        ).values_list("pk", flat=True),
     )
 
     return direct_ids | via_stream_ids | phase_project_ids | lead_project_ids

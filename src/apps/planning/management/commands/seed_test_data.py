@@ -30,7 +30,6 @@ from apps.planning.models import Leave
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
-from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterObserver
@@ -117,7 +116,6 @@ class Command(BaseCommand):
             Leave.objects.all().delete()
             SemesterDeveloper.objects.all().delete()
             ProjectAllocation.objects.all().delete()
-            ProjectSemesterName.objects.all().delete()
             SemesterObserver.objects.all().delete()
             UserProjectAccess.objects.all().delete()
             DeveloperProfile.objects.all().delete()
@@ -199,60 +197,72 @@ class Command(BaseCommand):
         self.stdout.write(f"  {len(dev_profiles)} developers loaded.")
 
         # ── Projects ──────────────────────────────────────────────────────────
+        # Each project row creates two independent Project instances (one per semester),
+        # linked via continuation_of so sem_b continues from sem_a.
         self.stdout.write(f"Loading projects from {DATA_DIR / 'projects.tsv'} ...")
-        projects = []
+        projects_by_sem = {sem_a: [], sem_b: []}
         for row in proj_rows:
             name = row.get("name", "").strip()
             if not name:
                 continue
-            existing = ProjectSemesterName.objects.filter(
-                name=name, semester__in=[sem_a, sem_b],
-            ).first()
-            if existing:
-                project = existing.project
-            else:
-                project = Project()
-                project.save()
-                ProjectSemesterName.objects.get_or_create(
-                    project=project, semester=sem_a, defaults={"name": name},
-                )
-                ProjectSemesterName.objects.get_or_create(
-                    project=project, semester=sem_b, defaults={"name": name},
-                )
             stream_names = [
                 s.strip() for s in (row.get("streams") or "").split("||") if s.strip()
             ]
-            project.streams.set(_get_or_create_streams(stream_names))
             tag_names = [
                 t.strip() for t in (row.get("tags") or "").split("||") if t.strip()
             ]
-            if tag_names:
-                project.tags.set(_get_or_create_tags(tag_names))
-            for sem in [sem_a, sem_b]:
-                ProjectAllocation.objects.get_or_create(
-                    project=project,
-                    semester=sem,
-                    defaults={
-                        "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
-                        "weeks_carryover": 0,
-                    },
-                )
-            projects.append(project)
-        self.stdout.write(f"  {len(projects)} projects loaded.")
+            streams = _get_or_create_streams(stream_names)
+            tags = _get_or_create_tags(tag_names)
 
-        # Give the fixed observer account access to the first few projects
-        if projects:
+            proj_a, created_a = Project.objects.get_or_create(
+                name=name, semester=sem_a,
+            )
+            proj_a.streams.set(streams)
+            if tags:
+                proj_a.tags.set(tags)
+            ProjectAllocation.objects.get_or_create(
+                project=proj_a,
+                semester=sem_a,
+                defaults={
+                    "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
+                    "weeks_carryover": 0,
+                },
+            )
+            projects_by_sem[sem_a].append(proj_a)
+
+            proj_b, created_b = Project.objects.get_or_create(
+                name=name, semester=sem_b,
+                defaults={"continuation_of": proj_a},
+            )
+            if not proj_b.continuation_of:
+                proj_b.continuation_of = proj_a
+                proj_b.save(update_fields=["continuation_of"])
+            proj_b.streams.set(streams)
+            if tags:
+                proj_b.tags.set(tags)
+            ProjectAllocation.objects.get_or_create(
+                project=proj_b,
+                semester=sem_b,
+                defaults={
+                    "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
+                    "weeks_carryover": 0,
+                },
+            )
+            projects_by_sem[sem_b].append(proj_b)
+
+        projects = projects_by_sem[sem_a] + projects_by_sem[sem_b]
+        self.stdout.write(f"  {len(projects_by_sem[sem_a])} projects loaded (x2 semesters).")
+
+        # Give the fixed observer account access to the first few sem_a projects
+        if projects_by_sem[sem_a]:
             observer_access, _ = UserProjectAccess.objects.get_or_create(user=observer_user)
-            observer_access.project_access.set(projects[:3])
+            observer_access.project_access.set(projects_by_sem[sem_a][:3])
 
         # ── Observers ─────────────────────────────────────────────────────────
         self.stdout.write(f"Loading observers from {DATA_DIR / 'observers.tsv'} ...")
         obs_count = 0
-        # Build a name→project lookup for project_access resolution
-        project_by_name = {}
-        for p in projects:
-            for psn in p.semester_names.filter(semester__in=[sem_a, sem_b]):
-                project_by_name[psn.name] = p
+        # Build a name→project lookup for project_access resolution (use sem_a instances)
+        project_by_name = {p.name: p for p in projects_by_sem[sem_a]}
 
         for row in obs_rows:
             email = row.get("email", "").strip()
@@ -308,9 +318,9 @@ class Command(BaseCommand):
         self.stdout.write("Generating phases...")
         phase_count = 0
         sem_project_pairs = []
-        for sem in [sem_a, sem_b]:
+        for sem, sem_projects in [(sem_a, projects_by_sem[sem_a]), (sem_b, projects_by_sem[sem_b])]:
             for project in random.sample(
-                projects, k=min(MAX_PHASE_PROJECTS, len(projects)),
+                sem_projects, k=min(MAX_PHASE_PROJECTS, len(sem_projects)),
             ):
                 sem_project_pairs.append((sem, project))
 

@@ -65,11 +65,10 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 my_phases = list(
                     Phase.objects.filter(developer=profile, semester=semester)
                     .select_related("project", "project__dev_lead", "project__science_lead")
-                    .prefetch_related("project__semester_names")
                     .order_by("start_date"),
                 )
                 for ph in my_phases:
-                    ph.display_name = ph.project.name_for_semester(semester)
+                    ph.display_name = ph.project.name
                     ph.is_dev_lead = ph.project.dev_lead_id == user.pk
                     ph.is_science_lead = ph.project.science_lead_id == user.pk
                 ctx["my_effort_allocated"] = round(
@@ -81,7 +80,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     ph for ph in my_phases if ph.start_date <= today <= ph.end_date
                 ]
                 ctx["my_next_phase"] = next(
-                    (ph for ph in my_phases if ph.start_date > today), None
+                    (ph for ph in my_phases if ph.start_date > today), None,
                 )
                 ctx["my_upcoming_leave"] = Leave.objects.filter(
                     developer=profile,
@@ -98,7 +97,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
             visible_project_ids = _visible_project_ids_for_user(user, semester)
             if visible_project_ids is None:
                 ctx["my_project_count"] = Project.objects.filter(
-                    semester_names__semester=semester,
+                    semester=semester,
                 ).count()
             else:
                 ctx["my_project_count"] = len(visible_project_ids)

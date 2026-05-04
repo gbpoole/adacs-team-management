@@ -39,9 +39,9 @@ class ObserversView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = get_selected_semester(self.request)
         ctx["semester"] = semester
-        all_projects = list(Project.objects.prefetch_related("semester_names").all())
+        all_projects = list(Project.objects.all())
         for p in all_projects:
-            p.display_name = p.name_for_semester(semester)
+            p.display_name = p.name
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
         observer_pks = set(UserProjectAccess.objects.values_list("user_id", flat=True))
@@ -49,13 +49,13 @@ class ObserversView(RoleRequiredMixin, ListView):
             SemesterDeveloper.objects.filter(
                 semester=semester,
                 effort_available__gt=0,
-            ).values_list("developer__user_id", flat=True)
+            ).values_list("developer__user_id", flat=True),
         )
         dev_lead_pks = set(
             Project.objects.filter(
-                semester_names__semester=semester,
+                semester=semester,
                 dev_lead__isnull=False,
-            ).values_list("dev_lead_id", flat=True)
+            ).values_list("dev_lead_id", flat=True),
         )
         excluded_pks = observer_pks | developer_pks | dev_lead_pks
         User = get_user_model()

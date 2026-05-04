@@ -117,7 +117,7 @@
             <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
                   style="background-color: {{ project.colour }};"></span>
             {{ project.display_name }}
-            {% if project.continuation_of %}
+            {% if project.continuation_display_name %}
             <div class="text-xs text-neutral-400 mt-0.5 ml-5">↳ {{ project.continuation_display_name }}</div>
             {% endif %}
           </td>
@@ -247,10 +247,10 @@
           <input type="text" name="science_lead_name" placeholder="{% trans 'Enter name…' %}" class="input input-bordered w-full" autocomplete="off" data-lpignore="true" data-form-type="other">
         </div>
       </div>
-      {% if continuation_semesters %}
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Continuation of" %}</label>
         <div class="flex gap-2">
+          {% if continuation_semesters %}
           <select id="add-cont-semester" class="select select-bordered flex-1" onchange="updateAddContProjects()">
             <option value="">{% trans "— select semester —" %}</option>
             {% for sem in continuation_semesters %}
@@ -258,11 +258,18 @@
             {% endfor %}
           </select>
           <select id="add-cont-project" name="continuation_of" class="select select-bordered flex-1" disabled>
-            <option value="">{% trans "— select project —" %}</option>
+            <option value="">{% trans "— None —" %}</option>
           </select>
+          {% else %}
+          <select class="select select-bordered flex-1" disabled>
+            <option>{% trans "— no previous semesters —" %}</option>
+          </select>
+          <select class="select select-bordered flex-1" disabled>
+            <option value="">{% trans "— None —" %}</option>
+          </select>
+          {% endif %}
         </div>
       </div>
-      {% endif %}
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-project-modal').close()">{% trans "Cancel" %}</button>
         <button type="button" class="btn btn-primary" onclick="submitAddProject()">{% trans "Add" %}</button>
@@ -356,22 +363,31 @@
           <input id="edit-science-lead-name" type="text" name="science_lead_name" placeholder="{% trans 'Enter name…' %}" class="input input-bordered w-full" autocomplete="off" data-lpignore="true" data-form-type="other">
         </div>
       </div>
-      {% if continuation_semesters %}
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Continuation of" %}</label>
         <div class="flex gap-2">
+          {% if continuation_semesters %}
           <select id="edit-cont-semester" class="select select-bordered flex-1" onchange="updateEditContProjects()">
             <option value="">{% trans "— select semester —" %}</option>
             {% for sem in continuation_semesters %}
             <option value="{{ sem.pk }}">{{ sem }}</option>
             {% endfor %}
           </select>
-          <select id="edit-cont-project" name="continuation_of" class="select select-bordered flex-1" disabled>
-            <option value="">{% trans "— select project —" %}</option>
+          <select id="edit-cont-project" class="select select-bordered flex-1" disabled onchange="syncEditContHidden()">
+            <option value="">{% trans "— None —" %}</option>
           </select>
+          <input type="hidden" id="edit-cont-value" name="continuation_of" value="">
+          {% else %}
+          <select class="select select-bordered flex-1" disabled>
+            <option>{% trans "— no previous semesters —" %}</option>
+          </select>
+          <select class="select select-bordered flex-1" disabled>
+            <option value="">{% trans "— None —" %}</option>
+          </select>
+          <input type="hidden" name="continuation_of" value="">
+          {% endif %}
         </div>
       </div>
-      {% endif %}
       <div class="modal-action">
         <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmRemoveProject()">{% trans "Remove from Semester" %}</button>
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('project-edit-modal').close()">{% trans "Cancel" %}</button>
@@ -433,7 +449,7 @@
       download: "{% url 'planning:project_download' %}",
     },
     labels: {
-      selectProject: "{% trans '— select project —' %}",
+      selectProject: "{% trans '— None —' %}",
       saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
       saveFailedStatus: "{% trans 'Save failed' %}",
       removeFailed: "{% trans 'Remove failed. Please check your connection and try again.' %}",

@@ -5,7 +5,9 @@ import math
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -15,7 +17,6 @@ from django.views.generic import ListView
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
-from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import Stream
 from apps.planning.models import Tag
@@ -23,8 +24,6 @@ from apps.users.models import Role
 
 from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
-from django.contrib.auth.mixins import LoginRequiredMixin
-
 from ._mixins import RoleRequiredMixin
 from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
@@ -36,10 +35,9 @@ class ProjectsView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         semester = get_selected_semester(self.request)
-        # Only show projects with a name entry in the current semester
         qs = (
-            Project.objects.filter(semester_names__semester=semester)
-            .prefetch_related("tags", "streams", "semester_names")
+            Project.objects.filter(semester=semester)
+            .prefetch_related("tags", "streams")
             .select_related("dev_lead", "science_lead", "continuation_of")
         )
         visible_project_ids = _visible_project_ids_for_user(self.request.user, semester)
@@ -85,26 +83,24 @@ class ProjectsView(LoginRequiredMixin, ListView):
             )
 
         for project in ctx["projects"]:
-            project.display_name = project.name_for_semester(semester)
+            project.display_name = project.name
             project.effort_resourced = resourced_map.get(project.pk, 0)
             project.effort_allocated = round(allocated_map.get(project.pk, 0), 2)
             project.effort_discrepancy = round(
                 project.effort_resourced - project.effort_allocated,
                 2,
             )
-            if project.continuation_of:
-                project.continuation_display_name = (
-                    project.continuation_of.name_for_semester(semester)
-                )
-            else:
-                project.continuation_display_name = None
+            project.continuation_display_name = (
+                project.continuation_of.name if project.continuation_of else None
+            )
 
         # Build per-semester project data for continuation-of selectors and migration modal.
-        # Includes effort_resourced and effort_unallocated so the migrate modal can pre-fill weeks.
+        # Only past semesters are relevant (earlier year, or same year with earlier type).
         other_semesters = list(
-            Semester.objects.exclude(pk=semester.pk).order_by(
-                "-year", "-semester_type",
-            ),
+            Semester.objects.filter(
+                Q(year__lt=semester.year)
+                | Q(year=semester.year, semester_type__lt=semester.semester_type),
+            ).order_by("-year", "-semester_type"),
         )
 
         # Bulk-fetch allocations and phase totals for all other semesters
@@ -126,36 +122,33 @@ class ProjectsView(LoginRequiredMixin, ListView):
                 phase_by_sem_proj.get(key, 0) + phase.effort_weeks()
             )
 
-        # Projects in the current semester that already have a continuation_of link —
-        # exclude their targets from the migrate list so we don't double-migrate.
+        # Projects already targeted by some other project's continuation_of
+        # (each source project can only be continued by one other project).
         already_linked_pks = set(
-            Project.objects.filter(
-                semester_names__semester=semester,
-                continuation_of__isnull=False,
-            ).values_list("continuation_of_id", flat=True),
+            Project.objects.filter(continuations__isnull=False).values_list(
+                "pk", flat=True,
+            ),
         )
 
         continuation_map = {}
         for sem in other_semesters:
-            psns = (
-                ProjectSemesterName.objects.filter(semester=sem)
-                .select_related("project")
-                .prefetch_related("project__streams")
+            projects_in_sem = (
+                Project.objects.filter(semester=sem)
+                .prefetch_related("streams")
                 .order_by("name")
             )
             entries = []
-            for psn in psns:
-                if psn.project.pk in already_linked_pks:
-                    continue
-                w_res = alloc_by_sem_proj.get((sem.pk, psn.project.pk), 0)
-                w_alloc = round(phase_by_sem_proj.get((sem.pk, psn.project.pk), 0), 2)
+            for p in projects_in_sem:
+                w_res = alloc_by_sem_proj.get((sem.pk, p.pk), 0)
+                w_alloc = round(phase_by_sem_proj.get((sem.pk, p.pk), 0), 2)
                 entries.append(
                     {
-                        "pk": psn.project.pk,
-                        "name": psn.name,
+                        "pk": p.pk,
+                        "name": p.name,
                         "weeks_resourced": w_res,
                         "weeks_unallocated": round(max(0, w_res - w_alloc), 2),
-                        "streams": [s.name for s in psn.project.streams.all()],
+                        "streams": [s.name for s in p.streams.all()],
+                        "already_linked": p.pk in already_linked_pks,
                     },
                 )
             continuation_map[str(sem.pk)] = entries
@@ -182,15 +175,10 @@ class ProjectCreateView(RoleRequiredMixin, View):
         if effort_weeks is None:
             return redirect("planning:projects")
         semester = get_selected_semester(request)
-        project = Project()
+        project = Project(name=name, semester=semester)
         _apply_lead_fields(project, request)
         _apply_continuation(project, request)
         project.save()
-        ProjectSemesterName.objects.create(
-            project=project,
-            semester=semester,
-            name=name,
-        )
         stream_names = [n for n in request.POST.getlist("streams") if "||" not in n and "\t" not in n]
         project.streams.set(_get_or_create_streams(stream_names))
         tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
@@ -210,17 +198,16 @@ class ProjectDownloadView(RoleRequiredMixin, View):
 
     def get(self, request, *args, **kwargs):
         semester = get_selected_semester(request)
-        psns = (
-            ProjectSemesterName.objects.filter(semester=semester)
+        projects = (
+            Project.objects.filter(semester=semester)
             .select_related(
-                "project__dev_lead",
-                "project__science_lead",
-                "project__continuation_of",
+                "dev_lead",
+                "science_lead",
+                "continuation_of",
             )
             .prefetch_related(
-                "project__tags",
-                "project__streams",
-                "project__semester_names",
+                "tags",
+                "streams",
             )
             .order_by("name")
         )
@@ -243,8 +230,7 @@ class ProjectDownloadView(RoleRequiredMixin, View):
                 "continuation_of",
             ],
         )
-        for psn in psns:
-            p = psn.project
+        for p in projects:
             streams = "||".join(s.name for s in p.streams.all())
             tags = "||".join(t.name for t in p.tags.all())
             effort = resourced_map.get(p.pk, 0)
@@ -255,12 +241,8 @@ class ProjectDownloadView(RoleRequiredMixin, View):
             else:
                 sci = ""
             dev = (p.dev_lead.name or p.dev_lead.email) if p.dev_lead else ""
-            cont = (
-                p.continuation_of.name_for_semester(semester)
-                if p.continuation_of
-                else ""
-            )
-            writer.writerow([psn.name, streams, tags, effort, sci, dev, cont])
+            cont = p.continuation_of.name if p.continuation_of else ""
+            writer.writerow([p.name, streams, tags, effort, sci, dev, cont])
         response = HttpResponse(
             output.getvalue(),
             content_type="application/octet-stream",
@@ -276,7 +258,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         project = get_object_or_404(Project, pk=pk)
-        semester = get_selected_semester(request)
+        semester = project.semester
         effort_weeks = _parse_effort_weeks(
             request,
             request.POST.get("effort_resourced", "").strip(),
@@ -288,12 +270,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             if "||" in name or "\t" in name:
                 messages.error(request, "Project name may not contain '||' or tab characters.")
                 return redirect("planning:projects")
-            psn, _ = ProjectSemesterName.objects.get_or_create(
-                project=project,
-                semester=semester,
-            )
-            psn.name = name
-            psn.save(update_fields=["name"])
+            project.name = name
         stream_names = [n for n in request.POST.getlist("streams") if "||" not in n and "\t" not in n]
         project.streams.set(_get_or_create_streams(stream_names))
         tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
@@ -313,19 +290,12 @@ class ProjectUpdateView(RoleRequiredMixin, View):
         return redirect("planning:projects")
 
 
-# NOTE: Removes the project from the current semester only (deletes ProjectSemesterName and
-# ProjectAllocation for this semester). If the project has no remaining semester names, it is
-# deleted entirely to avoid orphaned records.
 class ProjectDeleteView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
         project = get_object_or_404(Project, pk=pk)
-        semester = get_selected_semester(request)
-        ProjectSemesterName.objects.filter(project=project, semester=semester).delete()
-        ProjectAllocation.objects.filter(project=project, semester=semester).delete()
-        if not project.semester_names.exists():
-            project.delete()
+        project.delete()
         return HttpResponse(status=204)
 
 
@@ -336,7 +306,7 @@ class ProjectMigrateView(RoleRequiredMixin, View):
         semester = get_selected_semester(request)
         source_semester_pk = request.POST.get("source_semester", "").strip()
         try:
-            source_semester = Semester.objects.get(pk=int(source_semester_pk))
+            Semester.objects.get(pk=int(source_semester_pk))
         except (Semester.DoesNotExist, ValueError):
             messages.error(request, "Select a valid source semester.")
             return redirect("planning:projects")
@@ -354,7 +324,7 @@ class ProjectMigrateView(RoleRequiredMixin, View):
             effort = _parse_effort_weeks(
                 request,
                 effort_str,
-                source.name_for_semester(source_semester),
+                source.name,
             )
             if effort is None:
                 return redirect("planning:projects")
@@ -363,6 +333,8 @@ class ProjectMigrateView(RoleRequiredMixin, View):
         with transaction.atomic():
             for source, effort in migration_rows:
                 new_project = Project(
+                    name=source.name,
+                    semester=semester,
                     continuation_of=source,
                     dev_lead=source.dev_lead,
                     science_lead=source.science_lead,
@@ -371,11 +343,6 @@ class ProjectMigrateView(RoleRequiredMixin, View):
                 new_project.save()
                 new_project.streams.set(source.streams.all())
                 new_project.tags.set(source.tags.all())
-                ProjectSemesterName.objects.create(
-                    project=new_project,
-                    semester=semester,
-                    name=source.name_for_semester(source_semester),
-                )
                 ProjectAllocation.objects.create(
                     project=new_project,
                     semester=semester,

@@ -287,6 +287,10 @@
     }
   };
 
+  // PK of the continuation_of project currently set on the project being edited.
+  // Used to keep the currently-linked project in the dropdown even if already_linked.
+  var currentEditContOfPk = null;
+
   function updateContProjects(semSelectId, projSelectId) {
     var semSel = document.getElementById(semSelectId);
     var projSel = document.getElementById(projSelectId);
@@ -294,10 +298,18 @@
       return;
     }
     var semPk = semSel.value;
+    var isEditModal = semSelectId === "edit-cont-semester";
     var placeholder = label("selectProject", "- select project -");
     projSel.innerHTML = '<option value="">' + placeholder + "</option>";
     if (semPk && continuationData[semPk]) {
       continuationData[semPk].forEach(function (project) {
+        // Filter out projects already linked to another continuation,
+        // unless this is the edit modal and it's the currently-set target.
+        if (project.already_linked) {
+          if (!isEditModal || String(project.pk) !== String(currentEditContOfPk)) {
+            return;
+          }
+        }
         var option = document.createElement("option");
         option.value = project.pk;
         option.textContent = project.name;
@@ -356,6 +368,15 @@
 
   window.updateEditContProjects = function () {
     updateContProjects("edit-cont-semester", "edit-cont-project");
+    var hidden = document.getElementById("edit-cont-value");
+    var projSel = document.getElementById("edit-cont-project");
+    if (hidden && projSel) hidden.value = projSel.value;
+  };
+
+  window.syncEditContHidden = function () {
+    var hidden = document.getElementById("edit-cont-value");
+    var projSel = document.getElementById("edit-cont-project");
+    if (hidden && projSel) hidden.value = projSel.value;
   };
 
   window.openEditProject = function (row) {
@@ -405,10 +426,15 @@
 
     var editContSem = document.getElementById("edit-cont-semester");
     var editContProj = document.getElementById("edit-cont-project");
+    var editContHidden = document.getElementById("edit-cont-value");
     if (editContSem && editContProj) {
+      // Record which project is already the continuation target so the
+      // already_linked filter allows it to stay visible in the dropdown.
+      currentEditContOfPk = contOfPk || null;
       editContSem.value = "";
-      editContProj.innerHTML = '<option value="">' + label("selectProject", "- select project -") + "</option>";
+      editContProj.innerHTML = '<option value="">' + label("selectProject", "— None —") + "</option>";
       editContProj.disabled = true;
+      if (editContHidden) editContHidden.value = "";
       if (contOfPk) {
         var foundSemPk = null;
         Object.keys(continuationData).forEach(function (semPk) {
@@ -420,8 +446,9 @@
         });
         if (foundSemPk) {
           editContSem.value = foundSemPk;
-          window.updateEditContProjects();
+          window.updateEditContProjects();  // populates list, syncs hidden to ""
           editContProj.value = contOfPk;
+          if (editContHidden) editContHidden.value = contOfPk;  // sync after pre-select
         }
       }
     }

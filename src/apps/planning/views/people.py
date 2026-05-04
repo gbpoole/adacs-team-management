@@ -14,7 +14,6 @@ from apps.users.models import Role
 from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
 from ._mixins import RoleRequiredMixin
-from ._semester import get_selected_semester
 
 
 class PeopleView(RoleRequiredMixin, ListView):
@@ -36,25 +35,23 @@ class PeopleView(RoleRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        highlighted = get_selected_semester(self.request)
-
         access_records = list(
             UserProjectAccess.objects.prefetch_related(
-                "project_access__semester_names",
+                "project_access",
                 "stream_access",
             ),
         )
         for policy in access_records:
             for proj in policy.project_access.all():
-                proj.display_name = proj.name_for_semester(highlighted)
+                proj.display_name = proj.name
         access_map = {policy.user_id: policy for policy in access_records}
 
         for user in ctx["people"]:
             user.access_policy_record = access_map.get(user.pk)
 
-        all_projects = list(Project.objects.prefetch_related("semester_names").all())
+        all_projects = list(Project.objects.all())
         for p in all_projects:
-            p.display_name = p.name_for_semester(highlighted)
+            p.display_name = p.name
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
         ctx["can_edit"] = (

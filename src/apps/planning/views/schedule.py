@@ -1,6 +1,7 @@
 import datetime
 from collections import defaultdict
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 
 from apps.planning.models import DeveloperProfile
@@ -10,8 +11,6 @@ from apps.planning.models import ProjectAllocation
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
-
-from django.contrib.auth.mixins import LoginRequiredMixin
 
 from ._mixins import _has_restricted_view_access
 from ._mixins import _visible_project_ids_for_user
@@ -77,9 +76,7 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
         for phase in phases:
             project_dev_phases[phase.project_id][phase.developer_id].append(phase)
 
-        project_qs = Project.objects.filter(
-            semester_names__semester=semester,
-        ).prefetch_related("semester_names").order_by("id")
+        project_qs = Project.objects.filter(semester=semester).order_by("id")
         if visible_project_ids is not None:
             project_qs = project_qs.filter(pk__in=visible_project_ids)
         if tag_filter:
@@ -106,7 +103,7 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
 
         project_rows = []
         for project in projects:
-            project.display_name = project.name_for_semester(semester)
+            project.display_name = project.name
             dev_phases_map = project_dev_phases[project.pk]
             dev_profiles = list(
                 DeveloperProfile.objects.filter(pk__in=dev_phases_map.keys())

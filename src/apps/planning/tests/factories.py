@@ -9,7 +9,6 @@ from apps.planning.models import Leave
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
-from apps.planning.models import ProjectSemesterName
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterObserver
@@ -71,16 +70,9 @@ class ProjectFactory(DjangoModelFactory):
     class Meta:
         model = Project
 
-    colour = ""  # triggers auto-assign
-
-
-class ProjectSemesterNameFactory(DjangoModelFactory):
-    class Meta:
-        model = ProjectSemesterName
-
-    project = factory.SubFactory(ProjectFactory)
-    semester = factory.SubFactory(SemesterFactory)
     name = factory.Sequence(lambda n: f"Project {n}")
+    semester = factory.SubFactory(SemesterFactory)
+    colour = ""  # triggers auto-assign
 
 
 class ProjectAllocationFactory(DjangoModelFactory):

@@ -106,7 +106,7 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
                 for phase in phases_by_lane.get(lane.pk, []):
                     start_col, span = _coverage(phase.start_date, phase.end_date, weeks)
                     if start_col is not None:
-                        phase.display_name = phase.project.name_for_semester(semester)
+                        phase.display_name = phase.project.name
                         phase.effort_display = phase.effort_weeks()
                         phase.effort_unfilled_pct = round(
                             (1 - phase.effort_multiplier) * 100, 1,
@@ -139,14 +139,12 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
                 },
             )
 
-        projects_qs = Project.objects.filter(
-            semester_names__semester=semester,
-        ).prefetch_related("semester_names")
+        projects_qs = Project.objects.filter(semester=semester)
         if visible_project_ids is not None:
             projects_qs = projects_qs.filter(pk__in=visible_project_ids)
         all_projects = list(projects_qs)
         for p in all_projects:
-            p.display_name = p.name_for_semester(semester)
+            p.display_name = p.name
 
         today = datetime.date.today()
         today_col = next(

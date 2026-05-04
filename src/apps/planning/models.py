@@ -4,16 +4,18 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.core.validators import MinValueValidator
-from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Max
 from django.utils.translation import gettext_lazy as _
 
+
 def _validate_name_chars(value):
     if "||" in value:
-        raise ValidationError("Name may not contain '||'.")
+        msg = "Name may not contain '||'."
+        raise ValidationError(msg)
     if "\t" in value:
-        raise ValidationError("Name may not contain tab characters.")
+        msg = "Name may not contain tab characters."
+        raise ValidationError(msg)
 
 # ---------------------------------------------------------------------------
 # Colour palette
@@ -211,6 +213,12 @@ class Stream(models.Model):
 
 
 class Project(models.Model):
+    name = models.CharField(_("name"), max_length=255, validators=[_validate_name_chars])
+    semester = models.ForeignKey(
+        "Semester",
+        on_delete=models.CASCADE,
+        related_name="projects",
+    )
     tags = models.ManyToManyField(Tag, blank=True, related_name="projects")
     streams = models.ManyToManyField(Stream, blank=True, related_name="projects")
     colour = models.CharField(
@@ -252,51 +260,11 @@ class Project(models.Model):
         ordering = ["id"]
 
     def __str__(self):
-        return f"Project #{self.pk}"
+        return self.name
 
     def save(self, *args, **kwargs):
         _assign_colour_if_blank(self, Project)
         super().save(*args, **kwargs)
-
-    def name_for_semester(self, semester):
-        override = self.semester_names.filter(semester=semester).first()
-        if override:
-            return override.name
-        fallback = (
-            self.semester_names.filter(
-                models.Q(semester__year__lt=semester.year)
-                | models.Q(
-                    semester__year=semester.year,
-                    semester__semester_type__lte=semester.semester_type,
-                ),
-            )
-            .order_by("-semester__year", "-semester__semester_type")
-            .first()
-        )
-        return fallback.name if fallback else f"Project #{self.pk}"
-
-
-class ProjectSemesterName(models.Model):
-    """Stores the name of a project for a given semester (FR-08)."""
-
-    project = models.ForeignKey(
-        Project,
-        on_delete=models.CASCADE,
-        related_name="semester_names",
-    )
-    semester = models.ForeignKey(
-        Semester,
-        on_delete=models.CASCADE,
-        related_name="project_names",
-    )
-    name = models.CharField(_("name"), max_length=255, validators=[_validate_name_chars])
-
-    class Meta:
-        unique_together = [("project", "semester")]
-        ordering = ["semester__year", "semester__semester_type"]
-
-    def __str__(self):
-        return f"{self.name} ({self.semester})"
 
 
 # ---------------------------------------------------------------------------
