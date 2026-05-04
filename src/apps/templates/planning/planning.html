@@ -157,7 +157,7 @@
                      data-end-date="{{ cell.phase.end_date|date:'Y-m-d' }}"
                      data-effort-multiplier="{{ cell.phase.effort_multiplier }}">
                   <div class="tooltip w-full h-full"
-                       data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
+                       data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks ({{ cell.phase.effort_multiplier }} FTE)">
                     <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap {% if can_edit %}cursor-grab{% else %}cursor-default{% endif %}"
                          style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};{% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);{% endif %} position: relative;">
                       {% if can_edit %}

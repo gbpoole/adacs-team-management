@@ -109,7 +109,7 @@
               {% if cell.type == "phase" %}
               <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8" style="position: relative;">
                 <div class="tooltip w-full h-full"
-                     data-tip="{{ cell.phase.effort_display }} wks (×{{ cell.phase.effort_multiplier }})">
+                     data-tip="{{ cell.phase.effort_display }} wks ({{ cell.phase.effort_multiplier }} FTE)">
                   <div class="h-full rounded text-xs text-white flex items-center px-2 overflow-hidden whitespace-nowrap cursor-default"
                        style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};{% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);{% endif %}">
                     {{ cell.phase.effort_display }} wks
