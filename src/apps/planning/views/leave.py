@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView
 
@@ -108,7 +109,6 @@ class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
         if leave.end_date < leave.start_date:
             return HttpResponse(status=400)
         leave.save(update_fields=["start_date", "end_date"])
-        from django.utils.http import url_has_allowed_host_and_scheme
         next_url = request.POST.get("next")
         if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
             return redirect(next_url)

@@ -9,6 +9,7 @@ from django.views import View
 from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
+from apps.planning.models import Project
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
 from apps.planning.models import _find_or_create_non_overlapping_lane
@@ -24,8 +25,12 @@ class PhaseCreateView(RoleRequiredMixin, View):
 
     def post(self, request, *args, **kwargs):
         developer_id = request.POST.get("developer")
-        project_id = request.POST.get("project")
         next_url = _get_next_url(request)
+        try:
+            project = get_object_or_404(Project, pk=int(request.POST.get("project", "")))
+        except (TypeError, ValueError):
+            messages.error(request, "Invalid project.")
+            return redirect(next_url)
         try:
             start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
             end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
@@ -51,8 +56,8 @@ class PhaseCreateView(RoleRequiredMixin, View):
             preferred_lane,
         )
         Phase.objects.create(
-            developer_id=developer_id,
-            project_id=project_id,
+            developer=developer,
+            project=project,
             semester=semester,
             lane=lane,
             start_date=start_date,
@@ -125,7 +130,11 @@ class PhaseEditView(RoleRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
         old_lane = phase.lane
-        phase.project_id = request.POST.get("project")
+        try:
+            phase.project = get_object_or_404(Project, pk=int(request.POST.get("project", "")))
+        except (TypeError, ValueError):
+            messages.error(request, "Invalid project.")
+            return redirect(_get_next_url(request))
         try:
             new_start = datetime.date.fromisoformat(request.POST.get("start_date", ""))
             new_end = datetime.date.fromisoformat(request.POST.get("end_date", ""))

@@ -31,11 +31,13 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
         if role == Role.PM or user.is_superuser:
             ctx["dev_count"] = DeveloperProfile.objects.count()
-            ctx["project_count"] = Project.objects.count()
+            ctx["project_count"] = Project.objects.filter(semester=semester).count()
             records = SemesterDeveloper.objects.filter(semester=semester)
             ctx["total_effort_available"] = sum(r.effort_available for r in records)
             phases = list(
-                Phase.objects.filter(semester=semester).select_related("developer"),
+                Phase.objects.filter(semester=semester)
+                .select_related("developer")
+                .prefetch_related("developer__leave_periods"),
             )
             allocated: dict = {}
             for ph in phases:

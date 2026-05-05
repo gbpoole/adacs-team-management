@@ -258,6 +258,13 @@ class Project(models.Model):
         verbose_name = _("Project")
         verbose_name_plural = _("Projects")
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["continuation_of"],
+                condition=models.Q(continuation_of__isnull=False),
+                name="project_continuation_of_unique",
+            ),
+        ]
 
     def __str__(self):
         return self.name
