@@ -477,6 +477,58 @@ class PlanningViewTests(PlanningTestCase):
         self.assertContains(response, "Visible Project")
         self.assertContains(response, "Hidden Project")
 
+    def test_overlapping_phases_render_in_separate_lanes(self):
+        sem = Semester.get_current()
+        dev = DeveloperProfileFactory()
+        p1 = ProjectFactory(semester=sem)
+        p2 = ProjectFactory(semester=sem)
+        Phase.objects.create(
+            developer=dev,
+            project=p1,
+            semester=sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
+        )
+        Phase.objects.create(
+            developer=dev,
+            project=p2,
+            semester=sem,
+            start_date=datetime.date(2026, 1, 12),
+            end_date=datetime.date(2026, 2, 9),
+        )
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        row = next(
+            r for r in response.context["developer_rows"] if r["developer"].pk == dev.pk
+        )
+        self.assertEqual(len(row["lanes"]), 2)
+
+    def test_non_overlapping_phases_share_single_lane(self):
+        sem = Semester.get_current()
+        dev = DeveloperProfileFactory()
+        p1 = ProjectFactory(semester=sem)
+        p2 = ProjectFactory(semester=sem)
+        Phase.objects.create(
+            developer=dev,
+            project=p1,
+            semester=sem,
+            start_date=datetime.date(2026, 1, 5),
+            end_date=datetime.date(2026, 2, 2),
+        )
+        Phase.objects.create(
+            developer=dev,
+            project=p2,
+            semester=sem,
+            start_date=datetime.date(2026, 2, 9),
+            end_date=datetime.date(2026, 3, 2),
+        )
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        row = next(
+            r for r in response.context["developer_rows"] if r["developer"].pk == dev.pk
+        )
+        self.assertEqual(len(row["lanes"]), 1)
+
 
 # ---------------------------------------------------------------------------
 # Schedule page

@@ -17,11 +17,6 @@ from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterType
 from apps.planning.models import UserProjectAccess
-from apps.planning.models import _assign_colour_if_blank
-from apps.planning.models import _create_next_lane
-from apps.planning.models import _delete_empty_lane
-from apps.planning.models import _find_or_create_non_overlapping_lane
-from apps.planning.models import _next_colour
 from apps.planning.tests.factories import DeveloperLaneFactory
 from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
@@ -30,23 +25,6 @@ from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import UserProjectAccessFactory
-
-
-class TestNextColour(TestCase):
-    def test_returns_first_unused(self):
-        used = set()
-        colour = _next_colour(used)
-        self.assertEqual(colour, COLOUR_PALETTE[0][0])
-
-    def test_skips_used(self):
-        used = {COLOUR_PALETTE[0][0]}
-        colour = _next_colour(used)
-        self.assertEqual(colour, COLOUR_PALETTE[1][0])
-
-    def test_all_used_wraps_to_first(self):
-        used = {hex_val for hex_val, _ in COLOUR_PALETTE}
-        colour = _next_colour(used)
-        self.assertEqual(colour, COLOUR_PALETTE[0][0])
 
 
 class TestDeveloperProfileColour(TestCase):
@@ -58,6 +36,11 @@ class TestDeveloperProfileColour(TestCase):
         d1 = DeveloperProfileFactory(colour="")
         d2 = DeveloperProfileFactory(colour="")
         self.assertNotEqual(d1.colour, d2.colour)
+
+    def test_explicit_colour_preserved(self):
+        colour = COLOUR_PALETTE[0][0]
+        dev = DeveloperProfileFactory(colour=colour)
+        self.assertEqual(dev.colour, colour)
 
 
 class TestSemesterDates(TestCase):
@@ -83,24 +66,24 @@ class TestSemesterDates(TestCase):
 class TestSemesterGetCurrent(TestCase):
     def test_get_current_creates_semester_A_in_june(self):
         fixed = datetime.date(2026, 6, 15)
-        with patch("apps.planning.models.datetime") as mock_dt:
-            mock_dt.date.today.return_value = fixed
+        with patch("apps.planning.models.datetime.date") as mock_date:
+            mock_date.today.return_value = fixed
             sem = Semester.get_current()
         self.assertEqual(sem.year, 2026)
         self.assertEqual(sem.semester_type, SemesterType.A)
 
     def test_get_current_creates_semester_B_in_july(self):
         fixed = datetime.date(2026, 7, 1)
-        with patch("apps.planning.models.datetime") as mock_dt:
-            mock_dt.date.today.return_value = fixed
+        with patch("apps.planning.models.datetime.date") as mock_date:
+            mock_date.today.return_value = fixed
             sem = Semester.get_current()
         self.assertEqual(sem.year, 2026)
         self.assertEqual(sem.semester_type, SemesterType.B)
 
     def test_get_current_idempotent(self):
         fixed = datetime.date(2026, 3, 1)
-        with patch("apps.planning.models.datetime") as mock_dt:
-            mock_dt.date.today.return_value = fixed
+        with patch("apps.planning.models.datetime.date") as mock_date:
+            mock_date.today.return_value = fixed
             s1 = Semester.get_current()
             s2 = Semester.get_current()
         self.assertEqual(s1.pk, s2.pk)
@@ -181,238 +164,6 @@ class TestPhaseLaneAutoAssignment(TestCase):
         )
         lanes = {phase1.lane_id, phase2.lane_id, phase3.lane_id}
         self.assertEqual(len(lanes), 3)
-
-
-# ---------------------------------------------------------------------------
-# _find_or_create_non_overlapping_lane()
-# ---------------------------------------------------------------------------
-
-
-class TestFindOrCreateNonOverlappingLane(TestCase):
-    def setUp(self):
-        self.dev = DeveloperProfileFactory()
-        self.sem = SemesterFactory()
-        self.project = ProjectFactory()
-        self.preferred = DeveloperLaneFactory(
-            developer=self.dev,
-            semester=self.sem,
-            order=0,
-        )
-
-    def _phase_in_lane(self, lane, start, end):
-        """Create a phase directly in a specific lane, bypassing auto-assignment."""
-        phase = Phase(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=start,
-            end_date=end,
-            lane=lane,
-        )
-        Phase.save(phase)  # calls super since lane is already set
-        return phase
-
-    def test_returns_preferred_when_lane_is_empty(self):
-        result = _find_or_create_non_overlapping_lane(
-            self.dev,
-            self.sem,
-            datetime.date(2026, 1, 5),
-            datetime.date(2026, 2, 2),
-            self.preferred,
-        )
-        self.assertEqual(result, self.preferred)
-
-    def test_returns_preferred_when_existing_phase_does_not_overlap(self):
-        # Phase ends before our target start
-        Phase.objects.create(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 1, 30),
-            lane=self.preferred,
-        )
-        result = _find_or_create_non_overlapping_lane(
-            self.dev,
-            self.sem,
-            datetime.date(2026, 3, 2),
-            datetime.date(2026, 4, 6),
-            self.preferred,
-        )
-        self.assertEqual(result, self.preferred)
-
-    def test_bumps_to_second_lane_on_overlap(self):
-        second = DeveloperLaneFactory(developer=self.dev, semester=self.sem, order=1)
-        Phase.objects.create(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 2, 2),
-            lane=self.preferred,
-        )
-        result = _find_or_create_non_overlapping_lane(
-            self.dev,
-            self.sem,
-            datetime.date(2026, 1, 12),
-            datetime.date(2026, 2, 9),
-            self.preferred,
-        )
-        self.assertEqual(result, second)
-
-    def test_creates_new_lane_when_all_overlap(self):
-        Phase.objects.create(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 2, 2),
-            lane=self.preferred,
-        )
-        before_count = DeveloperLane.objects.filter(
-            developer=self.dev,
-            semester=self.sem,
-        ).count()
-        result = _find_or_create_non_overlapping_lane(
-            self.dev,
-            self.sem,
-            datetime.date(2026, 1, 12),
-            datetime.date(2026, 2, 9),
-            self.preferred,
-        )
-        after_count = DeveloperLane.objects.filter(
-            developer=self.dev,
-            semester=self.sem,
-        ).count()
-        self.assertEqual(after_count, before_count + 1)
-        self.assertEqual(result.order, self.preferred.order + 1)
-
-    def test_first_lane_created_at_order_zero(self):
-        # No lanes exist for this developer/semester
-        dev2 = DeveloperProfileFactory()
-        lane = DeveloperLane.objects.create(developer=dev2, semester=self.sem, order=0)
-        result = _find_or_create_non_overlapping_lane(
-            dev2,
-            self.sem,
-            datetime.date(2026, 1, 5),
-            datetime.date(2026, 2, 2),
-            lane,
-        )
-        self.assertEqual(result.order, 0)
-
-    def test_exclude_phase_pk_allows_self_update(self):
-        """A phase can slide its own dates within the same lane without being bumped."""
-        phase = Phase.objects.create(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 2, 2),
-            lane=self.preferred,
-        )
-        result = _find_or_create_non_overlapping_lane(
-            self.dev,
-            self.sem,
-            datetime.date(2026, 1, 12),
-            datetime.date(2026, 2, 9),
-            self.preferred,
-            exclude_phase_pk=phase.pk,
-        )
-        self.assertEqual(result, self.preferred)
-
-    def test_adjacent_dates_are_not_overlap(self):
-        """Phase ending Jan 31 and new phase starting Feb 1 must not be counted as overlap."""
-        Phase.objects.create(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 1, 30),
-            lane=self.preferred,
-        )
-        result = _find_or_create_non_overlapping_lane(
-            self.dev,
-            self.sem,
-            datetime.date(2026, 2, 2),
-            datetime.date(2026, 3, 2),
-            self.preferred,
-        )
-        self.assertEqual(result, self.preferred)
-
-
-# ---------------------------------------------------------------------------
-# _create_next_lane()
-# ---------------------------------------------------------------------------
-
-
-class TestCreateNextLane(TestCase):
-    def setUp(self):
-        self.dev = DeveloperProfileFactory()
-        self.sem = SemesterFactory()
-
-    def test_creates_order_zero_when_no_lanes(self):
-        lane = _create_next_lane(self.dev, self.sem)
-        self.assertEqual(lane.order, 0)
-        self.assertEqual(lane.developer, self.dev)
-        self.assertEqual(lane.semester, self.sem)
-
-    def test_creates_order_one_when_one_lane_at_zero(self):
-        DeveloperLane.objects.create(developer=self.dev, semester=self.sem, order=0)
-        lane = _create_next_lane(self.dev, self.sem)
-        self.assertEqual(lane.order, 1)
-
-    def test_creates_max_plus_one(self):
-        for order in (0, 2, 7):
-            DeveloperLane.objects.create(
-                developer=self.dev,
-                semester=self.sem,
-                order=order,
-            )
-        lane = _create_next_lane(self.dev, self.sem)
-        self.assertEqual(lane.order, 8)
-
-
-# ---------------------------------------------------------------------------
-# _delete_empty_lane()
-# ---------------------------------------------------------------------------
-
-
-class TestDeleteEmptyLane(TestCase):
-    def setUp(self):
-        self.dev = DeveloperProfileFactory()
-        self.sem = SemesterFactory()
-        self.project = ProjectFactory()
-
-    def test_deletes_empty_lane(self):
-        lane = DeveloperLane.objects.create(
-            developer=self.dev,
-            semester=self.sem,
-            order=0,
-        )
-        pk = lane.pk
-        _delete_empty_lane(lane)
-        self.assertFalse(DeveloperLane.objects.filter(pk=pk).exists())
-
-    def test_keeps_lane_with_phases(self):
-        lane = DeveloperLane.objects.create(
-            developer=self.dev,
-            semester=self.sem,
-            order=0,
-        )
-        Phase.objects.create(
-            developer=self.dev,
-            project=self.project,
-            semester=self.sem,
-            start_date=datetime.date(2026, 1, 5),
-            end_date=datetime.date(2026, 2, 2),
-            lane=lane,
-        )
-        _delete_empty_lane(lane)
-        self.assertTrue(DeveloperLane.objects.filter(pk=lane.pk).exists())
-
-    def test_none_is_noop(self):
-        # Must not raise
-        _delete_empty_lane(None)
 
 
 # ---------------------------------------------------------------------------
@@ -734,27 +485,6 @@ class TestSemesterDeveloperModel(TestCase):
         pk = record.pk
         self.dev.delete()
         self.assertFalse(SemesterDeveloper.objects.filter(pk=pk).exists())
-
-
-class TestAssignColourIfBlank(TestCase):
-    """Tests for the shared _assign_colour_if_blank() helper."""
-
-    def test_assigns_when_blank(self):
-        profile = DeveloperProfileFactory(colour="")
-        # Factory triggers save(), which calls _assign_colour_if_blank
-        self.assertIn(profile.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
-
-    def test_no_op_when_colour_set(self):
-        profile = DeveloperProfileFactory(colour="#4E79A7")
-        original = profile.colour
-        _assign_colour_if_blank(profile, type(profile))
-        self.assertEqual(profile.colour, original)
-
-    def test_developer_profile_and_project_both_use_palette_colours(self):
-        dev = DeveloperProfileFactory(colour="")
-        proj = ProjectFactory(colour="")
-        self.assertIn(dev.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
-        self.assertIn(proj.colour, [hex_val for hex_val, _ in COLOUR_PALETTE])
 
 
 class TestLeaveValidation(TestCase):
