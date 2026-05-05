@@ -3,7 +3,6 @@ import datetime
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
 from django.views import View
 
 from apps.planning.forms import PhaseCreateForm
@@ -18,6 +17,7 @@ from apps.users.models import Role
 
 from ._mixins import RoleRequiredMixin
 from ._mixins import _get_next_url
+from ._mixins import _redirect_or_hx_redirect
 from ._semester import get_selected_semester
 
 
@@ -31,7 +31,7 @@ class PhaseCreateView(RoleRequiredMixin, View):
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
-            return redirect(next_url)
+            return _redirect_or_hx_redirect(request, next_url)
         cleaned = form.cleaned_data
         semester = get_selected_semester(request)
         developer = cleaned["developer"]
@@ -57,7 +57,7 @@ class PhaseCreateView(RoleRequiredMixin, View):
             end_date=cleaned["end_date"],
             effort_multiplier=cleaned["effort_multiplier"],
         )
-        return redirect(next_url)
+        return _redirect_or_hx_redirect(request, next_url)
 
 
 class PhaseDeleteView(RoleRequiredMixin, View):
@@ -68,7 +68,7 @@ class PhaseDeleteView(RoleRequiredMixin, View):
         lane = phase.lane
         phase.delete()
         _delete_empty_lane(lane)
-        return redirect(_get_next_url(request))
+        return _redirect_or_hx_redirect(request, _get_next_url(request))
 
 
 class PhaseUpdateView(RoleRequiredMixin, View):
@@ -129,7 +129,7 @@ class PhaseEditView(RoleRequiredMixin, View):
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
-            return redirect(next_url)
+            return _redirect_or_hx_redirect(request, next_url)
         cleaned = form.cleaned_data
         phase.project = cleaned["project"]
         phase.effort_multiplier = cleaned["effort_multiplier"]
@@ -176,4 +176,4 @@ class PhaseEditView(RoleRequiredMixin, View):
         phase.save(update_fields=list(dict.fromkeys(update_fields)))
         if lane != old_lane:
             _delete_empty_lane(old_lane)
-        return redirect(next_url)
+        return _redirect_or_hx_redirect(request, next_url)

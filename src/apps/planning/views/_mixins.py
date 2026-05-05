@@ -1,5 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.users.models import Role
@@ -16,6 +18,14 @@ def _update_user_profile_fields(user, post):
     user.name = post.get("name", "").strip()
     user.organisation = post.get("organisation", "").strip()
     user.save(update_fields=["name", "organisation"])
+
+
+def _redirect_or_hx_redirect(request, url, status=204):
+    if request.headers.get("HX-Request") == "true":
+        response = HttpResponse(status=status)
+        response["HX-Redirect"] = url
+        return response
+    return redirect(url)
 
 
 def _has_developer_profile(user):

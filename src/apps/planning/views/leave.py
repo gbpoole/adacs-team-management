@@ -3,7 +3,6 @@ import datetime
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
@@ -17,6 +16,7 @@ from apps.users.models import Role
 
 from ._mixins import PMOrHasDeveloperProfileMixin
 from ._mixins import _get_next_url
+from ._mixins import _redirect_or_hx_redirect
 
 
 def _check_leave_ownership(user, leave):
@@ -76,11 +76,11 @@ class LeaveCreateView(PMOrHasDeveloperProfileMixin, View):
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
-            return redirect(next_url)
+            return _redirect_or_hx_redirect(request, next_url)
         leave = form.save(commit=False)
         leave.developer_id = developer_id
         leave.save()
-        return redirect(next_url)
+        return _redirect_or_hx_redirect(request, next_url)
 
 
 class LeaveDeleteView(PMOrHasDeveloperProfileMixin, View):
@@ -89,7 +89,7 @@ class LeaveDeleteView(PMOrHasDeveloperProfileMixin, View):
         if denied := _check_leave_ownership(request.user, leave):
             return denied
         leave.delete()
-        return redirect("planning:leave")
+        return _redirect_or_hx_redirect(request, reverse("planning:leave"))
 
 
 class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
@@ -105,5 +105,5 @@ class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
         updated_leave.save(update_fields=["start_date", "end_date"])
         next_url = request.POST.get("next")
         if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
-            return redirect(next_url)
+            return _redirect_or_hx_redirect(request, next_url)
         return HttpResponse(status=204)
