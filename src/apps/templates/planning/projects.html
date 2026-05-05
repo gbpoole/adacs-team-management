@@ -172,7 +172,7 @@
     <h3 class="font-bold text-lg mb-4">{% trans "Add Project" %}</h3>
     <form id="add-project-form" method="post" action="{% url 'planning:project_add' %}" hx-boost="false" onsubmit="return false">
       {% csrf_token %}
-      <div class="flex gap-3 mb-3">
+      <div class="flex gap-3 mb-3 items-end">
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
           <input id="add-project-name" type="text" name="name" class="input input-bordered" required autocomplete="off" data-lpignore="true" data-form-type="other">
@@ -288,7 +288,7 @@
     <form id="project-edit-form" method="post" action="" hx-boost="false">
       {% csrf_token %}
       <input type="hidden" id="edit-project-id" value="">
-      <div class="flex gap-3 mb-3">
+      <div class="flex gap-3 mb-3 items-end">
         <div class="form-control flex-1">
           <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
           <input id="edit-project-name" type="text" name="name" class="input input-bordered" required autocomplete="off" data-lpignore="true" data-form-type="other">
