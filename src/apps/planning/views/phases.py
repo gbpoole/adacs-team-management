@@ -6,10 +6,11 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.views import View
 
+from apps.planning.forms import PhaseCreateForm
+from apps.planning.forms import PhaseEditForm
 from apps.planning.models import DeveloperLane
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
-from apps.planning.models import Project
 from apps.planning.models import _create_next_lane
 from apps.planning.models import _delete_empty_lane
 from apps.planning.models import _find_or_create_non_overlapping_lane
@@ -24,26 +25,18 @@ class PhaseCreateView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
-        developer_id = request.POST.get("developer")
         next_url = _get_next_url(request)
-        try:
-            project = get_object_or_404(Project, pk=int(request.POST.get("project", "")))
-        except (TypeError, ValueError):
-            messages.error(request, "Invalid project.")
+        form = PhaseCreateForm(request.POST)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for err in field_errors:
+                    messages.error(request, err)
             return redirect(next_url)
-        try:
-            start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
-            end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
-            effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
-        except ValueError:
-            messages.error(request, "Invalid date or effort value.")
-            return redirect(next_url)
-        if end_date < start_date:
-            messages.error(request, "End date must not be before start date.")
-            return redirect(next_url)
+        cleaned = form.cleaned_data
         semester = get_selected_semester(request)
-        developer = get_object_or_404(DeveloperProfile, pk=developer_id)
-        lane_pk = request.POST.get("lane_pk")
+        developer = cleaned["developer"]
+        project = cleaned["project"]
+        lane_pk = cleaned.get("lane_pk")
         if lane_pk and lane_pk != "new":
             preferred_lane = get_object_or_404(DeveloperLane, pk=lane_pk)
         else:
@@ -51,8 +44,8 @@ class PhaseCreateView(RoleRequiredMixin, View):
         lane = _find_or_create_non_overlapping_lane(
             developer,
             semester,
-            start_date,
-            end_date,
+            cleaned["start_date"],
+            cleaned["end_date"],
             preferred_lane,
         )
         Phase.objects.create(
@@ -60,9 +53,9 @@ class PhaseCreateView(RoleRequiredMixin, View):
             project=project,
             semester=semester,
             lane=lane,
-            start_date=start_date,
-            end_date=end_date,
-            effort_multiplier=effort_multiplier,
+            start_date=cleaned["start_date"],
+            end_date=cleaned["end_date"],
+            effort_multiplier=cleaned["effort_multiplier"],
         )
         return redirect(next_url)
 
@@ -130,47 +123,45 @@ class PhaseEditView(RoleRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         phase = get_object_or_404(Phase, pk=pk)
         old_lane = phase.lane
-        try:
-            phase.project = get_object_or_404(Project, pk=int(request.POST.get("project", "")))
-        except (TypeError, ValueError):
-            messages.error(request, "Invalid project.")
-            return redirect(_get_next_url(request))
-        try:
-            new_start = datetime.date.fromisoformat(request.POST.get("start_date", ""))
-            new_end = datetime.date.fromisoformat(request.POST.get("end_date", ""))
-            phase.effort_multiplier = float(request.POST.get("effort_multiplier", 1.0))
-        except (ValueError, TypeError):
-            messages.error(request, "Invalid date or effort value.")
-            return redirect(_get_next_url(request))
-        if new_end < new_start:
-            messages.error(request, "End date must not be before start date.")
-            return redirect(_get_next_url(request))
-        new_developer_id = request.POST.get("developer")
-        update_fields = [
-            "project_id",
-            "start_date",
-            "end_date",
-            "effort_multiplier",
-            "lane_id",
-        ]
-        try:
-            new_developer_id_int = int(new_developer_id) if new_developer_id else None
-        except (ValueError, TypeError):
-            messages.error(request, "Invalid developer.")
-            return redirect(_get_next_url(request))
-        if new_developer_id_int and new_developer_id_int != phase.developer_id:
-            phase.developer = get_object_or_404(
-                DeveloperProfile, pk=new_developer_id_int,
-            )
-            update_fields.append("developer_id")
-            # New developer — preferred lane is the first lane for them in this semester
+        next_url = _get_next_url(request)
+        form = PhaseEditForm(request.POST)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for err in field_errors:
+                    messages.error(request, err)
+            return redirect(next_url)
+        cleaned = form.cleaned_data
+        phase.project = cleaned["project"]
+        phase.effort_multiplier = cleaned["effort_multiplier"]
+        new_start = cleaned["start_date"]
+        new_end = cleaned["end_date"]
+        new_developer = cleaned["developer"]
+
+        if new_developer.pk != phase.developer_id:
+            phase.developer = new_developer
             preferred_lane, _ = DeveloperLane.objects.get_or_create(
                 developer=phase.developer,
                 semester=phase.semester,
                 order=0,
             )
+            update_fields = [
+                "project_id",
+                "start_date",
+                "end_date",
+                "effort_multiplier",
+                "lane_id",
+                "developer_id",
+            ]
         else:
             preferred_lane = phase.lane
+            update_fields = [
+                "project_id",
+                "start_date",
+                "end_date",
+                "effort_multiplier",
+                "lane_id",
+            ]
+
         lane = _find_or_create_non_overlapping_lane(
             phase.developer,
             phase.semester,
@@ -185,4 +176,4 @@ class PhaseEditView(RoleRequiredMixin, View):
         phase.save(update_fields=list(dict.fromkeys(update_fields)))
         if lane != old_lane:
             _delete_empty_lane(old_lane)
-        return redirect(_get_next_url(request))
+        return redirect(next_url)

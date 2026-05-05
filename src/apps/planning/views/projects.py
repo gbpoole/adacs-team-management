@@ -14,6 +14,7 @@ from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import ListView
 
+from apps.planning.forms import ProjectWriteForm
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
@@ -161,35 +162,29 @@ class ProjectCreateView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
-        name = request.POST.get("name", "").strip()
-        if not name:
-            messages.error(request, "Project name is required.")
-            return redirect("planning:projects")
-        if "||" in name or "\t" in name:
-            messages.error(request, "Project name may not contain '||' or tab characters.")
-            return redirect("planning:projects")
-        effort_weeks = _parse_effort_weeks(
-            request,
-            request.POST.get("effort_resourced", "").strip(),
-        )
-        if effort_weeks is None:
+        form = ProjectWriteForm(request.POST)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for err in field_errors:
+                    messages.error(request, err)
             return redirect("planning:projects")
         semester = get_selected_semester(request)
-        project = Project(name=name, semester=semester)
-        _apply_lead_fields(project, request)
-        _apply_continuation(project, request)
-        project.save()
-        stream_names = [n for n in request.POST.getlist("streams") if "||" not in n and "\t" not in n]
-        project.streams.set(_get_or_create_streams(stream_names))
-        tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
-        if tag_names:
-            project.tags.set(_get_or_create_tags(tag_names))
-        ProjectAllocation.objects.create(
-            project=project,
-            semester=semester,
-            weeks_new=effort_weeks,
-            weeks_carryover=0,
-        )
+        cleaned = form.cleaned_data
+        with transaction.atomic():
+            project = Project(name=cleaned["name"], semester=semester)
+            _apply_lead_fields(project, cleaned)
+            _apply_continuation(project, cleaned)
+            project.save()
+            project.streams.set(_get_or_create_streams(cleaned.get("streams", [])))
+            tag_names = cleaned.get("tags", [])
+            if tag_names:
+                project.tags.set(_get_or_create_tags(tag_names))
+            ProjectAllocation.objects.create(
+                project=project,
+                semester=semester,
+                weeks_new=cleaned["effort_resourced"],
+                weeks_carryover=0,
+            )
         return redirect("planning:projects")
 
 
@@ -259,34 +254,29 @@ class ProjectUpdateView(RoleRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         project = get_object_or_404(Project, pk=pk)
         semester = project.semester
-        effort_weeks = _parse_effort_weeks(
-            request,
-            request.POST.get("effort_resourced", "").strip(),
-        )
-        if effort_weeks is None:
+        form = ProjectWriteForm(request.POST)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for err in field_errors:
+                    messages.error(request, err)
             return redirect("planning:projects")
-        name = request.POST.get("name", "").strip()
-        if name:
-            if "||" in name or "\t" in name:
-                messages.error(request, "Project name may not contain '||' or tab characters.")
-                return redirect("planning:projects")
-            project.name = name
-        stream_names = [n for n in request.POST.getlist("streams") if "||" not in n and "\t" not in n]
-        project.streams.set(_get_or_create_streams(stream_names))
-        tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
-        project.tags.set(_get_or_create_tags(tag_names))
-        _apply_lead_fields(project, request)
-        _apply_continuation(project, request)
-        project.save()
-        alloc, created = ProjectAllocation.objects.get_or_create(
-            project=project,
-            semester=semester,
-            defaults={"weeks_new": effort_weeks, "weeks_carryover": 0},
-        )
-        if not created:
-            alloc.weeks_new = effort_weeks
-            alloc.weeks_carryover = 0
-            alloc.save(update_fields=["weeks_new", "weeks_carryover"])
+        cleaned = form.cleaned_data
+        with transaction.atomic():
+            project.name = cleaned["name"]
+            project.streams.set(_get_or_create_streams(cleaned.get("streams", [])))
+            project.tags.set(_get_or_create_tags(cleaned.get("tags", [])))
+            _apply_lead_fields(project, cleaned)
+            _apply_continuation(project, cleaned)
+            project.save()
+            alloc, created = ProjectAllocation.objects.get_or_create(
+                project=project,
+                semester=semester,
+                defaults={"weeks_new": cleaned["effort_resourced"], "weeks_carryover": 0},
+            )
+            if not created:
+                alloc.weeks_new = cleaned["effort_resourced"]
+                alloc.weeks_carryover = 0
+                alloc.save(update_fields=["weeks_new", "weeks_carryover"])
         return redirect("planning:projects")
 
 
@@ -370,10 +360,10 @@ def _parse_effort_weeks(request, effort_str, project_name=""):
     return weeks
 
 
-def _apply_lead_fields(project, request):
+def _apply_lead_fields(project, cleaned_data):
     """Set dev_lead, science_lead, science_lead_name from POST data."""
     User = get_user_model()
-    dev_lead_pk = request.POST.get("dev_lead", "").strip()
+    dev_lead_pk = cleaned_data.get("dev_lead")
     if dev_lead_pk:
         try:
             project.dev_lead = User.objects.get(pk=int(dev_lead_pk))
@@ -382,8 +372,8 @@ def _apply_lead_fields(project, request):
     else:
         project.dev_lead = None
 
-    science_lead_pk = request.POST.get("science_lead", "").strip()
-    science_lead_name = request.POST.get("science_lead_name", "").strip()
+    science_lead_pk = cleaned_data.get("science_lead")
+    science_lead_name = (cleaned_data.get("science_lead_name") or "").strip()
     if science_lead_pk:
         try:
             project.science_lead = User.objects.get(pk=int(science_lead_pk))
@@ -396,9 +386,9 @@ def _apply_lead_fields(project, request):
         project.science_lead_name = science_lead_name
 
 
-def _apply_continuation(project, request):
+def _apply_continuation(project, cleaned_data):
     """Set continuation_of from POST data."""
-    cont_pk = request.POST.get("continuation_of", "").strip()
+    cont_pk = cleaned_data.get("continuation_of")
     if cont_pk:
         try:
             cont = Project.objects.get(pk=int(cont_pk))

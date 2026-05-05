@@ -9,6 +9,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView
 
+from apps.planning.forms import LeaveCreateForm
+from apps.planning.forms import LeaveUpdateForm
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Leave
 from apps.users.models import Role
@@ -69,20 +71,15 @@ class LeaveCreateView(PMOrHasDeveloperProfileMixin, View):
             except DeveloperProfile.DoesNotExist:
                 return HttpResponse(status=403)
         next_url = _get_next_url(request, default=reverse("planning:leave"))
-        try:
-            start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
-            end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
-        except ValueError:
-            messages.error(request, "Invalid date format.")
+        form = LeaveCreateForm(request.POST)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for err in field_errors:
+                    messages.error(request, err)
             return redirect(next_url)
-        if end_date < start_date:
-            messages.error(request, "End date must not be before start date.")
-            return redirect(next_url)
-        Leave.objects.create(
-            developer_id=developer_id,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        leave = form.save(commit=False)
+        leave.developer_id = developer_id
+        leave.save()
         return redirect(next_url)
 
 
@@ -101,14 +98,11 @@ class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
         leave = get_object_or_404(Leave, pk=pk)
         if denied := _check_leave_ownership(request.user, leave):
             return denied
-        try:
-            leave.start_date = datetime.date.fromisoformat(request.POST.get("start_date", ""))
-            leave.end_date = datetime.date.fromisoformat(request.POST.get("end_date", ""))
-        except ValueError:
+        form = LeaveUpdateForm(request.POST, instance=leave)
+        if not form.is_valid():
             return HttpResponse(status=400)
-        if leave.end_date < leave.start_date:
-            return HttpResponse(status=400)
-        leave.save(update_fields=["start_date", "end_date"])
+        updated_leave = form.save(commit=False)
+        updated_leave.save(update_fields=["start_date", "end_date"])
         next_url = request.POST.get("next")
         if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
             return redirect(next_url)
