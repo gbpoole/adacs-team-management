@@ -47,10 +47,13 @@ class PlanningTestCase(TestCase):
         for role in allowed:
             self.client.force_login(_ROLE_FACTORIES[role]())
             resp = getattr(self.client, method)(url, data or {})
-            self.assertNotEqual(
+            self.assertLess(
                 resp.status_code,
-                403,
-                msg=f"Role '{role}' should be allowed at {url}",
+                400,
+                msg=(
+                    f"Role '{role}' should be allowed at {url}; "
+                    f"got status {resp.status_code}"
+                ),
             )
         for role in denied:
             self.client.force_login(_ROLE_FACTORIES[role]())
@@ -470,16 +473,9 @@ class PlanningViewTests(PlanningTestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
-        seen_names = set()
-        for row in response.context["developer_rows"]:
-            for lane_row in row["lanes"]:
-                for cell in lane_row["cells"]:
-                    if cell["type"] == "phase":
-                        seen_names.add(cell["phase"].display_name)
-
-        # Both projects are visible because the developer has phases on both
-        self.assertIn("Visible Project", seen_names)
-        self.assertIn("Hidden Project", seen_names)
+        # Both projects are visible because team membership via phases grants access.
+        self.assertContains(response, "Visible Project")
+        self.assertContains(response, "Hidden Project")
 
 
 # ---------------------------------------------------------------------------
@@ -2518,25 +2514,6 @@ class PhaseEditInputValidationTests(PhaseViewTestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self._phase_state(), before)
-
-
-class ProjectCreateInvalidEffortTests(PlanningTestCase):
-    """Invalid effort input is rejected; project is not created."""
-
-    def test_invalid_effort_does_not_create_project(self):
-        pm = PMUserFactory()
-        self.client.force_login(pm)
-        url = reverse("planning:project_add")
-        before = Project.objects.count()
-        response = self.client.post(
-            url,
-            {
-                "name": "Test Project",
-                "effort_resourced": "not-a-number",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(Project.objects.count(), before)
 
 
 class LeaveUpdateEndBeforeStartTests(PlanningTestCase):

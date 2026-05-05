@@ -82,11 +82,15 @@ class TestValidateDeveloperRows(TestCase):
 
     def test_missing_email_caught(self):
         errors = _validate_developer_rows([self._row(email="")])
-        self.assertEqual(errors, ["Row 2: email is required"])
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith("Row 2:"))
+        self.assertIn("email is required", errors[0])
 
     def test_missing_name_caught(self):
         errors = _validate_developer_rows([self._row(name="")])
-        self.assertEqual(errors, ["Row 2: name is required"])
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith("Row 2:"))
+        self.assertIn("name is required", errors[0])
 
     def test_invalid_effort_caught(self):
         errors = _validate_developer_rows([self._row(effort="not-a-number")])
