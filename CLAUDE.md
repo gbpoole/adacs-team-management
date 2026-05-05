@@ -57,12 +57,12 @@ docker compose exec django poetry run python manage.py seed_test_data
 **Docker — picking up source code changes:**
 Source code is baked into the image at build time (`COPY src /app/src`). There is no live volume mount. After any code change, rebuild before testing in Docker.
 
-The `nginx` container bakes in static files (JS, CSS, hashed filenames) independently from the `django` container. You must rebuild **both** when JS, CSS, or templates change:
+The `nginx` container bakes in static files (JS, CSS, hashed filenames) independently from the `django` container. HTML templates are baked into the `django` container only.
 ```bash
-# Python/Django-only changes (models, views, URL conf, etc.):
+# Python/Django-only changes (models, views, URL conf, templates, etc.):
 docker compose build django && docker compose up -d django
 
-# JS, CSS, or template changes — nginx serves static files baked in at build time:
+# JS or CSS changes — nginx serves static files baked in at build time:
 docker compose build django nginx && docker compose up -d django nginx
 ```
 
@@ -81,7 +81,7 @@ docker compose build django nginx && docker compose up -d django nginx
 ### Domain model (`src/apps/planning/models.py`)
 - **`DeveloperProfile`** — extends `User` via OneToOne; holds colour, base_effort_weeks, and base tags
 - **`Semester`** — year + type (A=Jan-Jun, B=Jul-Dec); `Semester.get_current()` auto-creates if missing
-- **`Project`** — belongs to `Stream`(s), has colour, tags, and per-semester names via `ProjectSemesterName`; `project.name_for_semester(semester)` resolves the display name with fallback
+- **`Project`** — belongs to a single `Semester` (one instance per semester, never shared); has a `name`, colour, tags, streams, optional `continuation_of` FK (self-referential, one-to-one: one predecessor project); each semester's project is an independent row
 - **`ProjectAllocation`** — weeks (new + carryover) per project per semester
 - **`SemesterDeveloper`** — effort available (weeks) per developer per semester
 - **`SemesterObserver`** — legacy per-semester observer record (still in DB schema); access control now uses `UserProjectAccess` instead
