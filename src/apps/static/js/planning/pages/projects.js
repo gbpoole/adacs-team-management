@@ -693,21 +693,6 @@
     });
   };
 
-  window.submitAddProject = function () {
-    var form = document.getElementById("add-project-form");
-    if (!form) { return; }
-    var nameInput = document.getElementById("add-project-name");
-    if (nameInput) {
-      var name = nameInput.value.trim();
-      if (!name) { alert("Project name is required."); return; }
-      if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
-        alert("Project name may not contain '||' or tab characters.");
-        return;
-      }
-    }
-    form.submit();
-  };
-
   window.openMigrateProjects = function () {
     if (!hasContinuationSemesters) {
       return;
@@ -818,27 +803,6 @@
             event.preventDefault();
             window.editProjAddTag();
           }
-        });
-      }
-
-      var editForm = document.getElementById("project-edit-form");
-      if (editForm) {
-        editForm.addEventListener("submit", function (event) {
-          event.preventDefault();
-          var nameInput = document.getElementById("edit-project-name");
-          if (nameInput) {
-            var name = nameInput.value;
-            if (name.indexOf("||") !== -1 || name.indexOf("\t") !== -1) {
-              alert("Project name may not contain '||' or tab characters.");
-              return;
-            }
-          }
-          postAndReload(
-            this.action,
-            new FormData(this),
-            label("saveFailedStatus", "Save failed"),
-            label("saveFailed", "Save failed."),
-          );
         });
       }
 

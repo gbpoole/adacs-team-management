@@ -170,7 +170,7 @@
 <dialog id="add-project-modal" class="modal">
   <div class="modal-box max-w-2xl">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Project" %}</h3>
-    <form id="add-project-form" method="post" action="{% url 'planning:project_add' %}" hx-boost="false" onsubmit="return false">
+    <form id="add-project-form" method="post" action="{% url 'planning:project_add' %}" hx-boost="false">
       {% csrf_token %}
       <div class="flex gap-3 mb-3 items-end">
         <div class="form-control flex-1">
@@ -272,7 +272,7 @@
       </div>
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-project-modal').close()">{% trans "Cancel" %}</button>
-        <button type="button" class="btn btn-primary" onclick="submitAddProject()">{% trans "Add" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
       </div>
     </form>
   </div>

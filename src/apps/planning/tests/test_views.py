@@ -1357,6 +1357,16 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Project.objects.count(), before)
 
+    def test_invalid_name_with_separator_does_not_create_project(self):
+        before = Project.objects.count()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Bad||Name"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Project.objects.count(), before)
+
 
 class ProjectUpdateViewTests(PlanningTestCase):
     def setUp(self):
@@ -1459,11 +1469,23 @@ class ProjectUpdateViewTests(PlanningTestCase):
             {**self.post_data, "name": "Should Not Save", "effort_resourced": "-2"},
         )
         self.assertEqual(response.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.name, "Old Name")
         alloc = ProjectAllocation.objects.get(
             project=self.project,
             semester=self.semester,
         )
         self.assertEqual(float(alloc.weeks_new), 3.0)
+
+    def test_invalid_name_with_tab_keeps_existing_project_state(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Bad\tName"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.name, "Old Name")
 
 
 class ProjectDeleteViewTests(PlanningTestCase):
