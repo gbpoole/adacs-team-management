@@ -10,7 +10,6 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import ListView
 
@@ -26,6 +25,7 @@ from apps.users.models import Role
 from ._csv_import import _get_or_create_streams
 from ._csv_import import _get_or_create_tags
 from ._mixins import RoleRequiredMixin
+from ._mixins import _redirect_or_hx_redirect
 from ._mixins import _visible_project_ids_for_user
 from ._semester import get_selected_semester
 
@@ -162,12 +162,13 @@ class ProjectCreateView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
+        target_url = "planning:projects"
         form = ProjectWriteForm(request.POST)
         if not form.is_valid():
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
-            return redirect("planning:projects")
+            return _redirect_or_hx_redirect(request, target_url)
         semester = get_selected_semester(request)
         cleaned = form.cleaned_data
         with transaction.atomic():
@@ -185,7 +186,7 @@ class ProjectCreateView(RoleRequiredMixin, View):
                 weeks_new=cleaned["effort_resourced"],
                 weeks_carryover=0,
             )
-        return redirect("planning:projects")
+        return _redirect_or_hx_redirect(request, target_url)
 
 
 class ProjectDownloadView(RoleRequiredMixin, View):
@@ -252,6 +253,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 
     def post(self, request, pk, *args, **kwargs):
+        target_url = "planning:projects"
         project = get_object_or_404(Project, pk=pk)
         semester = project.semester
         form = ProjectWriteForm(request.POST)
@@ -259,7 +261,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
-            return redirect("planning:projects")
+            return _redirect_or_hx_redirect(request, target_url)
         cleaned = form.cleaned_data
         with transaction.atomic():
             project.name = cleaned["name"]
@@ -277,7 +279,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
                 alloc.weeks_new = cleaned["effort_resourced"]
                 alloc.weeks_carryover = 0
                 alloc.save(update_fields=["weeks_new", "weeks_carryover"])
-        return redirect("planning:projects")
+        return _redirect_or_hx_redirect(request, target_url)
 
 
 class ProjectDeleteView(RoleRequiredMixin, View):
@@ -293,13 +295,14 @@ class ProjectMigrateView(RoleRequiredMixin, View):
     allowed_roles = (Role.PM,)
 
     def post(self, request, *args, **kwargs):
+        target_url = "planning:projects"
         semester = get_selected_semester(request)
         source_semester_pk = request.POST.get("source_semester", "").strip()
         try:
             Semester.objects.get(pk=int(source_semester_pk))
         except (Semester.DoesNotExist, ValueError):
             messages.error(request, "Select a valid source semester.")
-            return redirect("planning:projects")
+            return _redirect_or_hx_redirect(request, target_url)
         project_pks = request.POST.getlist("project_pks")
 
         migration_rows = []
@@ -317,7 +320,7 @@ class ProjectMigrateView(RoleRequiredMixin, View):
                 source.name,
             )
             if effort is None:
-                return redirect("planning:projects")
+                return _redirect_or_hx_redirect(request, target_url)
             migration_rows.append((source, effort))
 
         with transaction.atomic():
@@ -339,7 +342,7 @@ class ProjectMigrateView(RoleRequiredMixin, View):
                     weeks_new=effort,
                     weeks_carryover=0,
                 )
-        return redirect("planning:projects")
+        return _redirect_or_hx_redirect(request, target_url)
 
 
 def _parse_effort_weeks(request, effort_str, project_name=""):
