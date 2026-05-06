@@ -818,9 +818,6 @@
       if (target.id === "add-project-form") {
         bindAddProjectInputs();
       }
-      if (target.id === "project-edit-form") {
-        bindEditProjectInputs();
-      }
     });
   }
 
