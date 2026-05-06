@@ -1333,6 +1333,16 @@ class ProjectCreateViewTests(PlanningTestCase):
         project = Project.objects.latest("pk")
         self.assertEqual(project.continuation_of, source)
 
+    def test_hx_valid_create_returns_hx_redirect_header(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            self.post_data,
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
+
     def test_invalid_effort_does_not_create_project(self):
         before = Project.objects.count()
         self.client.force_login(self.pm)
@@ -1487,6 +1497,16 @@ class ProjectUpdateViewTests(PlanningTestCase):
         )
         self.project.refresh_from_db()
         self.assertEqual(self.project.continuation_of, source)
+
+    def test_hx_valid_update_returns_hx_redirect_header(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            self.post_data,
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
 
     def test_invalid_effort_keeps_existing_project_state(self):
         self.client.force_login(self.pm)
