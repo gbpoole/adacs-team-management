@@ -118,8 +118,7 @@
       <form method="post" action="{% url 'planning:semester_switch' %}" id="semester-switch-form">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.path }}">
-        <select name="semester" class="select select-sm select-bordered text-sm font-normal bg-base-100"
-                onchange="document.getElementById('semester-switch-form').submit()">
+        <select id="semester-switch-select" name="semester" class="select select-sm select-bordered text-sm font-normal bg-base-100">
           {% for sem in all_semesters %}
           <option value="{{ sem.year }}{{ sem.semester_type }}"
                   {% if sem == selected_semester %}selected{% endif %}>
@@ -129,8 +128,7 @@
         </select>
       </form>
       {% if request.user.role == 'pm' or request.user.is_superuser %}
-      <button class="btn btn-ghost btn-sm text-xs px-1" title="{% trans 'Add semester' %}"
-              onclick="document.getElementById('add-semester-modal').showModal()">＋</button>
+      <button id="open-add-semester-modal" class="btn btn-ghost btn-sm text-xs px-1" title="{% trans 'Add semester' %}">＋</button>
       {% endif %}
     </div>
     {% endif %}
@@ -178,7 +176,7 @@
         </select>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-semester-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="close-add-semester-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
       </div>
     </form>
@@ -187,3 +185,4 @@
 </dialog>
 {% endif %}
 {% endif %}
+<script src="{% static 'js/planning/navbar.js' %}" defer></script>
