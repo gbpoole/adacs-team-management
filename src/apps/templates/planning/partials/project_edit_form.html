@@ -1,5 +1,5 @@
 {% load i18n %}
-<form id="project-edit-form" method="post" action="{% if edit_project %}{% url 'planning:project_edit' edit_project.pk %}{% endif %}" hx-boost="false" hx-post="{% if edit_project %}{% url 'planning:project_edit' edit_project.pk %}{% endif %}" hx-target="#project-edit-form" hx-swap="outerHTML">
+<form id="project-edit-form" method="post" action="{% if edit_project %}{% url 'planning:project_edit' edit_project.pk %}{% endif %}" hx-boost="false">
   {% csrf_token %}
   <input type="hidden" id="edit-project-id" value="{% if edit_project %}{{ edit_project.pk }}{% endif %}">
   {% if project_edit_form and project_edit_form.errors %}

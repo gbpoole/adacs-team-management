@@ -439,7 +439,11 @@
       }
     }
 
-    document.getElementById("project-edit-form").action = "/planning/projects/" + pk + "/edit/";
+    var editUrl = "/planning/projects/" + pk + "/edit/";
+    var editForm = document.getElementById("project-edit-form");
+    if (editForm) {
+      editForm.action = editUrl;
+    }
     var deleteForm = document.getElementById("project-delete-form");
     if (deleteForm) {
       deleteForm.action = "/planning/projects/" + pk + "/delete/";
