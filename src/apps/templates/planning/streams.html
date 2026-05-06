@@ -8,7 +8,7 @@
   <div class="shrink-0 px-6 pt-6 pb-4">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">{% trans "Streams" %}</h1>
-      <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-stream-modal').showModal()">+ {% trans "Add Stream" %}</button>
+      <button id="open-add-stream-modal" class="btn btn-primary btn-sm">+ {% trans "Add Stream" %}</button>
     </div>
   </div>
 
@@ -22,8 +22,7 @@
       </thead>
       <tbody>
         {% for stream in streams %}
-        <tr class="cursor-pointer hover:bg-base-200"
-            onclick="openEditStream(this)"
+        <tr class="cursor-pointer hover:bg-base-200 js-edit-stream-row"
             data-pk="{{ stream.pk }}"
             data-name="{{ stream.name }}"
             data-colour="{{ stream.colour }}">
@@ -47,7 +46,7 @@
 <dialog id="add-stream-modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">{% trans "Add Stream" %}</h3>
-    <form id="add-stream-form" method="post" action="{% url 'planning:stream_add' %}" hx-boost="false" onsubmit="return false">
+    <form id="add-stream-form" method="post" action="{% url 'planning:stream_add' %}" hx-boost="false">
       {% csrf_token %}
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
@@ -66,8 +65,8 @@
         </div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-stream-modal').close()">{% trans "Cancel" %}</button>
-        <button type="button" class="btn btn-primary" onclick="submitAddStream()">{% trans "Add" %}</button>
+        <button type="button" id="close-add-stream-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
       </div>
     </form>
   </div>
@@ -97,8 +96,8 @@
         </div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteStream()">{% trans "Delete" %}</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-stream-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="confirm-delete-stream" class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
+        <button type="button" id="close-edit-stream-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
     </form>
