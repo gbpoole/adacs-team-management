@@ -35,7 +35,7 @@
     </div>
     <div class="flex gap-2 mt-2">
       <input type="text" id="edit-proj-new-stream" placeholder="{% trans 'New stream name…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
-      <button type="button" class="btn btn-sm btn-ghost" onclick="editProjAddStream()">+ {% trans "Add" %}</button>
+      <button type="button" id="edit-proj-add-stream-btn" class="btn btn-sm btn-ghost">+ {% trans "Add" %}</button>
     </div>
   </div>
   <div class="form-control mb-3">
@@ -50,7 +50,7 @@
     </div>
     <div class="flex gap-2 mt-2">
       <input type="text" id="edit-proj-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
-      <button type="button" class="btn btn-sm btn-ghost" onclick="editProjAddTag()">+ {% trans "Add" %}</button>
+      <button type="button" id="edit-proj-add-tag-btn" class="btn btn-sm btn-ghost">+ {% trans "Add" %}</button>
     </div>
   </div>
   <div class="flex gap-3 mb-3">
@@ -68,11 +68,11 @@
     <label class="label label-text">{% trans "Science Lead" %}</label>
     <div class="flex gap-2 items-center mb-1">
       <label class="flex items-center gap-1 cursor-pointer text-sm">
-        <input type="radio" name="edit_sci_lead_type" value="people" class="radio radio-sm" checked onchange="toggleSciLeadEdit('people')">
+        <input type="radio" name="edit_sci_lead_type" value="people" class="radio radio-sm" checked>
         {% trans "From People" %}
       </label>
       <label class="flex items-center gap-1 cursor-pointer text-sm">
-        <input type="radio" name="edit_sci_lead_type" value="external" class="radio radio-sm" onchange="toggleSciLeadEdit('external')">
+        <input type="radio" name="edit_sci_lead_type" value="external" class="radio radio-sm">
         {% trans "External (not in system)" %}
       </label>
     </div>
@@ -92,13 +92,13 @@
     <label class="label label-text">{% trans "Continuation of" %}</label>
     <div class="flex gap-2">
       {% if continuation_semesters %}
-      <select id="edit-cont-semester" class="select select-bordered flex-1" onchange="updateEditContProjects()">
+      <select id="edit-cont-semester" class="select select-bordered flex-1">
         <option value="">{% trans "— select semester —" %}</option>
         {% for sem in continuation_semesters %}
         <option value="{{ sem.pk }}">{{ sem }}</option>
         {% endfor %}
       </select>
-      <select id="edit-cont-project" class="select select-bordered flex-1" disabled onchange="syncEditContHidden()">
+      <select id="edit-cont-project" class="select select-bordered flex-1" disabled>
         <option value="">{% trans "— None —" %}</option>
       </select>
       <input type="hidden" id="edit-cont-value" name="continuation_of" value="{{ project_edit_form.continuation_of.value|default:'' }}">
@@ -114,8 +114,8 @@
     </div>
   </div>
   <div class="modal-action">
-    <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmRemoveProject()">{% trans "Remove from Semester" %}</button>
-    <button type="button" class="btn btn-ghost" onclick="document.getElementById('project-edit-modal').close()">{% trans "Cancel" %}</button>
+    <button type="button" id="confirm-remove-project" class="btn btn-error btn-outline mr-auto">{% trans "Remove from Semester" %}</button>
+    <button type="button" id="close-project-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
     <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
   </div>
 </form>

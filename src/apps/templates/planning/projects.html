@@ -13,11 +13,11 @@
       </div>
       {% if can_edit %}
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-project-modal').showModal()">+ {% trans "Add Project" %}</button>
+        <button id="open-add-project-modal" class="btn btn-primary btn-sm">+ {% trans "Add Project" %}</button>
         {% if continuation_semesters %}
-        <button class="btn btn-outline btn-sm" onclick="openMigrateProjects()">{% trans "Migrate from Semester" %}</button>
+        <button id="open-migrate-projects" class="btn btn-outline btn-sm">{% trans "Migrate from Semester" %}</button>
         {% endif %}
-        <button class="btn btn-outline btn-sm" onclick="downloadProjectsTSV()">{% trans "Download TSV" %}</button>
+        <button id="download-projects-tsv" class="btn btn-outline btn-sm">{% trans "Download TSV" %}</button>
       </div>
       {% endif %}
     </div>
@@ -78,28 +78,27 @@
     <table id="proj-table" class="table table-zebra w-full">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
-          <th class="cursor-pointer select-none" onclick="sortProjTable('name')" data-col="name">
+          <th class="cursor-pointer select-none" data-sort-col="name" data-col="name">
             {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
           <th>{% trans "Streams" %}</th>
           <th>{% trans "Tags" %}</th>
           <th>{% trans "Sci. Lead" %}</th>
           <th>{% trans "Dev Lead" %}</th>
-          <th class="text-right cursor-pointer select-none" onclick="sortProjTable('resourced')" data-col="resourced">
+          <th class="text-right cursor-pointer select-none" data-sort-col="resourced" data-col="resourced">
             {% trans "Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
-          <th class="text-right cursor-pointer select-none" onclick="sortProjTable('allocated')" data-col="allocated">
+          <th class="text-right cursor-pointer select-none" data-sort-col="allocated" data-col="allocated">
             {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
-          <th class="text-right cursor-pointer select-none" onclick="sortProjTable('unallocated')" data-col="unallocated">
+          <th class="text-right cursor-pointer select-none" data-sort-col="unallocated" data-col="unallocated">
             {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
         </tr>
       </thead>
       <tbody>
         {% for project in projects %}
-        <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200"
-            onclick="openEditProject(this)"{% endif %}
+        <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200 js-edit-project-row"{% endif %}
             data-pk="{{ project.pk }}"
             data-name="{{ project.display_name }}"
             data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
@@ -196,7 +195,7 @@
       {% csrf_token %}
       <div class="form-control mb-4">
         <label class="label label-text">{% trans "Source Semester" %}</label>
-        <select id="migrate-proj-semester" name="source_semester" class="select select-bordered" onchange="updateMigrateProjList()">
+        <select id="migrate-proj-semester" name="source_semester" class="select select-bordered">
           {% for sem in continuation_semesters %}
           <option value="{{ sem.pk }}">{{ sem }}</option>
           {% endfor %}
@@ -204,21 +203,21 @@
       </div>
       <div id="migrate-stream-filters" class="flex flex-wrap gap-1.5 items-center mb-2 min-h-6"></div>
       <div class="flex gap-2 mb-2">
-        <input type="text" id="migrate-proj-search" placeholder="{% trans 'Filter projects…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other" oninput="filterMigrateProjList()">
-        <select id="migrate-set-all" class="select select-bordered select-sm" onchange="setAllMigrateType()">
+        <input type="text" id="migrate-proj-search" placeholder="{% trans 'Filter projects…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
+        <select id="migrate-set-all" class="select select-bordered select-sm">
           <option value="">{% trans "Set all…" %}</option>
           <option value="resourced">{% trans "All: Resourced" %}</option>
           <option value="unallocated">{% trans "All: Unallocated" %}</option>
           <option value="custom">{% trans "All: Custom" %}</option>
         </select>
-        <button type="button" class="btn btn-xs btn-ghost self-center" onclick="selectAllMigrateProjects(true)">{% trans "All" %}</button>
-        <button type="button" class="btn btn-xs btn-ghost self-center" onclick="selectAllMigrateProjects(false)">{% trans "None" %}</button>
+        <button type="button" id="migrate-select-all" class="btn btn-xs btn-ghost self-center">{% trans "All" %}</button>
+        <button type="button" id="migrate-select-none" class="btn btn-xs btn-ghost self-center">{% trans "None" %}</button>
       </div>
       <div id="migrate-proj-list" class="border border-base-300 rounded-lg overflow-y-auto max-h-72 divide-y divide-base-200">
         <div class="p-4 text-sm text-neutral-400">{% trans "Select a semester above." %}</div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('migrate-project-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="close-migrate-project-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Migrate Selected" %}</button>
       </div>
     </form>

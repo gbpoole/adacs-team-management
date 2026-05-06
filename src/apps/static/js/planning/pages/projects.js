@@ -766,6 +766,51 @@
         }
       });
     }
+
+    var addStreamBtn = document.getElementById("proj-add-stream-btn");
+    if (addStreamBtn && !addStreamBtn.dataset.boundClick) {
+      addStreamBtn.dataset.boundClick = "true";
+      addStreamBtn.addEventListener("click", function () {
+        window.projAddStream();
+      });
+    }
+
+    var addTagBtn = document.getElementById("proj-add-tag-btn");
+    if (addTagBtn && !addTagBtn.dataset.boundClick) {
+      addTagBtn.dataset.boundClick = "true";
+      addTagBtn.addEventListener("click", function () {
+        window.projAddTag();
+      });
+    }
+
+    document.querySelectorAll('input[name="add_sci_lead_type"]').forEach(function (radio) {
+      if (radio.dataset.boundChange) {
+        return;
+      }
+      radio.dataset.boundChange = "true";
+      radio.addEventListener("change", function () {
+        window.toggleSciLeadAdd(radio.value);
+      });
+    });
+
+    var addContSemester = document.getElementById("add-cont-semester");
+    if (addContSemester && !addContSemester.dataset.boundChange) {
+      addContSemester.dataset.boundChange = "true";
+      addContSemester.addEventListener("change", function () {
+        window.updateAddContProjects();
+      });
+    }
+
+    var closeAddModalBtn = document.getElementById("close-add-project-modal");
+    if (closeAddModalBtn && !closeAddModalBtn.dataset.boundClick) {
+      closeAddModalBtn.dataset.boundClick = "true";
+      closeAddModalBtn.addEventListener("click", function () {
+        var modal = document.getElementById("add-project-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
   }
 
   function bindEditProjectInputs() {
@@ -793,6 +838,67 @@
         }
       });
     }
+
+    var editStreamBtn = document.getElementById("edit-proj-add-stream-btn");
+    if (editStreamBtn && !editStreamBtn.dataset.boundClick) {
+      editStreamBtn.dataset.boundClick = "true";
+      editStreamBtn.addEventListener("click", function () {
+        window.editProjAddStream();
+      });
+    }
+
+    var editTagBtn = document.getElementById("edit-proj-add-tag-btn");
+    if (editTagBtn && !editTagBtn.dataset.boundClick) {
+      editTagBtn.dataset.boundClick = "true";
+      editTagBtn.addEventListener("click", function () {
+        window.editProjAddTag();
+      });
+    }
+
+    document.querySelectorAll('input[name="edit_sci_lead_type"]').forEach(function (radio) {
+      if (radio.dataset.boundChange) {
+        return;
+      }
+      radio.dataset.boundChange = "true";
+      radio.addEventListener("change", function () {
+        window.toggleSciLeadEdit(radio.value);
+      });
+    });
+
+    var editContSemester = document.getElementById("edit-cont-semester");
+    if (editContSemester && !editContSemester.dataset.boundChange) {
+      editContSemester.dataset.boundChange = "true";
+      editContSemester.addEventListener("change", function () {
+        window.updateEditContProjects();
+      });
+    }
+
+    var editContProject = document.getElementById("edit-cont-project");
+    if (editContProject && !editContProject.dataset.boundChange) {
+      editContProject.dataset.boundChange = "true";
+      editContProject.addEventListener("change", function () {
+        window.syncEditContHidden();
+      });
+    }
+
+    var removeProjectBtn = document.getElementById("confirm-remove-project");
+    if (removeProjectBtn && !removeProjectBtn.dataset.boundClick) {
+      removeProjectBtn.dataset.boundClick = "true";
+      removeProjectBtn.addEventListener("click", function () {
+        window.confirmRemoveProject();
+      });
+    }
+
+    var closeEditModalBtn = document.getElementById("close-project-edit-modal");
+    if (closeEditModalBtn && !closeEditModalBtn.dataset.boundClick) {
+      closeEditModalBtn.dataset.boundClick = "true";
+      closeEditModalBtn.addEventListener("click", function () {
+        var modal = document.getElementById("project-edit-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
   }
 
   function init() {
@@ -803,6 +909,87 @@
     var addProjectDialog = document.getElementById("add-project-modal");
     if (addProjectDialog) {
       addProjectDialog.addEventListener("close", resetAddProjectModal);
+    }
+
+    var openAddModalBtn = document.getElementById("open-add-project-modal");
+    if (openAddModalBtn) {
+      openAddModalBtn.addEventListener("click", function () {
+        var modal = document.getElementById("add-project-modal");
+        if (modal) {
+          modal.showModal();
+        }
+      });
+    }
+
+    var openMigrateBtn = document.getElementById("open-migrate-projects");
+    if (openMigrateBtn) {
+      openMigrateBtn.addEventListener("click", function () {
+        window.openMigrateProjects();
+      });
+    }
+
+    var downloadBtn = document.getElementById("download-projects-tsv");
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", function () {
+        window.downloadProjectsTSV();
+      });
+    }
+
+    document.querySelectorAll("#proj-table th[data-sort-col]").forEach(function (th) {
+      th.addEventListener("click", function () {
+        window.sortProjTable(th.dataset.sortCol);
+      });
+    });
+
+    document.querySelectorAll(".js-edit-project-row").forEach(function (row) {
+      row.addEventListener("click", function () {
+        window.openEditProject(row);
+      });
+    });
+
+    var migrateSem = document.getElementById("migrate-proj-semester");
+    if (migrateSem) {
+      migrateSem.addEventListener("change", function () {
+        window.updateMigrateProjList();
+      });
+    }
+
+    var migrateSearch = document.getElementById("migrate-proj-search");
+    if (migrateSearch) {
+      migrateSearch.addEventListener("input", function () {
+        window.filterMigrateProjList();
+      });
+    }
+
+    var migrateSetAll = document.getElementById("migrate-set-all");
+    if (migrateSetAll) {
+      migrateSetAll.addEventListener("change", function () {
+        window.setAllMigrateType();
+      });
+    }
+
+    var migrateAllBtn = document.getElementById("migrate-select-all");
+    if (migrateAllBtn) {
+      migrateAllBtn.addEventListener("click", function () {
+        window.selectAllMigrateProjects(true);
+      });
+    }
+
+    var migrateNoneBtn = document.getElementById("migrate-select-none");
+    if (migrateNoneBtn) {
+      migrateNoneBtn.addEventListener("click", function () {
+        window.selectAllMigrateProjects(false);
+      });
+    }
+
+    var closeMigrateBtn = document.getElementById("close-migrate-project-modal");
+    if (closeMigrateBtn) {
+      closeMigrateBtn.addEventListener("click", function () {
+        var modal = document.getElementById("migrate-project-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
     }
 
     if (canEdit) {
