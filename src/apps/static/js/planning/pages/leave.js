@@ -264,6 +264,20 @@
   function init() {
     restoreShowPastPreference();
 
+    var showPastLink = document.getElementById("show-past-link");
+    if (showPastLink) {
+      showPastLink.addEventListener("click", function () {
+        safeLocalStorageSet("leave_show_past", "1");
+      });
+    }
+
+    var hidePastLink = document.getElementById("hide-past-link");
+    if (hidePastLink) {
+      hidePastLink.addEventListener("click", function () {
+        safeLocalStorageSet("leave_show_past", "0");
+      });
+    }
+
     sortCol = "start";
     sortAsc = true;
     try {
@@ -277,7 +291,44 @@
     }
     applySort();
 
+    document.querySelectorAll("#leave-table th[data-sort-col]").forEach(function (th) {
+      th.addEventListener("click", function () {
+        window.sortLeaveTable(th.dataset.sortCol);
+      });
+    });
+
+    document.querySelectorAll("#leave-table tbody .js-leave-row").forEach(function (row) {
+      row.addEventListener("mouseenter", function (event) {
+        window.showLeaveCalendar(row, event);
+      });
+      row.addEventListener("mouseleave", function () {
+        window.hideLeaveCalendar();
+      });
+      if (cfg.canEdit && row.dataset.pk) {
+        row.addEventListener("click", function () {
+          window.openEditLeave(row);
+        });
+      }
+    });
+
     if (cfg.canEdit) {
+      var confirmDeleteBtn = document.getElementById("confirm-delete-leave");
+      if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener("click", function () {
+          window.confirmDeleteLeave();
+        });
+      }
+
+      var closeEditBtn = document.getElementById("close-leave-edit-modal");
+      if (closeEditBtn) {
+        closeEditBtn.addEventListener("click", function () {
+          var modal = document.getElementById("leave-edit-modal");
+          if (modal) {
+            modal.close();
+          }
+        });
+      }
+
       var editForm = document.getElementById("leave-edit-form");
       if (editForm) {
         editForm.addEventListener("submit", function (event) {
