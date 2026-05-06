@@ -1385,6 +1385,29 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.assertNotIn("<html", content)
         self.assertEqual(Project.objects.count(), before)
 
+    def test_hx_invalid_create_preserves_selected_streams_and_tags(self):
+        Stream.objects.get_or_create(name="Engineering", defaults={"colour": "#123456"})
+        Stream.objects.get_or_create(name="Science", defaults={"colour": "#654321"})
+        Tag.objects.get_or_create(name="AI", defaults={"colour": "#112233"})
+        Tag.objects.get_or_create(name="ML", defaults={"colour": "#334455"})
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "name": "Bad\tName",
+                "streams": ["Engineering", "Science"],
+                "tags": ["AI", "ML"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        content = response.content.decode()
+        self.assertIn('name="streams" value="Engineering" class="hidden" checked', content)
+        self.assertIn('name="streams" value="Science" class="hidden" checked', content)
+        self.assertIn('name="tags" value="AI" class="hidden" checked', content)
+        self.assertIn('name="tags" value="ML" class="hidden" checked', content)
+
 
 class ProjectUpdateViewTests(PlanningTestCase):
     def setUp(self):
@@ -1520,6 +1543,29 @@ class ProjectUpdateViewTests(PlanningTestCase):
             content,
         )
         self.assertNotIn("<html", content)
+
+    def test_hx_invalid_update_preserves_selected_streams_and_tags(self):
+        Stream.objects.get_or_create(name="Engineering", defaults={"colour": "#123456"})
+        Stream.objects.get_or_create(name="Data", defaults={"colour": "#654321"})
+        Tag.objects.get_or_create(name="TagOne", defaults={"colour": "#112233"})
+        Tag.objects.get_or_create(name="TagTwo", defaults={"colour": "#334455"})
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "name": "Bad||Name",
+                "streams": ["Engineering", "Data"],
+                "tags": ["TagOne", "TagTwo"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        content = response.content.decode()
+        self.assertIn('name="streams" value="Engineering" class="hidden" checked', content)
+        self.assertIn('name="streams" value="Data" class="hidden" checked', content)
+        self.assertIn('name="tags" value="TagOne" class="hidden" checked', content)
+        self.assertIn('name="tags" value="TagTwo" class="hidden" checked', content)
 
 
 class ProjectDeleteViewTests(PlanningTestCase):
