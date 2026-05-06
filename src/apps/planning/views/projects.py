@@ -9,6 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
+from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.views import View
 from django.views.generic import ListView
@@ -64,8 +65,7 @@ class ProjectsView(LoginRequiredMixin, ListView):
         ctx["selected_tags"] = self.request.GET.getlist("tags")
         ctx["selected_streams"] = self.request.GET.getlist("streams")
 
-        User = get_user_model()
-        ctx["available_people"] = list(User.objects.order_by("name", "email"))
+        ctx.update(_project_modal_options_context(semester))
 
         resourced_map = {
             pk: float(new + carryover)
@@ -155,6 +155,7 @@ class ProjectsView(LoginRequiredMixin, ListView):
             continuation_map[str(sem.pk)] = entries
         ctx["continuation_semesters"] = other_semesters
         ctx["continuation_data_json"] = json.dumps(continuation_map)
+        ctx["project_add_form"] = ProjectWriteForm()
         return ctx
 
 
@@ -165,6 +166,16 @@ class ProjectCreateView(RoleRequiredMixin, View):
         target_url = "planning:projects"
         form = ProjectWriteForm(request.POST)
         if not form.is_valid():
+            if request.headers.get("HX-Request") == "true":
+                semester = get_selected_semester(request)
+                context = _project_modal_options_context(semester)
+                context["project_add_form"] = form
+                return render(
+                    request,
+                    "planning/partials/project_add_form.html",
+                    context,
+                    status=422,
+                )
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
@@ -400,3 +411,18 @@ def _apply_continuation(project, cleaned_data):
             project.continuation_of = None
     else:
         project.continuation_of = None
+
+
+def _project_modal_options_context(semester):
+    User = get_user_model()
+    return {
+        "all_tags": Tag.objects.all(),
+        "streams": Stream.objects.order_by("name"),
+        "available_people": list(User.objects.order_by("name", "email")),
+        "continuation_semesters": list(
+            Semester.objects.filter(
+                Q(year__lt=semester.year)
+                | Q(year=semester.year, semester_type__lt=semester.semester_type),
+            ).order_by("-year", "-semester_type"),
+        ),
+    }

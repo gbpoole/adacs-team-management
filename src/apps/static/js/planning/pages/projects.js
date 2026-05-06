@@ -751,19 +751,13 @@
     }
   }
 
-  function init() {
-    initFilterPersistence();
-    initSort();
+  function bindAddProjectInputs() {
     initCheckboxButtons("proj-stream-buttons");
     initCheckboxButtons("proj-tag-buttons");
 
-    var addProjectDialog = document.getElementById("add-project-modal");
-    if (addProjectDialog) {
-      addProjectDialog.addEventListener("close", resetAddProjectModal);
-    }
-
     var projStreamInput = document.getElementById("proj-new-stream");
-    if (projStreamInput) {
+    if (projStreamInput && !projStreamInput.dataset.boundEnter) {
+      projStreamInput.dataset.boundEnter = "true";
       projStreamInput.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -773,7 +767,8 @@
     }
 
     var projTagInput = document.getElementById("proj-new-tag");
-    if (projTagInput) {
+    if (projTagInput && !projTagInput.dataset.boundEnter) {
+      projTagInput.dataset.boundEnter = "true";
       projTagInput.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -781,6 +776,24 @@
         }
       });
     }
+  }
+
+  function init() {
+    initFilterPersistence();
+    initSort();
+    bindAddProjectInputs();
+
+    var addProjectDialog = document.getElementById("add-project-modal");
+    if (addProjectDialog) {
+      addProjectDialog.addEventListener("close", resetAddProjectModal);
+    }
+
+    document.body.addEventListener("htmx:afterSwap", function (event) {
+      var target = event && event.detail ? event.detail.target : null;
+      if (target && target.id === "add-project-form") {
+        bindAddProjectInputs();
+      }
+    });
 
     if (canEdit) {
       initCheckboxButtons("edit-proj-stream-buttons");

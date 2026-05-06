@@ -1367,6 +1367,24 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Project.objects.count(), before)
 
+    def test_hx_invalid_create_returns_modal_fragment_with_errors(self):
+        before = Project.objects.count()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Bad||Name"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        content = response.content.decode()
+        self.assertIn('id="add-project-form"', content)
+        self.assertIn(
+            "Project name may not contain &#x27;||&#x27; or tab characters.",
+            content,
+        )
+        self.assertNotIn("<html", content)
+        self.assertEqual(Project.objects.count(), before)
+
 
 class ProjectUpdateViewTests(PlanningTestCase):
     def setUp(self):
