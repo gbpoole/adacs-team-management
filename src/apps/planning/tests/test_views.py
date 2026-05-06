@@ -1645,7 +1645,7 @@ class ProjectMigrateViewTests(PlanningTestCase):
             weeks_carryover=2,
         )
 
-    def _migrate(self, effort=None, extra=None):
+    def _migrate(self, effort=None, extra=None, hx=False):
         self.client.force_login(self.pm)
         session = self.client.session
         session["selected_semester"] = "2026A"
@@ -1659,6 +1659,8 @@ class ProjectMigrateViewTests(PlanningTestCase):
         }
         if extra:
             data.update(extra)
+        if hx:
+            return self.client.post(self.url, data, HTTP_HX_REQUEST="true")
         return self.client.post(self.url, data)
 
     def test_role_access(self):
@@ -1736,6 +1738,18 @@ class ProjectMigrateViewTests(PlanningTestCase):
     def test_negative_effort_does_not_migrate_any_project(self):
         before = Project.objects.count()
         self._migrate(effort="-1")
+        self.assertEqual(Project.objects.count(), before)
+
+    def test_hx_valid_migrate_returns_hx_redirect_header(self):
+        response = self._migrate(hx=True)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
+
+    def test_hx_invalid_migrate_returns_hx_redirect_header(self):
+        before = Project.objects.count()
+        response = self._migrate(effort="bad", hx=True)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
         self.assertEqual(Project.objects.count(), before)
 
 
