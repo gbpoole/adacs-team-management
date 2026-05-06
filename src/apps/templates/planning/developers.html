@@ -13,9 +13,9 @@
       </div>
       {% if can_edit %}
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-developer-modal').showModal()">+ {% trans "Add Developers" %}</button>
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('migrate-developer-modal').showModal()">{% trans "Migrate from Semester" %}</button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="downloadDevelopersTSV()">{% trans "Download TSV" %}</button>
+        <button id="open-add-developer-modal" class="btn btn-primary btn-sm">+ {% trans "Add Developers" %}</button>
+        <button id="open-migrate-developer-modal" class="btn btn-outline btn-sm">{% trans "Migrate from Semester" %}</button>
+        <button id="download-developers-tsv" type="button" class="btn btn-outline btn-sm">{% trans "Download TSV" %}</button>
       </div>
       {% endif %}
     </div>
@@ -50,25 +50,24 @@
     <table id="dev-table" class="table table-zebra w-full">
       <thead>
         <tr class="bg-base-100 sticky top-0 z-10">
-          <th class="cursor-pointer select-none" onclick="sortDevTable('name')" data-col="name">
+          <th class="cursor-pointer select-none" data-sort-col="name" data-col="name">
             {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
           <th>{% trans "Tags" %}</th>
-          <th class="text-right cursor-pointer select-none" onclick="sortDevTable('available')" data-col="available">
+          <th class="text-right cursor-pointer select-none" data-sort-col="available" data-col="available">
             {% trans "Available (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
-          <th class="text-right cursor-pointer select-none" onclick="sortDevTable('allocated')" data-col="allocated">
+          <th class="text-right cursor-pointer select-none" data-sort-col="allocated" data-col="allocated">
             {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
-          <th class="text-right cursor-pointer select-none" onclick="sortDevTable('unallocated')" data-col="unallocated">
+          <th class="text-right cursor-pointer select-none" data-sort-col="unallocated" data-col="unallocated">
             {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
           </th>
         </tr>
       </thead>
       <tbody>
         {% for dev in developers %}
-        <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200"
-            onclick="openEditDeveloper(this)"
+        <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200 js-edit-developer-row"
             data-pk="{{ dev.pk }}"
             data-name="{{ dev.user.name|default:'' }}"
             data-email="{{ dev.user.email }}"
@@ -121,10 +120,10 @@
       {% csrf_token %}
       <div class="flex items-center gap-2 mb-2">
         <input type="text" id="add-dev-search" placeholder="{% trans 'Filter by name or email…' %}"
-               class="input input-bordered input-sm flex-1" oninput="filterAddDevList()"
+               class="input input-bordered input-sm flex-1"
                autocomplete="off" data-lpignore="true" data-form-type="other">
-        <button type="button" class="btn btn-xs btn-ghost" onclick="addDevSelectAll()">{% trans "All" %}</button>
-        <button type="button" class="btn btn-xs btn-ghost" onclick="addDevDeselectAll()">{% trans "None" %}</button>
+        <button type="button" id="add-dev-select-all" class="btn btn-xs btn-ghost">{% trans "All" %}</button>
+        <button type="button" id="add-dev-select-none" class="btn btn-xs btn-ghost">{% trans "None" %}</button>
       </div>
       <div id="add-dev-effort-error" class="hidden alert alert-error text-sm py-2 mb-2">
         {% trans "Please set effort (weeks) for all selected developers before adding." %}
@@ -142,15 +141,15 @@
                  value="{% if u.developer_profile %}{{ u.developer_profile.base_effort_weeks|floatformat:1 }}{% endif %}"
                  data-base="{% if u.developer_profile %}{{ u.developer_profile.base_effort_weeks|floatformat:1 }}{% endif %}"
                  placeholder="wks" min="0" max="52" step="0.5"
-                 class="input input-bordered input-xs w-20 shrink-0" onclick="event.stopPropagation()">
+                 class="input input-bordered input-xs w-20 shrink-0 js-effort-input">
         </label>
         {% empty %}
         <p class="text-neutral-500 text-sm text-center py-4">{% trans "All people have already been added to this semester." %}</p>
         {% endfor %}
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-developer-modal').close()">{% trans "Cancel" %}</button>
-        <button type="button" class="btn btn-primary" onclick="submitAddDevelopers()">{% trans "Add Selected" %}</button>
+        <button type="button" id="close-add-developer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+        <button type="button" id="submit-add-developers" class="btn btn-primary">{% trans "Add Selected" %}</button>
       </div>
     </form>
   </div>
@@ -164,8 +163,8 @@
     <p class="text-sm text-neutral-500 mb-3">{% trans "The following developers have effort values that differ from (or have no) base effort on the People page. Select those whose base effort you'd like to update:" %}</p>
     <div id="add-dev-base-list" class="max-h-48 overflow-y-auto border border-base-300 rounded p-2 space-y-0.5 mb-3"></div>
     <div class="modal-action">
-      <button type="button" class="btn btn-ghost" onclick="submitAddDevWithBase(false)">{% trans "Skip" %}</button>
-      <button type="button" class="btn btn-primary" onclick="submitAddDevWithBase(true)">{% trans "Confirm" %}</button>
+      <button type="button" id="submit-add-dev-base-skip" class="btn btn-ghost">{% trans "Skip" %}</button>
+      <button type="button" id="submit-add-dev-base-confirm" class="btn btn-primary">{% trans "Confirm" %}</button>
     </div>
   </div>
 </dialog>
@@ -178,7 +177,7 @@
       {% csrf_token %}
       <div class="form-control mb-3">
         <label class="label label-text">{% trans "Source semester" %}</label>
-        <select id="migrate-sem-select" class="select select-bordered" onchange="updateMigrateList()">
+        <select id="migrate-sem-select" class="select select-bordered">
           <option value="">{% trans "— select a semester —" %}</option>
           {% for sem in migrate_semesters %}
           <option value="{{ sem.pk }}">{{ sem }}</option>
@@ -188,14 +187,14 @@
       <div id="migrate-controls" class="hidden">
         <div class="flex items-center gap-2 mb-2">
           <input type="text" id="migrate-tag-filter" placeholder="{% trans 'Filter by tag…' %}"
-                 class="input input-bordered input-sm flex-1" oninput="filterMigrateList()">
-          <button type="button" class="btn btn-xs btn-ghost" onclick="migrateSelectAll()">{% trans "All" %}</button>
-          <button type="button" class="btn btn-xs btn-ghost" onclick="migrateDeselectAll()">{% trans "None" %}</button>
+                 class="input input-bordered input-sm flex-1">
+          <button type="button" id="migrate-select-all" class="btn btn-xs btn-ghost">{% trans "All" %}</button>
+          <button type="button" id="migrate-select-none" class="btn btn-xs btn-ghost">{% trans "None" %}</button>
         </div>
         <div id="migrate-dev-list" class="max-h-64 overflow-y-auto border border-base-300 rounded p-2 space-y-0.5"></div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('migrate-developer-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="close-migrate-developer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Migrate Selected" %}</button>
       </div>
     </form>
@@ -233,12 +232,12 @@
         </div>
         <div class="flex gap-2 mt-2">
           <input type="text" id="edit-dev-new-tag" placeholder="{% trans 'New tag name…' %}" class="input input-bordered input-sm flex-1">
-          <button type="button" class="btn btn-sm btn-ghost" onclick="editDevAddTag()">+ {% trans "Add" %}</button>
+          <button type="button" id="edit-dev-add-tag" class="btn btn-sm btn-ghost">+ {% trans "Add" %}</button>
         </div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteDeveloper()">{% trans "Remove" %}</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('developer-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="confirm-delete-developer" class="btn btn-error btn-outline mr-auto">{% trans "Remove" %}</button>
+        <button type="button" id="close-developer-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
     </form>

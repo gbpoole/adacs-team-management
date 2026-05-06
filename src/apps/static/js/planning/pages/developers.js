@@ -523,6 +523,141 @@
     initSort();
     initTagButtons("edit-dev-tag-buttons");
 
+    document.querySelectorAll("#dev-table th[data-sort-col]").forEach(function (th) {
+      th.addEventListener("click", function () {
+        window.sortDevTable(th.dataset.sortCol);
+      });
+    });
+
+    document.querySelectorAll(".js-edit-developer-row").forEach(function (row) {
+      row.addEventListener("click", function () {
+        window.openEditDeveloper(row);
+      });
+    });
+
+    document.querySelectorAll("#add-dev-list .js-effort-input").forEach(function (input) {
+      input.addEventListener("click", function (event) {
+        event.stopPropagation();
+      });
+    });
+
+    var openAddModalBtn = document.getElementById("open-add-developer-modal");
+    if (openAddModalBtn) {
+      openAddModalBtn.addEventListener("click", function () {
+        var modal = document.getElementById("add-developer-modal");
+        if (modal) {
+          modal.showModal();
+        }
+      });
+    }
+
+    var openMigrateModalBtn = document.getElementById("open-migrate-developer-modal");
+    if (openMigrateModalBtn) {
+      openMigrateModalBtn.addEventListener("click", function () {
+        var modal = document.getElementById("migrate-developer-modal");
+        if (modal) {
+          modal.showModal();
+        }
+      });
+    }
+
+    var downloadBtn = document.getElementById("download-developers-tsv");
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", function () {
+        window.downloadDevelopersTSV();
+      });
+    }
+
+    var addDevSearch = document.getElementById("add-dev-search");
+    if (addDevSearch) {
+      addDevSearch.addEventListener("input", function () {
+        window.filterAddDevList();
+      });
+    }
+
+    var addAllBtn = document.getElementById("add-dev-select-all");
+    if (addAllBtn) {
+      addAllBtn.addEventListener("click", function () {
+        window.addDevSelectAll();
+      });
+    }
+
+    var addNoneBtn = document.getElementById("add-dev-select-none");
+    if (addNoneBtn) {
+      addNoneBtn.addEventListener("click", function () {
+        window.addDevDeselectAll();
+      });
+    }
+
+    var closeAddBtn = document.getElementById("close-add-developer-modal");
+    if (closeAddBtn) {
+      closeAddBtn.addEventListener("click", function () {
+        var modal = document.getElementById("add-developer-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
+    var submitAddBtn = document.getElementById("submit-add-developers");
+    if (submitAddBtn) {
+      submitAddBtn.addEventListener("click", function () {
+        window.submitAddDevelopers();
+      });
+    }
+
+    var baseSkipBtn = document.getElementById("submit-add-dev-base-skip");
+    if (baseSkipBtn) {
+      baseSkipBtn.addEventListener("click", function () {
+        window.submitAddDevWithBase(false);
+      });
+    }
+
+    var baseConfirmBtn = document.getElementById("submit-add-dev-base-confirm");
+    if (baseConfirmBtn) {
+      baseConfirmBtn.addEventListener("click", function () {
+        window.submitAddDevWithBase(true);
+      });
+    }
+
+    var migrateSem = document.getElementById("migrate-sem-select");
+    if (migrateSem) {
+      migrateSem.addEventListener("change", function () {
+        window.updateMigrateList();
+      });
+    }
+
+    var migrateFilter = document.getElementById("migrate-tag-filter");
+    if (migrateFilter) {
+      migrateFilter.addEventListener("input", function () {
+        window.filterMigrateList();
+      });
+    }
+
+    var migrateAllBtn = document.getElementById("migrate-select-all");
+    if (migrateAllBtn) {
+      migrateAllBtn.addEventListener("click", function () {
+        window.migrateSelectAll();
+      });
+    }
+
+    var migrateNoneBtn = document.getElementById("migrate-select-none");
+    if (migrateNoneBtn) {
+      migrateNoneBtn.addEventListener("click", function () {
+        window.migrateDeselectAll();
+      });
+    }
+
+    var closeMigrateBtn = document.getElementById("close-migrate-developer-modal");
+    if (closeMigrateBtn) {
+      closeMigrateBtn.addEventListener("click", function () {
+        var modal = document.getElementById("migrate-developer-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
     var editNewTag = document.getElementById("edit-dev-new-tag");
     if (editNewTag) {
       editNewTag.addEventListener("keydown", function (event) {
@@ -534,6 +669,30 @@
     }
 
     if (canEdit) {
+      var editAddTagBtn = document.getElementById("edit-dev-add-tag");
+      if (editAddTagBtn) {
+        editAddTagBtn.addEventListener("click", function () {
+          window.editDevAddTag();
+        });
+      }
+
+      var confirmDeleteBtn = document.getElementById("confirm-delete-developer");
+      if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener("click", function () {
+          window.confirmDeleteDeveloper();
+        });
+      }
+
+      var closeEditBtn = document.getElementById("close-developer-edit-modal");
+      if (closeEditBtn) {
+        closeEditBtn.addEventListener("click", function () {
+          var modal = document.getElementById("developer-edit-modal");
+          if (modal) {
+            modal.close();
+          }
+        });
+      }
+
       var baseYes = document.getElementById("base-tags-yes");
       var baseNo = document.getElementById("base-tags-no");
       if (baseYes) {
