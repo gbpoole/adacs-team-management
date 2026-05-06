@@ -119,3 +119,6 @@
     <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
   </div>
 </form>
+<form id="project-delete-form" method="post" action="" class="hidden">
+  {% csrf_token %}
+</form>

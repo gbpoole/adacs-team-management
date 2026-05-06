@@ -25,20 +25,6 @@
     }
   }
 
-  function postAndReload(url, body, errorPrefix, errorMessage) {
-    fetch(url, { method: "POST", body: body })
-      .then(function (resp) {
-        if (resp.ok) {
-          window.location.reload();
-        } else {
-          alert(errorPrefix + " (status " + resp.status + "). Please try again.");
-        }
-      })
-      .catch(function () {
-        alert(errorMessage);
-      });
-  }
-
   function initFilterPersistence() {
     var form = document.getElementById("filter-form");
     if (!form) {
@@ -454,6 +440,10 @@
     }
 
     document.getElementById("project-edit-form").action = "/planning/projects/" + pk + "/edit/";
+    var deleteForm = document.getElementById("project-delete-form");
+    if (deleteForm) {
+      deleteForm.action = "/planning/projects/" + pk + "/delete/";
+    }
     document.getElementById("project-edit-modal").showModal();
   };
 
@@ -462,16 +452,12 @@
     if (!pk || !confirm(label("removeConfirm", "Remove project?"))) {
       return;
     }
+    var deleteForm = document.getElementById("project-delete-form");
+    if (!deleteForm) {
+      return;
+    }
     document.getElementById("project-edit-modal").close();
-    var csrf = document.querySelector("[name=csrfmiddlewaretoken]").value;
-    var body = new FormData();
-    body.append("csrfmiddlewaretoken", csrf);
-    postAndReload(
-      "/planning/projects/" + pk + "/delete/",
-      body,
-      label("removeFailedStatus", "Remove failed"),
-      label("removeFailed", "Remove failed."),
-    );
+    deleteForm.submit();
   };
 
   var migrateProjects = [];
