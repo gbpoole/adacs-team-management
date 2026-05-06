@@ -6,6 +6,22 @@
     return labels[key] || fallback;
   }
 
+  function syncObserverProjectsDisabled() {
+    var cb = document.getElementById("edit-all-projects");
+    var sel = document.getElementById("edit-observer-projects");
+    if (cb && sel) {
+      sel.disabled = cb.checked;
+    }
+  }
+
+  function syncObserverStreamsDisabled() {
+    var cb = document.getElementById("edit-all-streams");
+    var sel = document.getElementById("edit-observer-streams");
+    if (cb && sel) {
+      sel.disabled = cb.checked;
+    }
+  }
+
   function postAndReload(url, body, errorPrefix, errorMessage) {
     fetch(url, { method: "POST", body: body })
       .then(function (resp) {
@@ -44,21 +60,13 @@
     var allProjectsCb = document.getElementById("edit-all-projects");
     if (allProjectsCb) {
       allProjectsCb.checked = row.dataset.allProjects === "true";
-      function syncProjects() {
-        if (projSel) { projSel.disabled = allProjectsCb.checked; }
-      }
-      allProjectsCb.onchange = syncProjects;
-      syncProjects();
+      syncObserverProjectsDisabled();
     }
 
     var allStreamsCb = document.getElementById("edit-all-streams");
     if (allStreamsCb) {
       allStreamsCb.checked = row.dataset.allStreams === "true";
-      function syncStreams() {
-        if (streamSel) { streamSel.disabled = allStreamsCb.checked; }
-      }
-      allStreamsCb.onchange = syncStreams;
-      syncStreams();
+      syncObserverStreamsDisabled();
     }
 
     document.getElementById("observer-edit-form").action =
@@ -93,6 +101,59 @@
   }
 
   function init() {
+    var openAddBtn = document.getElementById("open-add-observer-modal");
+    if (openAddBtn) {
+      openAddBtn.addEventListener("click", function () {
+        var modal = document.getElementById("add-observer-modal");
+        if (modal) {
+          modal.showModal();
+        }
+      });
+    }
+
+    document.querySelectorAll(".js-edit-observer-row").forEach(function (row) {
+      row.addEventListener("click", function () {
+        window.openEditObserver(row);
+      });
+    });
+
+    var closeAddBtn = document.getElementById("close-add-observer-modal");
+    if (closeAddBtn) {
+      closeAddBtn.addEventListener("click", function () {
+        var modal = document.getElementById("add-observer-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
+    var confirmDeleteBtn = document.getElementById("confirm-delete-observer");
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener("click", function () {
+        window.confirmDeleteObserver();
+      });
+    }
+
+    var closeEditBtn = document.getElementById("close-edit-observer-modal");
+    if (closeEditBtn) {
+      closeEditBtn.addEventListener("click", function () {
+        var modal = document.getElementById("observer-edit-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
+    var editAllProjects = document.getElementById("edit-all-projects");
+    if (editAllProjects) {
+      editAllProjects.addEventListener("change", syncObserverProjectsDisabled);
+    }
+
+    var editAllStreams = document.getElementById("edit-all-streams");
+    if (editAllStreams) {
+      editAllStreams.addEventListener("change", syncObserverStreamsDisabled);
+    }
+
     var editForm = document.getElementById("observer-edit-form");
     if (editForm) {
       editForm.addEventListener("submit", function (event) {

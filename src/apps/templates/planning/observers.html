@@ -12,7 +12,7 @@
         <p class="text-sm text-neutral-500">{{ semester }}</p>
       </div>
       <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-observer-modal').showModal()">+ {% trans "Add Observer Access" %}</button>
+        <button id="open-add-observer-modal" class="btn btn-primary btn-sm">+ {% trans "Add Observer Access" %}</button>
       </div>
     </div>
   </div>
@@ -35,8 +35,7 @@
       </thead>
       <tbody>
         {% for obs in observers %}
-        <tr class="cursor-pointer hover:bg-base-200"
-            onclick="openEditObserver(this)"
+        <tr class="cursor-pointer hover:bg-base-200 js-edit-observer-row"
             data-pk="{{ obs.pk }}"
             data-name="{{ obs.user.name|default:'' }}"
             data-email="{{ obs.user.email }}"
@@ -124,7 +123,7 @@
         {% endif %}
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-observer-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="close-add-observer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
       </div>
     </form>
@@ -177,8 +176,8 @@
         {% endif %}
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteObserver()">{% trans "Remove All Access" %}</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('observer-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="confirm-delete-observer" class="btn btn-error btn-outline mr-auto">{% trans "Remove All Access" %}</button>
+        <button type="button" id="close-edit-observer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
     </form>
