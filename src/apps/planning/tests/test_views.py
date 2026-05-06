@@ -1730,6 +1730,16 @@ class ProjectMigrateViewTests(PlanningTestCase):
         )
         self.assertEqual(response.status_code, 302)
 
+    def test_hx_invalid_source_semester_returns_hx_redirect_header(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {"source_semester": "99999", "project_pks": []},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
+
     def test_invalid_effort_does_not_migrate_any_project(self):
         before = Project.objects.count()
         self._migrate(effort="not-a-number")
