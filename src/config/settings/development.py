@@ -4,6 +4,8 @@ from .base import INSTALLED_APPS, MIDDLEWARE
 
 ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
 
+SEED_DATA_ALLOWED = True
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

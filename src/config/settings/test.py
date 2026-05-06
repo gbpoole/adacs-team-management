@@ -8,6 +8,8 @@ from .base import TEMPLATES, config
 
 # GENERAL
 # ------------------------------------------------------------------------------
+SEED_DATA_ALLOWED = True
+
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = config(
     "DJANGO_SECRET_KEY",

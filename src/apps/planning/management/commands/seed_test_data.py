@@ -19,6 +19,8 @@ import io
 import random
 from pathlib import Path
 
+from django.conf import settings
+
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -85,8 +87,16 @@ class Command(BaseCommand):
             help="Delete existing planning data before seeding",
         )
 
-    @transaction.atomic
     def handle(self, *args, **options):
+        if not getattr(settings, "SEED_DATA_ALLOWED", False):
+            raise CommandError(
+                "seed_test_data refuses to run unless SEED_DATA_ALLOWED = True "
+                "in settings. This command is for development and testing only."
+            )
+        with transaction.atomic():
+            self._seed(*args, **options)
+
+    def _seed(self, *args, **options):
         # ── Validate all files before touching the DB ─────────────────────────
         dev_rows = _read_tsv(DATA_DIR / "developers.tsv")
         proj_rows = _read_tsv(DATA_DIR / "projects.tsv")
