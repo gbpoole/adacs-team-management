@@ -317,7 +317,7 @@
         <input type="number" name="effort_multiplier" value="1.0" min="0" max="1" step="0.1" class="input input-bordered">
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('phase-create-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="close-phase-create-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button id="phase-create-submit" type="submit" class="btn btn-primary">{% trans "Add Phase" %}</button>
       </div>
     </form>
@@ -363,8 +363,8 @@
         <input id="edit-phase-effort" type="number" name="effort_multiplier" min="0" max="1" step="0.1" class="input input-bordered">
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeletePhase()">{% trans "Delete" %}</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('phase-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="confirm-delete-phase" class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
+        <button type="button" id="close-phase-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
     </form>
@@ -389,8 +389,8 @@
         </div>
       </div>
       <div class="modal-action">
-        <button type="button" class="btn btn-error btn-outline mr-auto" onclick="confirmDeleteLeave()">{% trans "Delete" %}</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('leave-edit-modal').close()">{% trans "Cancel" %}</button>
+        <button type="button" id="confirm-delete-leave" class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
+        <button type="button" id="close-leave-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
         <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
       </div>
     </form>

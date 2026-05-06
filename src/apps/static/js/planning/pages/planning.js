@@ -808,6 +808,51 @@
     initFilterPersistence();
     restoreScrollPosition();
     initMyRowsFocus();
+
+    var closeCreateBtn = document.getElementById("close-phase-create-modal");
+    if (closeCreateBtn) {
+      closeCreateBtn.addEventListener("click", function () {
+        var modal = document.getElementById("phase-create-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
+    var confirmDeletePhaseBtn = document.getElementById("confirm-delete-phase");
+    if (confirmDeletePhaseBtn) {
+      confirmDeletePhaseBtn.addEventListener("click", function () {
+        window.confirmDeletePhase();
+      });
+    }
+
+    var closePhaseEditBtn = document.getElementById("close-phase-edit-modal");
+    if (closePhaseEditBtn) {
+      closePhaseEditBtn.addEventListener("click", function () {
+        var modal = document.getElementById("phase-edit-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
+    var confirmDeleteLeaveBtn = document.getElementById("confirm-delete-leave");
+    if (confirmDeleteLeaveBtn) {
+      confirmDeleteLeaveBtn.addEventListener("click", function () {
+        window.confirmDeleteLeave();
+      });
+    }
+
+    var closeLeaveEditBtn = document.getElementById("close-leave-edit-modal");
+    if (closeLeaveEditBtn) {
+      closeLeaveEditBtn.addEventListener("click", function () {
+        var modal = document.getElementById("leave-edit-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
     initDeleteButtons();
     initEditForms();
     initCreateModal();
