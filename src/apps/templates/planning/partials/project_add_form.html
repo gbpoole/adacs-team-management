@@ -27,7 +27,7 @@
     <div id="proj-stream-buttons" class="flex flex-wrap gap-2 mt-1">
       {% for stream in streams %}
       <label class="btn btn-sm btn-outline cursor-pointer">
-        <input type="checkbox" name="streams" value="{{ stream.name }}" class="hidden">
+        <input type="checkbox" name="streams" value="{{ stream.name }}" class="hidden"{% if stream.name in selected_add_streams %} checked{% endif %}>
         {{ stream.name }}
       </label>
       {% endfor %}
@@ -42,7 +42,7 @@
     <div id="proj-tag-buttons" class="flex flex-wrap gap-2 mt-1">
       {% for tag in all_tags %}
       <label class="btn btn-sm btn-outline cursor-pointer">
-        <input type="checkbox" name="tags" value="{{ tag.name }}" class="hidden">
+        <input type="checkbox" name="tags" value="{{ tag.name }}" class="hidden"{% if tag.name in selected_add_tags %} checked{% endif %}>
         {{ tag.name }}
       </label>
       {% endfor %}

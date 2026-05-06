@@ -778,6 +778,33 @@
     }
   }
 
+  function bindEditProjectInputs() {
+    initCheckboxButtons("edit-proj-stream-buttons");
+    initCheckboxButtons("edit-proj-tag-buttons");
+
+    var editStreamInput = document.getElementById("edit-proj-new-stream");
+    if (editStreamInput && !editStreamInput.dataset.boundEnter) {
+      editStreamInput.dataset.boundEnter = "true";
+      editStreamInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          window.editProjAddStream();
+        }
+      });
+    }
+
+    var editTagInput = document.getElementById("edit-proj-new-tag");
+    if (editTagInput && !editTagInput.dataset.boundEnter) {
+      editTagInput.dataset.boundEnter = "true";
+      editTagInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          window.editProjAddTag();
+        }
+      });
+    }
+  }
+
   function init() {
     initFilterPersistence();
     initSort();
@@ -788,38 +815,23 @@
       addProjectDialog.addEventListener("close", resetAddProjectModal);
     }
 
-    document.body.addEventListener("htmx:afterSwap", function (event) {
-      var target = event && event.detail ? event.detail.target : null;
-      if (target && target.id === "add-project-form") {
-        bindAddProjectInputs();
-      }
-    });
-
     if (canEdit) {
-      initCheckboxButtons("edit-proj-stream-buttons");
-      initCheckboxButtons("edit-proj-tag-buttons");
-
-      var editStreamInput = document.getElementById("edit-proj-new-stream");
-      if (editStreamInput) {
-        editStreamInput.addEventListener("keydown", function (event) {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            window.editProjAddStream();
-          }
-        });
-      }
-
-      var editTagInput = document.getElementById("edit-proj-new-tag");
-      if (editTagInput) {
-        editTagInput.addEventListener("keydown", function (event) {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            window.editProjAddTag();
-          }
-        });
-      }
+      bindEditProjectInputs();
 
     }
+
+    document.body.addEventListener("htmx:afterSwap", function (event) {
+      var target = event && event.detail ? event.detail.target : null;
+      if (!target) {
+        return;
+      }
+      if (target.id === "add-project-form") {
+        bindAddProjectInputs();
+      }
+      if (target.id === "project-edit-form") {
+        bindEditProjectInputs();
+      }
+    });
   }
 
   if (document.readyState === "loading") {

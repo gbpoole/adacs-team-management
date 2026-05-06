@@ -1505,6 +1505,22 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.project.refresh_from_db()
         self.assertEqual(self.project.name, "Old Name")
 
+    def test_hx_invalid_update_returns_modal_fragment_with_errors(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "name": "Bad\tName"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        content = response.content.decode()
+        self.assertIn('id="project-edit-form"', content)
+        self.assertIn(
+            "Project name may not contain &#x27;||&#x27; or tab characters.",
+            content,
+        )
+        self.assertNotIn("<html", content)
+
 
 class ProjectDeleteViewTests(PlanningTestCase):
     def setUp(self):

@@ -156,6 +156,12 @@ class ProjectsView(LoginRequiredMixin, ListView):
         ctx["continuation_semesters"] = other_semesters
         ctx["continuation_data_json"] = json.dumps(continuation_map)
         ctx["project_add_form"] = ProjectWriteForm()
+        ctx["selected_add_streams"] = []
+        ctx["selected_add_tags"] = []
+        ctx["project_edit_form"] = ProjectWriteForm()
+        ctx["selected_edit_streams"] = []
+        ctx["selected_edit_tags"] = []
+        ctx["edit_project"] = None
         return ctx
 
 
@@ -170,6 +176,8 @@ class ProjectCreateView(RoleRequiredMixin, View):
                 semester = get_selected_semester(request)
                 context = _project_modal_options_context(semester)
                 context["project_add_form"] = form
+                context["selected_add_streams"] = request.POST.getlist("streams")
+                context["selected_add_tags"] = request.POST.getlist("tags")
                 return render(
                     request,
                     "planning/partials/project_add_form.html",
@@ -269,6 +277,18 @@ class ProjectUpdateView(RoleRequiredMixin, View):
         semester = project.semester
         form = ProjectWriteForm(request.POST)
         if not form.is_valid():
+            if request.headers.get("HX-Request") == "true":
+                context = _project_modal_options_context(semester)
+                context["project_edit_form"] = form
+                context["selected_edit_streams"] = request.POST.getlist("streams")
+                context["selected_edit_tags"] = request.POST.getlist("tags")
+                context["edit_project"] = project
+                return render(
+                    request,
+                    "planning/partials/project_edit_form.html",
+                    context,
+                    status=422,
+                )
             for field_errors in form.errors.values():
                 for err in field_errors:
                     messages.error(request, err)
