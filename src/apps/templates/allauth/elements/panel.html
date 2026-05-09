@@ -4,14 +4,14 @@
   <div class="card-body">
     <h2 class="card-title text-base">
       {% slot title %}
-      {% endslot %}
-    </h2>
-    {% slot body %}
     {% endslot %}
-    {% if slots.actions %}
-      <div class="flex flex-wrap gap-2 mt-2">
-        {% for action in slots.actions %}{{ action }}{% endfor %}
-      </div>
-    {% endif %}
+  </h2>
+  {% slot body %}
+{% endslot %}
+{% if slots.actions %}
+  <div class="flex flex-wrap gap-2 mt-2">
+    {% for action in slots.actions %}{{ action }}{% endfor %}
   </div>
+{% endif %}
+</div>
 </div>

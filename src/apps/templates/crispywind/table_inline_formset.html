@@ -3,15 +3,18 @@
 {% load crispy_forms_field %}
 
 {% specialspaceless %}
-  {% if formset_tag %}
-    <form {{ flat_attrs|safe }} method="{{ form_method }}" {% if formset.is_multipart %}enctype="multipart/form-data"{% endif %}>
+{% if formset_tag %}
+  <form {{ flat_attrs|safe }}
+        method="{{ form_method }}"
+        {% if formset.is_multipart %}enctype="multipart/form-data"{% endif %}>
   {% endif %}
   {% if formset_method|lower == 'post' and not disable_csrf %}
     {% csrf_token %}
   {% endif %}
   <div>{{ formset.management_form|crispy }}</div>
   {% include "crispywind/errors_formset.html" %}
-  <table {% if form_id %}id="{{ form_id }}_table"{% endif %} class="table-auto">
+  <table {% if form_id %}id="{{ form_id }}_table"{% endif %}
+         class="table-auto">
     <thead>
       {% if formset.readonly and not formset.queryset.exists %}
       {% else %}

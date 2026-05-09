@@ -1,121 +1,141 @@
 {% extends "base.html" %}
+
 {% load static i18n %}
 
-{% block title %} — {% trans "Streams" %}{% endblock %}
-
+{% block title %}
+  — {% trans "Streams" %}
+{% endblock %}
 {% block content %}
-<div class="h-full flex flex-col">
-  <div class="shrink-0 px-6 pt-6 pb-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">{% trans "Streams" %}</h1>
-      <button id="open-add-stream-modal" class="btn btn-primary btn-sm">+ {% trans "Add Stream" %}</button>
+  <div class="h-full flex flex-col">
+    <div class="shrink-0 px-6 pt-6 pb-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold">{% trans "Streams" %}</h1>
+        <button id="open-add-stream-modal" class="btn btn-primary btn-sm">+ {% trans "Add Stream" %}</button>
+      </div>
+    </div>
+    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+      <table class="table table-zebra w-full">
+        <thead>
+          <tr class="bg-base-100 sticky top-0 z-10">
+            <th>{% trans "Name" %}</th>
+            <th class="text-right">
+              <div class="inline-flex flex-col items-center">
+                <div>{% trans "Projects" %}</div>
+                <div class="font-normal text-xs text-neutral-400">{% trans "all semesters" %}</div>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stream in streams %}
+            <tr class="cursor-pointer hover:bg-base-200 js-edit-stream-row"
+                data-pk="{{ stream.pk }}"
+                data-name="{{ stream.name }}"
+                data-colour="{{ stream.colour }}">
+              <td>
+                <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
+                      style="background-color: {{ stream.colour }}"></span>{{ stream.name }}
+              </td>
+              <td class="text-right">{{ stream.project_count }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="3" class="text-center text-neutral-500">{% trans "No streams found." %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
-
-  <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table class="table table-zebra w-full">
-      <thead>
-        <tr class="bg-base-100 sticky top-0 z-10">
-          <th>{% trans "Name" %}</th>
-          <th class="text-right"><div class="inline-flex flex-col items-center"><div>{% trans "Projects" %}</div><div class="font-normal text-xs text-neutral-400">{% trans "all semesters" %}</div></div></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for stream in streams %}
-        <tr class="cursor-pointer hover:bg-base-200 js-edit-stream-row"
-            data-pk="{{ stream.pk }}"
-            data-name="{{ stream.name }}"
-            data-colour="{{ stream.colour }}">
-          <td>
-            <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
-                  style="background-color: {{ stream.colour }};"></span>{{ stream.name }}
-          </td>
-          <td class="text-right">{{ stream.project_count }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="3" class="text-center text-neutral-500">{% trans "No streams found." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{# Add Stream modal #}
-<dialog id="add-stream-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Add Stream" %}</h3>
-    <form id="add-stream-form" method="post" action="{% url 'planning:stream_add' %}" hx-boost="false">
-      {% csrf_token %}
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
-        <input type="text" name="name" class="input input-bordered" required>
-      </div>
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Colour" %}</label>
-        <div class="flex flex-wrap gap-3 mt-1" id="add-colour-swatches">
-          {% for hex, label in colour_palette %}
-          <label class="cursor-pointer" title="{{ label }}">
-            <input type="radio" name="colour" value="{{ hex }}" class="sr-only">
-            <span class="colour-swatch inline-block w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-all"
-                  style="background-color: {{ hex }};"></span>
+  {# Add Stream modal #}
+  <dialog id="add-stream-modal" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-4">{% trans "Add Stream" %}</h3>
+      <form id="add-stream-form"
+            method="post"
+            action="{% url 'planning:stream_add' %}"
+            hx-boost="false">
+        {% csrf_token %}
+        <div class="form-control mb-3">
+          <label class="label label-text">
+            {% trans "Name" %} <span class="text-error">*</span>
           </label>
-          {% endfor %}
+          <input type="text" name="name" class="input input-bordered" required />
         </div>
-      </div>
-      <div class="modal-action">
-        <button type="button" id="close-add-stream-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
-      </div>
+        <div class="form-control mb-4">
+          <label class="label label-text">{% trans "Colour" %}</label>
+          <div class="flex flex-wrap gap-3 mt-1" id="add-colour-swatches">
+            {% for hex, label in colour_palette %}
+              <label class="cursor-pointer" title="{{ label }}">
+                <input type="radio" name="colour" value="{{ hex }}" class="sr-only" />
+                <span class="colour-swatch inline-block w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-all"
+                      style="background-color: {{ hex }}"></span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="modal-action">
+          <button type="button" id="close-add-stream-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+        </div>
+      </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>{% trans "Close" %}</button>
     </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-{# Edit Stream modal #}
-<dialog id="edit-stream-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Edit Stream" %}</h3>
-    <form id="edit-stream-form" method="post" action="" hx-boost="false">
-      {% csrf_token %}
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %} <span class="text-error">*</span></label>
-        <input id="edit-stream-name" type="text" name="name" class="input input-bordered" required>
-      </div>
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Colour" %}</label>
-        <div class="flex flex-wrap gap-3 mt-1" id="edit-colour-swatches">
-          {% for hex, label in colour_palette %}
-          <label class="cursor-pointer" title="{{ label }}">
-            <input type="radio" name="colour" value="{{ hex }}" class="sr-only">
-            <span class="colour-swatch inline-block w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-all"
-                  style="background-color: {{ hex }};"></span>
+  </dialog>
+  {# Edit Stream modal #}
+  <dialog id="edit-stream-modal" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-4">{% trans "Edit Stream" %}</h3>
+      <form id="edit-stream-form" method="post" action="" hx-boost="false">
+        {% csrf_token %}
+        <div class="form-control mb-3">
+          <label class="label label-text">
+            {% trans "Name" %} <span class="text-error">*</span>
           </label>
-          {% endfor %}
+          <input id="edit-stream-name"
+                 type="text"
+                 name="name"
+                 class="input input-bordered"
+                 required />
         </div>
-      </div>
-      <div class="modal-action">
-        <button type="button" id="confirm-delete-stream" class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
-        <button type="button" id="close-edit-stream-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
-      </div>
+        <div class="form-control mb-4">
+          <label class="label label-text">{% trans "Colour" %}</label>
+          <div class="flex flex-wrap gap-3 mt-1" id="edit-colour-swatches">
+            {% for hex, label in colour_palette %}
+              <label class="cursor-pointer" title="{{ label }}">
+                <input type="radio" name="colour" value="{{ hex }}" class="sr-only" />
+                <span class="colour-swatch inline-block w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-all"
+                      style="background-color: {{ hex }}"></span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="modal-action">
+          <button type="button"
+                  id="confirm-delete-stream"
+                  class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
+          <button type="button" id="close-edit-stream-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+        </div>
+      </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>{% trans "Close" %}</button>
     </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-<script>
-  window.streamsPageConfig = {
-    labels: {
-      saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
-      saveFailedStatus: "{% trans 'Save failed' %}",
-      deleteFailed: "{% trans 'Delete failed. Please check your connection and try again.' %}",
-      deleteFailedStatus: "{% trans 'Delete failed' %}",
-      deleteConfirm: "{% trans 'Delete this stream? This cannot be undone.' %}",
-    },
-  };
-</script>
-<script src="{% static 'js/planning/pages/colour_entity_editor.js' %}" defer></script>
-<script src="{% static 'js/planning/pages/streams.js' %}" defer></script>
+  </dialog>
+  <script>
+    window.streamsPageConfig = {
+      labels: {
+        saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
+        saveFailedStatus: "{% trans 'Save failed' %}",
+        deleteFailed: "{% trans 'Delete failed. Please check your connection and try again.' %}",
+        deleteFailedStatus: "{% trans 'Delete failed' %}",
+        deleteConfirm: "{% trans 'Delete this stream? This cannot be undone.' %}",
+      },
+    };
+  </script>
+  <script src="{% static 'js/planning/pages/colour_entity_editor.js' %}" defer></script>
+  <script src="{% static 'js/planning/pages/streams.js' %}" defer></script>
 {% endblock %}

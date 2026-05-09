@@ -1,266 +1,298 @@
 {% extends "base.html" %}
+
 {% load i18n static planning_extras %}
 
-{% block title %} — {% trans "Dashboard" %}{% endblock %}
-
+{% block title %}
+  — {% trans "Dashboard" %}
+{% endblock %}
 {% block content %}
-<div class="p-6 max-w-5xl mx-auto">
-
-  {% if not request.user.is_authenticated %}
-  {# ── Unauthenticated welcome ── #}
-  <div class="hero min-h-64 bg-base-200 rounded-2xl">
-    <div class="hero-content text-center">
-      <div class="max-w-md">
-        <h1 class="text-4xl font-bold text-primary mb-3">{% trans "ADACS Team Planning" %}</h1>
-        <p class="text-base text-neutral-500 mb-6">{% trans "Resource allocation and scheduling for the ADACS developer team." %}</p>
-        <a href="{% url 'account_login' %}" class="btn btn-primary">{% trans "Log in" %} &rarr;</a>
+  <div class="p-6 max-w-5xl mx-auto">
+    {% if not request.user.is_authenticated %}
+      {# ── Unauthenticated welcome ── #}
+      <div class="hero min-h-64 bg-base-200 rounded-2xl">
+        <div class="hero-content text-center">
+          <div class="max-w-md">
+            <h1 class="text-4xl font-bold text-primary mb-3">{% trans "ADACS Team Planning" %}</h1>
+            <p class="text-base text-neutral-500 mb-6">
+              {% trans "Resource allocation and scheduling for the ADACS developer team." %}
+            </p>
+            <a href="{% url 'account_login' %}" class="btn btn-primary">{% trans "Log in" %} &rarr;</a>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-
-  {% else %}
-  {# ── Authenticated dashboard ── #}
-  <div class="mb-6">
-    <h1 class="text-2xl font-bold">{% trans "Dashboard" %}</h1>
-    {% if semester %}
-    <p class="text-sm text-neutral-500">
-      {% trans "Current semester:" %} <strong>{{ semester }}</strong>
-      <span class="text-neutral-400">({{ semester.start_date }} – {{ semester.end_date }})</span>
-    </p>
+    {% else %}
+      {# ── Authenticated dashboard ── #}
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold">{% trans "Dashboard" %}</h1>
+        {% if semester %}
+          <p class="text-sm text-neutral-500">
+            {% trans "Current semester:" %} <strong>{{ semester }}</strong>
+            <span class="text-neutral-400">({{ semester.start_date }} – {{ semester.end_date }})</span>
+          </p>
+        {% endif %}
+      </div>
+      {# ── Admin / PM view ── #}
+      {% if request.user.role == 'pm' or request.user.is_superuser %}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+          <div class="stat bg-base-200 rounded-xl p-4">
+            <div class="stat-title text-xs">{% trans "Developers" %}</div>
+            <div class="stat-value text-2xl">{{ dev_count }}</div>
+          </div>
+          <div class="stat bg-base-200 rounded-xl p-4">
+            <div class="stat-title text-xs">{% trans "Projects" %}</div>
+            <div class="stat-value text-2xl">{{ project_count }}</div>
+          </div>
+          <div class="stat bg-base-200 rounded-xl p-4">
+            <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
+            <div class="stat-value text-2xl">
+              {{ total_effort_available|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>
+            </div>
+            <div class="stat-desc text-xs">{% trans "this semester" %}</div>
+          </div>
+          <div class="stat bg-base-200 rounded-xl p-4">
+            <div class="stat-title text-xs">{% trans "Effort Allocated" %}</div>
+            <div class="stat-value text-2xl">
+              {{ total_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>
+            </div>
+            <div class="stat-desc text-xs">{% trans "across all phases" %}</div>
+          </div>
+        </div>
+        {% if upcoming_leave %}
+          <div class="card bg-base-200">
+            <div class="card-body py-4 px-5">
+              <h2 class="card-title text-base font-semibold mb-1">
+                {% trans "Upcoming Leave" %} <span class="text-xs font-normal text-neutral-400">({% trans "next 30 days" %})</span>
+              </h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra table-sm w-full">
+                  <thead>
+                    <tr>
+                      <th>{% trans "Developer" %}</th>
+                      <th>{% trans "From" %}</th>
+                      <th>{% trans "To" %}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for leave in upcoming_leave %}
+                      <tr data-start="{{ leave.start_date|date:'Y-m-d' }}"
+                          data-end="{{ leave.end_date|date:'Y-m-d' }}"
+                          onmouseenter="showLeaveCalendar(this, event)"
+                          onmouseleave="hideLeaveCalendar()">
+                        <td class="font-medium">{{ leave.developer.user.name|default:leave.developer.user.email }}</td>
+                        <td>{{ leave.start_date }}</td>
+                        <td>{{ leave.end_date }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <p class="text-sm text-neutral-400">{% trans "No leave scheduled in the next 30 days." %}</p>
+        {% endif %}
+        {# ── Developer view ── #}
+      {% elif my_profile %}
+        {% if my_profile %}
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="stat bg-base-200 rounded-xl p-4">
+              <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
+              <div class="stat-value text-2xl">
+                {{ my_effort_available|wks }}
+                {% if my_effort_available is not None %}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>{% endif %}
+              </div>
+              <div class="stat-desc text-xs">{% trans "this semester" %}</div>
+            </div>
+            <div class="stat bg-base-200 rounded-xl p-4">
+              <div class="stat-title text-xs">{% trans "Effort Allocated" %}</div>
+              <div class="stat-value text-2xl {% if my_effort_available and my_effort_allocated > my_effort_available %}text-error{% endif %}">
+                {{ my_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>
+              </div>
+              <div class="stat-desc text-xs">{% trans "across your phases" %}</div>
+            </div>
+          </div>
+          {# ── Right now / Up next highlight ── #}
+          {% if my_current_phases %}
+            <div class="card mb-4 border border-amber-300 bg-amber-50">
+              <div class="card-body py-3 px-5">
+                {% if my_current_phases|length == 1 %}
+                  {% with ph=my_current_phases.0 %}
+                    <div class="flex items-center gap-3 flex-wrap">
+                      <span class="inline-block w-3 h-3 rounded-full shrink-0"
+                            style="background-color: {{ ph.project.colour }}"></span>
+                      <span class="font-semibold">{% trans "Currently working on" %} {{ ph.display_name }}</span>
+                      {% if ph.is_dev_lead %}
+                        <span class="badge badge-sm"
+                              style="background-color:#0ea5e9;
+                                     color:white;
+                                     border-color:#0ea5e9">{% trans "Dev Lead" %}</span>
+                      {% endif %}
+                      {% if ph.is_science_lead %}
+                        <span class="badge badge-sm"
+                              style="background-color:#8b5cf6;
+                                     color:white;
+                                     border-color:#8b5cf6">{% trans "Science Lead" %}</span>
+                      {% endif %}
+                      {% if ph.effort_multiplier != 1.0 %}
+                        <span class="text-sm text-neutral-500">{{ ph.effort_multiplier|floatformat }} FTE</span>
+                      {% endif %}
+                      <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ ph.end_date }}</span>
+                    </div>
+                  {% endwith %}
+                {% else %}
+                  <div class="font-semibold mb-2">{% trans "Currently working on:" %}</div>
+                  <div class="flex flex-col gap-2">
+                    {% for ph in my_current_phases %}
+                      <div class="flex items-center gap-3 flex-wrap">
+                        <span class="inline-block w-3 h-3 rounded-full shrink-0"
+                              style="background-color: {{ ph.project.colour }}"></span>
+                        <span class="font-medium">{{ ph.display_name }}</span>
+                        {% if ph.is_dev_lead %}
+                          <span class="badge badge-sm"
+                                style="background-color:#0ea5e9;
+                                       color:white;
+                                       border-color:#0ea5e9">{% trans "Dev Lead" %}</span>
+                        {% endif %}
+                        {% if ph.is_science_lead %}
+                          <span class="badge badge-sm"
+                                style="background-color:#8b5cf6;
+                                       color:white;
+                                       border-color:#8b5cf6">{% trans "Science Lead" %}</span>
+                        {% endif %}
+                        {% if ph.effort_multiplier != 1.0 %}
+                          <span class="text-sm text-neutral-500">{{ ph.effort_multiplier|floatformat }} FTE</span>
+                        {% endif %}
+                        <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ ph.end_date }}</span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% elif my_next_phase %}
+            <div class="card mb-4 bg-base-200">
+              <div class="card-body py-3 px-5">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="inline-block w-3 h-3 rounded-full shrink-0"
+                        style="background-color: {{ my_next_phase.project.colour }}"></span>
+                  <span class="font-semibold text-neutral-600">{% trans "Up next:" %} {{ my_next_phase.display_name }}</span>
+                  {% if my_next_phase.is_dev_lead %}
+                    <span class="badge badge-sm"
+                          style="background-color:#0ea5e9;
+                                 color:white;
+                                 border-color:#0ea5e9">{% trans "Dev Lead" %}</span>
+                  {% endif %}
+                  {% if my_next_phase.is_science_lead %}
+                    <span class="badge badge-sm"
+                          style="background-color:#8b5cf6;
+                                 color:white;
+                                 border-color:#8b5cf6">{% trans "Science Lead" %}</span>
+                  {% endif %}
+                  <span class="text-sm text-neutral-400 ml-auto">{% trans "starts" %} {{ my_next_phase.start_date }}</span>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+          {# ── All phases this semester ── #}
+          {% if my_phases %}
+            <div class="card bg-base-200 mb-4">
+              <div class="card-body py-4 px-5">
+                <h2 class="card-title text-base font-semibold mb-1">{% trans "Your Phases This Semester" %}</h2>
+                <div class="overflow-x-auto">
+                  <table class="table table-zebra table-sm w-full">
+                    <thead>
+                      <tr>
+                        <th>{% trans "Project" %}</th>
+                        <th>{% trans "From" %}</th>
+                        <th>{% trans "To" %}</th>
+                        <th class="text-right">{% trans "Effort (wks)" %}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for phase in my_phases %}
+                        <tr>
+                          <td class="font-medium">
+                            <span class="inline-flex items-center gap-1.5 flex-wrap">
+                              <span class="inline-block w-2 h-2 rounded-full shrink-0"
+                                    style="background-color: {{ phase.project.colour }}"></span>
+                              {{ phase.display_name }}
+                              {% if phase.is_dev_lead %}
+                                <span class="badge badge-xs"
+                                      style="background-color:#0ea5e9;
+                                             color:white;
+                                             border-color:#0ea5e9">{% trans "Dev Lead" %}</span>
+                              {% endif %}
+                              {% if phase.is_science_lead %}
+                                <span class="badge badge-xs"
+                                      style="background-color:#8b5cf6;
+                                             color:white;
+                                             border-color:#8b5cf6">{% trans "Science Lead" %}</span>
+                              {% endif %}
+                            </span>
+                          </td>
+                          <td>{{ phase.start_date }}</td>
+                          <td>{{ phase.end_date }}</td>
+                          <td class="text-right tabular-nums">{{ phase.effort_weeks|wks }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          {% else %}
+            <p class="text-sm text-neutral-400 mb-4">{% trans "No phases assigned this semester." %}</p>
+          {% endif %}
+          <div class="card bg-base-200">
+            <div class="card-body py-4 px-5">
+              <div class="flex items-center justify-between mb-1">
+                <h2 class="card-title text-base font-semibold">{% trans "Your Upcoming Leave" %}</h2>
+                <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-xs">{% trans "Manage" %}</a>
+              </div>
+              {% if my_upcoming_leave %}
+                <div class="overflow-x-auto">
+                  <table class="table table-zebra table-sm w-full">
+                    <thead>
+                      <tr>
+                        <th>{% trans "From" %}</th>
+                        <th>{% trans "To" %}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for leave in my_upcoming_leave %}
+                        <tr data-start="{{ leave.start_date|date:'Y-m-d' }}"
+                            data-end="{{ leave.end_date|date:'Y-m-d' }}"
+                            onmouseenter="showLeaveCalendar(this, event)"
+                            onmouseleave="hideLeaveCalendar()">
+                          <td>{{ leave.start_date }}</td>
+                          <td>{{ leave.end_date }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="text-sm text-neutral-400">{% trans "No upcoming leave recorded." %}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="alert alert-warning">{% trans "No developer profile found for your account. Contact an admin." %}</div>
+        {% endif %}
+        {# ── Restricted-access user view ── #}
+      {% elif my_project_count is not None %}
+        <div class="stat bg-base-200 rounded-xl p-4 w-64 mb-6">
+          <div class="stat-title text-xs">{% trans "Projects You Can View" %}</div>
+          <div class="stat-value text-2xl">{{ my_project_count|default:"0" }}</div>
+        </div>
+      {% endif %}
     {% endif %}
   </div>
-
-  {# ── Admin / PM view ── #}
-  {% if request.user.role == 'pm' or request.user.is_superuser %}
-
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-    <div class="stat bg-base-200 rounded-xl p-4">
-      <div class="stat-title text-xs">{% trans "Developers" %}</div>
-      <div class="stat-value text-2xl">{{ dev_count }}</div>
-    </div>
-    <div class="stat bg-base-200 rounded-xl p-4">
-      <div class="stat-title text-xs">{% trans "Projects" %}</div>
-      <div class="stat-value text-2xl">{{ project_count }}</div>
-    </div>
-    <div class="stat bg-base-200 rounded-xl p-4">
-      <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
-      <div class="stat-value text-2xl">{{ total_effort_available|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
-      <div class="stat-desc text-xs">{% trans "this semester" %}</div>
-    </div>
-    <div class="stat bg-base-200 rounded-xl p-4">
-      <div class="stat-title text-xs">{% trans "Effort Allocated" %}</div>
-      <div class="stat-value text-2xl">{{ total_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span></div>
-      <div class="stat-desc text-xs">{% trans "across all phases" %}</div>
-    </div>
-  </div>
-
-  {% if upcoming_leave %}
-  <div class="card bg-base-200">
-    <div class="card-body py-4 px-5">
-      <h2 class="card-title text-base font-semibold mb-1">{% trans "Upcoming Leave" %} <span class="text-xs font-normal text-neutral-400">({% trans "next 30 days" %})</span></h2>
-      <div class="overflow-x-auto">
-        <table class="table table-zebra table-sm w-full">
-          <thead>
-            <tr>
-              <th>{% trans "Developer" %}</th>
-              <th>{% trans "From" %}</th>
-              <th>{% trans "To" %}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for leave in upcoming_leave %}
-            <tr data-start="{{ leave.start_date|date:'Y-m-d' }}"
-                data-end="{{ leave.end_date|date:'Y-m-d' }}"
-                onmouseenter="showLeaveCalendar(this, event)"
-                onmouseleave="hideLeaveCalendar()">
-              <td class="font-medium">{{ leave.developer.user.name|default:leave.developer.user.email }}</td>
-              <td>{{ leave.start_date }}</td>
-              <td>{{ leave.end_date }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <p class="text-sm text-neutral-400">{% trans "No leave scheduled in the next 30 days." %}</p>
-  {% endif %}
-
-  {# ── Developer view ── #}
-  {% elif my_profile %}
-
-  {% if my_profile %}
-  <div class="grid grid-cols-2 gap-4 mb-4">
-    <div class="stat bg-base-200 rounded-xl p-4">
-      <div class="stat-title text-xs">{% trans "Effort Available" %}</div>
-      <div class="stat-value text-2xl">
-        {{ my_effort_available|wks }}{% if my_effort_available is not None %}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>{% endif %}
-      </div>
-      <div class="stat-desc text-xs">{% trans "this semester" %}</div>
-    </div>
-    <div class="stat bg-base-200 rounded-xl p-4">
-      <div class="stat-title text-xs">{% trans "Effort Allocated" %}</div>
-      <div class="stat-value text-2xl {% if my_effort_available and my_effort_allocated > my_effort_available %}text-error{% endif %}">
-        {{ my_effort_allocated|wks }}<span class="text-sm font-normal text-neutral-400 ml-1">wks</span>
-      </div>
-      <div class="stat-desc text-xs">{% trans "across your phases" %}</div>
-    </div>
-  </div>
-
-  {# ── Right now / Up next highlight ── #}
-  {% if my_current_phases %}
-  <div class="card mb-4 border border-amber-300 bg-amber-50">
-    <div class="card-body py-3 px-5">
-      {% if my_current_phases|length == 1 %}
-      {% with ph=my_current_phases.0 %}
-      <div class="flex items-center gap-3 flex-wrap">
-        <span class="inline-block w-3 h-3 rounded-full shrink-0" style="background-color: {{ ph.project.colour }};"></span>
-        <span class="font-semibold">{% trans "Currently working on" %} {{ ph.display_name }}</span>
-        {% if ph.is_dev_lead %}
-        <span class="badge badge-sm" style="background-color:#0ea5e9;color:white;border-color:#0ea5e9;">{% trans "Dev Lead" %}</span>
-        {% endif %}
-        {% if ph.is_science_lead %}
-        <span class="badge badge-sm" style="background-color:#8b5cf6;color:white;border-color:#8b5cf6;">{% trans "Science Lead" %}</span>
-        {% endif %}
-        {% if ph.effort_multiplier != 1.0 %}<span class="text-sm text-neutral-500">{{ ph.effort_multiplier|floatformat }} FTE</span>{% endif %}
-        <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ ph.end_date }}</span>
-      </div>
-      {% endwith %}
-      {% else %}
-      <div class="font-semibold mb-2">{% trans "Currently working on:" %}</div>
-      <div class="flex flex-col gap-2">
-        {% for ph in my_current_phases %}
-        <div class="flex items-center gap-3 flex-wrap">
-          <span class="inline-block w-3 h-3 rounded-full shrink-0" style="background-color: {{ ph.project.colour }};"></span>
-          <span class="font-medium">{{ ph.display_name }}</span>
-          {% if ph.is_dev_lead %}
-          <span class="badge badge-sm" style="background-color:#0ea5e9;color:white;border-color:#0ea5e9;">{% trans "Dev Lead" %}</span>
-          {% endif %}
-          {% if ph.is_science_lead %}
-          <span class="badge badge-sm" style="background-color:#8b5cf6;color:white;border-color:#8b5cf6;">{% trans "Science Lead" %}</span>
-          {% endif %}
-          {% if ph.effort_multiplier != 1.0 %}<span class="text-sm text-neutral-500">{{ ph.effort_multiplier|floatformat }} FTE</span>{% endif %}
-          <span class="text-sm text-neutral-500 ml-auto">{% trans "until" %} {{ ph.end_date }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-  </div>
-  {% elif my_next_phase %}
-  <div class="card mb-4 bg-base-200">
-    <div class="card-body py-3 px-5">
-      <div class="flex items-center gap-3 flex-wrap">
-        <span class="inline-block w-3 h-3 rounded-full shrink-0" style="background-color: {{ my_next_phase.project.colour }};"></span>
-        <span class="font-semibold text-neutral-600">{% trans "Up next:" %} {{ my_next_phase.display_name }}</span>
-        {% if my_next_phase.is_dev_lead %}
-        <span class="badge badge-sm" style="background-color:#0ea5e9;color:white;border-color:#0ea5e9;">{% trans "Dev Lead" %}</span>
-        {% endif %}
-        {% if my_next_phase.is_science_lead %}
-        <span class="badge badge-sm" style="background-color:#8b5cf6;color:white;border-color:#8b5cf6;">{% trans "Science Lead" %}</span>
-        {% endif %}
-        <span class="text-sm text-neutral-400 ml-auto">{% trans "starts" %} {{ my_next_phase.start_date }}</span>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {# ── All phases this semester ── #}
-  {% if my_phases %}
-  <div class="card bg-base-200 mb-4">
-    <div class="card-body py-4 px-5">
-      <h2 class="card-title text-base font-semibold mb-1">{% trans "Your Phases This Semester" %}</h2>
-      <div class="overflow-x-auto">
-        <table class="table table-zebra table-sm w-full">
-          <thead>
-            <tr>
-              <th>{% trans "Project" %}</th>
-              <th>{% trans "From" %}</th>
-              <th>{% trans "To" %}</th>
-              <th class="text-right">{% trans "Effort (wks)" %}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for phase in my_phases %}
-            <tr>
-              <td class="font-medium">
-                <span class="inline-flex items-center gap-1.5 flex-wrap">
-                  <span class="inline-block w-2 h-2 rounded-full shrink-0" style="background-color: {{ phase.project.colour }};"></span>
-                  {{ phase.display_name }}
-                  {% if phase.is_dev_lead %}
-                  <span class="badge badge-xs" style="background-color:#0ea5e9;color:white;border-color:#0ea5e9;">{% trans "Dev Lead" %}</span>
-                  {% endif %}
-                  {% if phase.is_science_lead %}
-                  <span class="badge badge-xs" style="background-color:#8b5cf6;color:white;border-color:#8b5cf6;">{% trans "Science Lead" %}</span>
-                  {% endif %}
-                </span>
-              </td>
-              <td>{{ phase.start_date }}</td>
-              <td>{{ phase.end_date }}</td>
-              <td class="text-right tabular-nums">{{ phase.effort_weeks|wks }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <p class="text-sm text-neutral-400 mb-4">{% trans "No phases assigned this semester." %}</p>
-  {% endif %}
-
-  <div class="card bg-base-200">
-    <div class="card-body py-4 px-5">
-      <div class="flex items-center justify-between mb-1">
-        <h2 class="card-title text-base font-semibold">{% trans "Your Upcoming Leave" %}</h2>
-        <a href="{% url 'planning:leave' %}" class="btn btn-outline btn-xs">{% trans "Manage" %}</a>
-      </div>
-      {% if my_upcoming_leave %}
-      <div class="overflow-x-auto">
-        <table class="table table-zebra table-sm w-full">
-          <thead>
-            <tr><th>{% trans "From" %}</th><th>{% trans "To" %}</th></tr>
-          </thead>
-          <tbody>
-            {% for leave in my_upcoming_leave %}
-            <tr data-start="{{ leave.start_date|date:'Y-m-d' }}"
-                data-end="{{ leave.end_date|date:'Y-m-d' }}"
-                onmouseenter="showLeaveCalendar(this, event)"
-                onmouseleave="hideLeaveCalendar()">
-              <td>{{ leave.start_date }}</td><td>{{ leave.end_date }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <p class="text-sm text-neutral-400">{% trans "No upcoming leave recorded." %}</p>
-      {% endif %}
-    </div>
-  </div>
-
-  {% else %}
-  <div class="alert alert-warning">{% trans "No developer profile found for your account. Contact an admin." %}</div>
-  {% endif %}
-
-  {# ── Restricted-access user view ── #}
-  {% elif my_project_count is not None %}
-
-  <div class="stat bg-base-200 rounded-xl p-4 w-64 mb-6">
-    <div class="stat-title text-xs">{% trans "Projects You Can View" %}</div>
-    <div class="stat-value text-2xl">{{ my_project_count|default:"0" }}</div>
-  </div>
-
-  {% endif %}
-  {% endif %}
-
-</div>
-
-<div id="leave-cal-popup"
-     style="display:none; position:fixed; z-index:9999; pointer-events:none;"
-     class="bg-base-100 border border-base-300 rounded-xl shadow-xl p-3 text-sm">
-</div>
-
-<script src="{% static 'js/planning/pages/home.js' %}" defer></script>
+  <div id="leave-cal-popup"
+       style="display:none;
+              position:fixed;
+              z-index:9999;
+              pointer-events:none"
+       class="bg-base-100 border border-base-300 rounded-xl shadow-xl p-3 text-sm"></div>
+  <script src="{% static 'js/planning/pages/home.js' %}" defer></script>
 {% endblock %}

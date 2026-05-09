@@ -1,175 +1,247 @@
 {% extends "base.html" %}
+
 {% load static i18n planning_extras %}
 
-{% block title %} — {% trans "Schedule" %}{% endblock %}
-
+{% block title %}
+  — {% trans "Schedule" %}
+{% endblock %}
 {% block content %}
-<div class="h-full flex flex-col">
-  <div class="shrink-0 px-6 pt-6">
-    <div class="flex items-center justify-between mb-4">
-      <div>
-        <h1 class="text-2xl font-bold">{% trans "Schedule" %}</h1>
-        <p class="text-sm text-neutral-500">{{ semester }}</p>
-      </div>
-    </div>
-
-    {# Controls — hidden for observers #}
-    {% if not is_observer %}
-    {% if all_tags or all_streams %}
-    <form id="filter-form" method="get" class="mb-3 flex flex-col gap-1.5">
-      {% if all_tags %}
-      <div class="flex items-start gap-2">
-        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <button type="button" data-group="tags" data-action="all"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
-          <button type="button" data-group="tags" data-action="none"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
-          {% for tag in all_tags %}
-          <label class="cursor-pointer select-none">
-            <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
-                   {% if tag.name in selected_tags %}checked{% endif %}>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
-                         {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
-                  style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
-              {{ tag.name }}
-            </span>
-          </label>
-          {% endfor %}
+  <div class="h-full flex flex-col">
+    <div class="shrink-0 px-6 pt-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-bold">{% trans "Schedule" %}</h1>
+          <p class="text-sm text-neutral-500">{{ semester }}</p>
         </div>
       </div>
-      {% endif %}
-      {% if all_streams %}
-      <div class="flex items-start gap-2">
-        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <button type="button" data-group="streams" data-action="all"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
-          <button type="button" data-group="streams" data-action="none"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
-          {% for stream in all_streams %}
-          <label class="cursor-pointer select-none">
-            <input type="checkbox" name="streams" value="{{ stream.name }}" class="sr-only"
-                   {% if stream.name in selected_streams %}checked{% endif %}>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
-                         {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
-                  style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }}; border-color: {{ stream.colour }};{% endif %}">
-              {{ stream.name }}
-            </span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-    </form>
-    {% endif %}
-    {% endif %}
-    {% if my_developer_pk %}
-    <div class="flex justify-end mb-2">
-      <button id="focus-my-rows-btn" type="button" class="btn btn-sm btn-ghost text-xs">{% trans "Focus my rows" %}</button>
-    </div>
-    {% endif %}
-  </div>
-
-  {# Timeline table #}
-  {% if weeks %}
-  <div id="schedule-scroll-container" class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
-    <table class="border-collapse" style="min-width: max-content;">
-      <thead>
-        <tr class="bg-base-100">
-          <th class="sticky left-0 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-48">{% trans "Project" %}</th>
-          <th class="sticky left-48 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-36">{% trans "Developer" %}</th>
-          {% for week in weeks %}
-          <th class="sticky top-0 z-20 bg-base-100 border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16" {% if forloop.counter0 == today_col %}style="position: relative; overflow: visible;"{% endif %}>
-            {{ week|date:"d M" }}
-            {% if forloop.counter0 == today_col %}
-            <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_day_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:1;"></div>
-            {% endif %}
-          </th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in project_rows %}
-          {% for layer in row.layers %}
-          <tr{% if my_developer_pk == layer.developer.pk %} data-my-row="true"{% endif %}>
-            {% if forloop.first %}
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap" rowspan="{{ row.status_rowspan }}">
-              <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
-                    style="background-color: {{ row.project.colour }};"></span>
-              {{ row.project.display_name }}
-            </td>
-            {% endif %}
-            <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1 text-sm whitespace-nowrap">
-              <span class="inline-block w-2 h-2 rounded-full mr-1 align-middle"
-                    style="background-color: {{ layer.developer.colour }};"></span>
-              {{ layer.developer.user.name|default:layer.developer.user.email }}
-            </td>
-            {% for cell in layer.cells %}
-              {% if cell.type == "phase" %}
-              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8" style="position: relative;">
-                <div class="tooltip w-full h-full"
-                     data-tip="{{ cell.phase.effort_display }} wks ({{ cell.phase.effort_multiplier }} FTE)">
-                  <div class="h-full rounded text-xs text-white flex items-center px-2 overflow-hidden whitespace-nowrap cursor-default"
-                       style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};{% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);{% endif %}">
-                    {{ cell.phase.effort_display }} wks
-                  </div>
+      {# Controls — hidden for observers #}
+      {% if not is_observer %}
+        {% if all_tags or all_streams %}
+          <form id="filter-form" method="get" class="mb-3 flex flex-col gap-1.5">
+            {% if all_tags %}
+              <div class="flex items-start gap-2">
+                <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+                <div class="flex flex-wrap gap-1.5 items-center">
+                  <button type="button"
+                          data-group="tags"
+                          data-action="all"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "All" %}
+                  </button>
+                  <button type="button"
+                          data-group="tags"
+                          data-action="none"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "None" %}
+                  </button>
+                  {% for tag in all_tags %}
+                    <label class="cursor-pointer select-none">
+                      <input type="checkbox"
+                             name="tags"
+                             value="{{ tag.name }}"
+                             class="sr-only"
+                             {% if tag.name in selected_tags %}checked{% endif %} />
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                            style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }};
+                                   border-color: {{ tag.colour }};
+                                   {% endif %}">{{ tag.name }}</span>
+                    </label>
+                  {% endfor %}
                 </div>
-                {% if cell.today_px >= 0 %}
-                <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ cell.today_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:10;"></div>
-                {% endif %}
-              </td>
-              {% else %}
-              <td colspan="{{ cell.colspan }}" class="p-0 border-l border-base-200 h-8" style="position: relative;">
-                {% if cell.today_px >= 0 %}
-                <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ cell.today_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:10;"></div>
-                {% endif %}
-              </td>
-              {% endif %}
-            {% endfor %}
-          </tr>
-          {% endfor %}
-          {# Status row — always shown below developer rows #}
-          <tr class="border-b-2 border-base-300">
-            {% if not row.layers %}
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap">
-              <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
-                    style="background-color: {{ row.project.colour }};"></span>
-              {{ row.project.display_name }}
-            </td>
+              </div>
             {% endif %}
-            <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1">
-              {% if row.unscheduled_weeks > 0 %}
-              <span class="text-xs italic text-neutral-400 tracking-wide">{{ row.unscheduled_weeks|wks }} {% trans "weeks unscheduled" %}</span>
-              {% else %}
-              <span class="text-xs italic text-neutral-400 tracking-wide">{% trans "Fully scheduled" %}</span>
-              {% endif %}
-            </td>
-            <td colspan="{{ weeks|length }}" class="border-l border-base-200 h-8" style="position: relative;">
-              {% if today_left_px >= 0 %}
-              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:10;"></div>
-              {% endif %}
-            </td>
-          </tr>
-        {% empty %}
-        <tr>
-          <td colspan="{{ weeks|length|add:2 }}" class="text-center text-neutral-500 p-4">{% trans "No projects found." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+            {% if all_streams %}
+              <div class="flex items-start gap-2">
+                <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
+                <div class="flex flex-wrap gap-1.5 items-center">
+                  <button type="button"
+                          data-group="streams"
+                          data-action="all"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "All" %}
+                  </button>
+                  <button type="button"
+                          data-group="streams"
+                          data-action="none"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "None" %}
+                  </button>
+                  {% for stream in all_streams %}
+                    <label class="cursor-pointer select-none">
+                      <input type="checkbox"
+                             name="streams"
+                             value="{{ stream.name }}"
+                             class="sr-only"
+                             {% if stream.name in selected_streams %}checked{% endif %} />
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                            style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }};
+                                   border-color: {{ stream.colour }};
+                                   {% endif %}">{{ stream.name }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </form>
+        {% endif %}
+      {% endif %}
+      {% if my_developer_pk %}
+        <div class="flex justify-end mb-2">
+          <button id="focus-my-rows-btn"
+                  type="button"
+                  class="btn btn-sm btn-ghost text-xs">{% trans "Focus my rows" %}</button>
+        </div>
+      {% endif %}
+    </div>
+    {# Timeline table #}
+    {% if weeks %}
+      <div id="schedule-scroll-container"
+           class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
+        <table class="border-collapse" style="min-width: max-content;">
+          <thead>
+            <tr class="bg-base-100">
+              <th class="sticky left-0 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-48">
+                {% trans "Project" %}
+              </th>
+              <th class="sticky left-48 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left min-w-36">
+                {% trans "Developer" %}
+              </th>
+              {% for week in weeks %}
+                <th class="sticky top-0 z-20 bg-base-100 border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center w-16 min-w-16"
+                    {% if forloop.counter0 == today_col %}style="position: relative; overflow: visible;"{% endif %}>
+                  {{ week|date:"d M" }}
+                  {% if forloop.counter0 == today_col %}
+                    <div style="position:absolute;
+                                top:0;
+                                bottom:0;
+                                width:2px;
+                                left:{{ today_day_px }}px;
+                                background:rgba(239,68,68,0.5);
+                                pointer-events:none;
+                                z-index:1"></div>
+                  {% endif %}
+                </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in project_rows %}
+              {% for layer in row.layers %}
+                <tr {% if my_developer_pk == layer.developer.pk %}data-my-row="true"{% endif %}>
+                  {% if forloop.first %}
+                    <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap"
+                        rowspan="{{ row.status_rowspan }}">
+                      <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
+                            style="background-color: {{ row.project.colour }}"></span>
+                      {{ row.project.display_name }}
+                    </td>
+                  {% endif %}
+                  <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1 text-sm whitespace-nowrap">
+                    <span class="inline-block w-2 h-2 rounded-full mr-1 align-middle"
+                          style="background-color: {{ layer.developer.colour }}"></span>
+                    {{ layer.developer.user.name|default:layer.developer.user.email }}
+                  </td>
+                  {% for cell in layer.cells %}
+                    {% if cell.type == "phase" %}
+                      <td colspan="{{ cell.colspan }}"
+                          class="p-0 border-l border-base-200 h-8"
+                          style="position: relative">
+                        <div class="tooltip w-full h-full"
+                             data-tip="{{ cell.phase.effort_display }} wks ({{ cell.phase.effort_multiplier }} FTE)">
+                          <div class="h-full rounded text-xs text-white flex items-center px-2 overflow-hidden whitespace-nowrap cursor-default"
+                               style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};
+                                      {% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);
+                                      {% endif %}">{{ cell.phase.effort_display }} wks</div>
+                        </div>
+                        {% if cell.today_px >= 0 %}
+                          <div style="position:absolute;
+                                      top:0;
+                                      bottom:0;
+                                      width:2px;
+                                      left:{{ cell.today_px }}px;
+                                      background:rgba(239,68,68,0.5);
+                                      pointer-events:none;
+                                      z-index:10"></div>
+                        {% endif %}
+                      </td>
+                    {% else %}
+                      <td colspan="{{ cell.colspan }}"
+                          class="p-0 border-l border-base-200 h-8"
+                          style="position: relative">
+                        {% if cell.today_px >= 0 %}
+                          <div style="position:absolute;
+                                      top:0;
+                                      bottom:0;
+                                      width:2px;
+                                      left:{{ cell.today_px }}px;
+                                      background:rgba(239,68,68,0.5);
+                                      pointer-events:none;
+                                      z-index:10"></div>
+                        {% endif %}
+                      </td>
+                    {% endif %}
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+              {# Status row — always shown below developer rows #}
+              <tr class="border-b-2 border-base-300">
+                {% if not row.layers %}
+                  <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-3 py-1 font-medium text-sm whitespace-nowrap">
+                    <span class="inline-block w-3 h-3 rounded-full mr-1 align-middle"
+                          style="background-color: {{ row.project.colour }}"></span>
+                    {{ row.project.display_name }}
+                  </td>
+                {% endif %}
+                <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1">
+                  {% if row.unscheduled_weeks > 0 %}
+                    <span class="text-xs italic text-neutral-400 tracking-wide">{{ row.unscheduled_weeks|wks }} {% trans "weeks unscheduled" %}</span>
+                  {% else %}
+                    <span class="text-xs italic text-neutral-400 tracking-wide">{% trans "Fully scheduled" %}</span>
+                  {% endif %}
+                </td>
+                <td colspan="{{ weeks|length }}"
+                    class="border-l border-base-200 h-8"
+                    style="position: relative">
+                  {% if today_left_px >= 0 %}
+                    <div style="position:absolute;
+                                top:0;
+                                bottom:0;
+                                width:2px;
+                                left:{{ today_left_px }}px;
+                                background:rgba(239,68,68,0.5);
+                                pointer-events:none;
+                                z-index:10"></div>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="{{ weeks|length|add:2 }}"
+                    class="text-center text-neutral-500 p-4">{% trans "No projects found." %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="px-6 text-neutral-500">{% trans "No weeks in selected range." %}</p>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="px-6 text-neutral-500">{% trans "No weeks in selected range." %}</p>
-  {% endif %}
-</div>
+  <style>
+    tr[data-my-row="true"] td {
+      background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    }
 
-<style>
-  tr[data-my-row="true"] td { background-color: color-mix(in srgb, var(--color-primary) 8%, transparent); }
-  .focus-my-rows tr:not([data-my-row="true"]) td { opacity: 0.25; }
-</style>
+    .focus-my-rows tr:not([data-my-row="true"]) td {
+      opacity: 0.25;
+    }
+  </style>
+  {# djlint:off #}
 <script>
-  window.schedulePageConfig = { myDeveloperPk: {{ my_developer_pk|default:"null" }} };
+  window.schedulePageConfig = {
+    myDeveloperPk: {{ my_developer_pk|default:"null" }},
+  };
 </script>
-<script src="{% static 'js/planning/pages/schedule.js' %}" defer></script>
+  {# djlint:on #}
+  <script src="{% static 'js/planning/pages/schedule.js' %}" defer></script>
 {% endblock %}

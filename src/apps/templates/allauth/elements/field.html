@@ -1,9 +1,8 @@
 {% load allauth %}
+
 {% if attrs.type == "textarea" %}
   <div class="form-control mb-3">
-    <label class="label label-text" for="{{ attrs.id }}">
-      {% slot label %}{% endslot %}
-    </label>
+    <label class="label label-text" for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
     <textarea {% if attrs.required %}required{% endif %}
               {% if attrs.rows %}rows="{{ attrs.rows }}"{% endif %}
               {% if attrs.disabled %}disabled{% endif %}
@@ -22,16 +21,13 @@
            {% if attrs.name %}name="{{ attrs.name }}"{% endif %}
            {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
            {% if attrs.value %}value="{{ attrs.value }}"{% endif %}
-           type="radio" class="radio radio-sm" />
-    <label for="{{ attrs.id }}">
-      {% slot label %}{% endslot %}
-    </label>
+           type="radio"
+           class="radio radio-sm" />
+    <label for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
   </div>
 {% else %}
   <div class="form-control mb-3">
-    <label class="label label-text" for="{{ attrs.id }}">
-      {% slot label %}{% endslot %}
-    </label>
+    <label class="label label-text" for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
     <input {% if attrs.required %}required{% endif %}
            {% if attrs.disabled %}disabled{% endif %}
            {% if attrs.readonly %}readonly{% endif %}

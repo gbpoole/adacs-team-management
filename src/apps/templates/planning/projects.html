@@ -1,231 +1,287 @@
 {% extends "base.html" %}
+
 {% load static i18n planning_extras %}
 
-{% block title %} — {% trans "Projects" %}{% endblock %}
-
+{% block title %}
+  — {% trans "Projects" %}
+{% endblock %}
 {% block content %}
-<div class="h-full flex flex-col">
-  <div class="shrink-0 px-6 pt-6 pb-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{% trans "Projects" %}</h1>
-        <p class="text-sm text-neutral-500">{{ semester }}</p>
-      </div>
-      {% if can_edit %}
-      <div class="flex gap-2">
-        <button id="open-add-project-modal" class="btn btn-primary btn-sm">+ {% trans "Add Project" %}</button>
-        {% if continuation_semesters %}
-        <button id="open-migrate-projects" class="btn btn-outline btn-sm">{% trans "Migrate from Semester" %}</button>
+  <div class="h-full flex flex-col">
+    <div class="shrink-0 px-6 pt-6 pb-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">{% trans "Projects" %}</h1>
+          <p class="text-sm text-neutral-500">{{ semester }}</p>
+        </div>
+        {% if can_edit %}
+          <div class="flex gap-2">
+            <button id="open-add-project-modal" class="btn btn-primary btn-sm">+ {% trans "Add Project" %}</button>
+            {% if continuation_semesters %}
+              <button id="open-migrate-projects" class="btn btn-outline btn-sm">{% trans "Migrate from Semester" %}</button>
+            {% endif %}
+            <button id="download-projects-tsv" class="btn btn-outline btn-sm">{% trans "Download TSV" %}</button>
+          </div>
         {% endif %}
-        <button id="download-projects-tsv" class="btn btn-outline btn-sm">{% trans "Download TSV" %}</button>
       </div>
-      {% endif %}
+    </div>
+    {% if all_tags or streams %}
+      <div class="shrink-0 px-6 pb-3">
+        <form id="filter-form" method="get" class="flex flex-col gap-1.5">
+          {% if all_tags %}
+            <div class="flex items-start gap-2">
+              <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+              <div class="flex flex-wrap gap-1.5 items-center">
+                <button type="button"
+                        data-group="tags"
+                        data-action="all"
+                        class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                  {% trans "All" %}
+                </button>
+                <button type="button"
+                        data-group="tags"
+                        data-action="none"
+                        class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                  {% trans "None" %}
+                </button>
+                {% for tag in all_tags %}
+                  <label class="cursor-pointer select-none">
+                    <input type="checkbox"
+                           name="tags"
+                           value="{{ tag.name }}"
+                           class="sr-only"
+                           {% if tag.name in selected_tags %}checked{% endif %} />
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                          style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }};
+                                 border-color: {{ tag.colour }};
+                                 {% endif %}">{{ tag.name }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          {% if streams %}
+            <div class="flex items-start gap-2">
+              <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
+              <div class="flex flex-wrap gap-1.5 items-center">
+                <button type="button"
+                        data-group="streams"
+                        data-action="all"
+                        class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                  {% trans "All" %}
+                </button>
+                <button type="button"
+                        data-group="streams"
+                        data-action="none"
+                        class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                  {% trans "None" %}
+                </button>
+                {% for stream in streams %}
+                  <label class="cursor-pointer select-none">
+                    <input type="checkbox"
+                           name="streams"
+                           value="{{ stream.name }}"
+                           class="sr-only"
+                           {% if stream.name in selected_streams %}checked{% endif %} />
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                          style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }};
+                                 border-color: {{ stream.colour }};
+                                 {% endif %}">{{ stream.name }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        </form>
+      </div>
+    {% endif %}
+    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+      <table id="proj-table" class="table table-zebra w-full">
+        <thead>
+          <tr class="bg-base-100 sticky top-0 z-10">
+            <th class="cursor-pointer select-none"
+                data-sort-col="name"
+                data-col="name">
+              {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
+            </th>
+            <th>{% trans "Streams" %}</th>
+            <th>{% trans "Tags" %}</th>
+            <th>{% trans "Sci. Lead" %}</th>
+            <th>{% trans "Dev Lead" %}</th>
+            <th class="text-right cursor-pointer select-none"
+                data-sort-col="resourced"
+                data-col="resourced">
+              {% trans "Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+            </th>
+            <th class="text-right cursor-pointer select-none"
+                data-sort-col="allocated"
+                data-col="allocated">
+              {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+            </th>
+            <th class="text-right cursor-pointer select-none"
+                data-sort-col="unallocated"
+                data-col="unallocated">
+              {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for project in projects %}
+            <tr {% if can_edit %}class="cursor-pointer hover:bg-base-200 js-edit-project-row"{% endif %}
+                data-pk="{{ project.pk }}"
+                data-name="{{ project.display_name }}"
+                data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                data-effort="{{ project.effort_resourced|default:'' }}"
+                data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                data-dev-lead-pk="{{ project.dev_lead.pk|default:'' }}"
+                data-science-lead-pk="{{ project.science_lead.pk|default:'' }}"
+                data-science-lead-name="{{ project.science_lead_name|default:'' }}"
+                data-continuation-of-pk="{{ project.continuation_of.pk|default:'' }}"
+                data-sort-name="{{ project.display_name|lower }}"
+                data-sort-resourced="{{ project.effort_resourced }}"
+                data-sort-allocated="{{ project.effort_allocated }}"
+                data-sort-unallocated="{{ project.effort_discrepancy }}">
+              <td>
+                <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
+                      style="background-color: {{ project.colour }}"></span>
+                {{ project.display_name }}
+                {% if project.continuation_display_name %}
+                  <div class="text-xs text-neutral-400 mt-0.5 ml-5">↳ {{ project.continuation_display_name }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% for stream in project.streams.all %}
+                  <span class="badge badge-sm"
+                        style="background-color: {{ stream.colour }};
+                               color: white;
+                               border-color: {{ stream.colour }}">{{ stream }}</span>
+                {% empty %}—
+                {% endfor %}
+              </td>
+              <td>
+                {% for tag in project.tags.all %}
+                  <span class="badge badge-sm"
+                        style="background-color: {{ tag.colour }};
+                               color: white;
+                               border-color: {{ tag.colour }}">{{ tag }}</span>
+                {% empty %}—
+                {% endfor %}
+              </td>
+              <td>
+                {% if project.science_lead %}
+                  {{ project.science_lead.name|default:project.science_lead.email }}
+                {% elif project.science_lead_name %}
+                  <span class="italic text-neutral-400" title="{% trans 'Not in system' %}">{{ project.science_lead_name }}</span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if project.dev_lead %}
+                  {{ project.dev_lead.name|default:project.dev_lead.email }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="text-right">{{ project.effort_resourced|wks }}</td>
+              <td class="text-right">{{ project.effort_allocated|wks }}</td>
+              <td class="text-right{% if project.effort_discrepancy < 0 %} text-error font-bold{% endif %}">
+                {{ project.effort_discrepancy|wks }}
+                {% if project.effort_discrepancy < 0 %}
+                  <span class="ml-1 tooltip" data-tip="{% trans 'Over-allocated' %}">⚠</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
-
-  {% if all_tags or streams %}
-  <div class="shrink-0 px-6 pb-3">
-    <form id="filter-form" method="get" class="flex flex-col gap-1.5">
-      {% if all_tags %}
-      <div class="flex items-start gap-2">
-        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <button type="button" data-group="tags" data-action="all"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
-          <button type="button" data-group="tags" data-action="none"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
-          {% for tag in all_tags %}
-          <label class="cursor-pointer select-none">
-            <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
-                   {% if tag.name in selected_tags %}checked{% endif %}>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
-                         {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
-                  style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
-              {{ tag.name }}
-            </span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-      {% if streams %}
-      <div class="flex items-start gap-2">
-        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <button type="button" data-group="streams" data-action="all"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
-          <button type="button" data-group="streams" data-action="none"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
-          {% for stream in streams %}
-          <label class="cursor-pointer select-none">
-            <input type="checkbox" name="streams" value="{{ stream.name }}" class="sr-only"
-                   {% if stream.name in selected_streams %}checked{% endif %}>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
-                         {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
-                  style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }}; border-color: {{ stream.colour }};{% endif %}">
-              {{ stream.name }}
-            </span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
+  {# Add Project modal #}
+  <dialog id="add-project-modal" class="modal">
+    <div class="modal-box max-w-2xl">
+      <h3 class="font-bold text-lg mb-4">{% trans "Add Project" %}</h3>
+      {% include "planning/partials/project_add_form.html" with project_add_form=project_add_form %}
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>{% trans "Close" %}</button>
     </form>
-  </div>
+  </dialog>
+  {% if can_edit %}
+    {# Edit Project modal #}
+    <dialog id="project-edit-modal" class="modal">
+      <div class="modal-box max-w-2xl">
+        <h3 id="edit-project-name-heading" class="font-bold text-lg mb-1"></h3>
+        <p class="text-sm text-neutral-500 mb-4">
+          <span class="font-medium">{{ semester }}</span>
+        </p>
+        {% include "planning/partials/project_edit_form.html" with project_edit_form=project_edit_form edit_project=edit_project selected_edit_streams=selected_edit_streams selected_edit_tags=selected_edit_tags %}
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>{% trans "Close" %}</button>
+      </form>
+    </dialog>
   {% endif %}
-
-  <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table id="proj-table" class="table table-zebra w-full">
-      <thead>
-        <tr class="bg-base-100 sticky top-0 z-10">
-          <th class="cursor-pointer select-none" data-sort-col="name" data-col="name">
-            {% trans "Name" %} <span class="sort-icon text-neutral-400">⇅</span>
-          </th>
-          <th>{% trans "Streams" %}</th>
-          <th>{% trans "Tags" %}</th>
-          <th>{% trans "Sci. Lead" %}</th>
-          <th>{% trans "Dev Lead" %}</th>
-          <th class="text-right cursor-pointer select-none" data-sort-col="resourced" data-col="resourced">
-            {% trans "Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
-          </th>
-          <th class="text-right cursor-pointer select-none" data-sort-col="allocated" data-col="allocated">
-            {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
-          </th>
-          <th class="text-right cursor-pointer select-none" data-sort-col="unallocated" data-col="unallocated">
-            {% trans "Unallocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for project in projects %}
-        <tr{% if can_edit %} class="cursor-pointer hover:bg-base-200 js-edit-project-row"{% endif %}
-            data-pk="{{ project.pk }}"
-            data-name="{{ project.display_name }}"
-            data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
-            data-effort="{{ project.effort_resourced|default:'' }}"
-            data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
-            data-dev-lead-pk="{{ project.dev_lead.pk|default:'' }}"
-            data-science-lead-pk="{{ project.science_lead.pk|default:'' }}"
-            data-science-lead-name="{{ project.science_lead_name|default:'' }}"
-            data-continuation-of-pk="{{ project.continuation_of.pk|default:'' }}"
-            data-sort-name="{{ project.display_name|lower }}"
-            data-sort-resourced="{{ project.effort_resourced }}"
-            data-sort-allocated="{{ project.effort_allocated }}"
-            data-sort-unallocated="{{ project.effort_discrepancy }}">
-          <td>
-            <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
-                  style="background-color: {{ project.colour }};"></span>
-            {{ project.display_name }}
-            {% if project.continuation_display_name %}
-            <div class="text-xs text-neutral-400 mt-0.5 ml-5">↳ {{ project.continuation_display_name }}</div>
-            {% endif %}
-          </td>
-          <td>
-            {% for stream in project.streams.all %}
-            <span class="badge badge-sm" style="background-color: {{ stream.colour }}; color: white; border-color: {{ stream.colour }};">{{ stream }}</span>
-            {% empty %}—{% endfor %}
-          </td>
-          <td>
-            {% for tag in project.tags.all %}
-            <span class="badge badge-sm" style="background-color: {{ tag.colour }}; color: white; border-color: {{ tag.colour }};">{{ tag }}</span>
-            {% empty %}—{% endfor %}
-          </td>
-          <td>
-            {% if project.science_lead %}
-              {{ project.science_lead.name|default:project.science_lead.email }}
-            {% elif project.science_lead_name %}
-              <span class="italic text-neutral-400" title="{% trans 'Not in system' %}">{{ project.science_lead_name }}</span>
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td>
-            {% if project.dev_lead %}
-              {{ project.dev_lead.name|default:project.dev_lead.email }}
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td class="text-right">{{ project.effort_resourced|wks }}</td>
-          <td class="text-right">{{ project.effort_allocated|wks }}</td>
-          <td class="text-right{% if project.effort_discrepancy < 0 %} text-error font-bold{% endif %}">
-            {{ project.effort_discrepancy|wks }}
-            {% if project.effort_discrepancy < 0 %}
-            <span class="ml-1 tooltip" data-tip="{% trans 'Over-allocated' %}">⚠</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="8" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{# Add Project modal #}
-<dialog id="add-project-modal" class="modal">
-  <div class="modal-box max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">{% trans "Add Project" %}</h3>
-    {% include "planning/partials/project_add_form.html" with project_add_form=project_add_form %}
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-{% if can_edit %}
-{# Edit Project modal #}
-<dialog id="project-edit-modal" class="modal">
-  <div class="modal-box max-w-2xl">
-    <h3 id="edit-project-name-heading" class="font-bold text-lg mb-1"></h3>
-    <p class="text-sm text-neutral-500 mb-4"><span class="font-medium">{{ semester }}</span></p>
-    {% include "planning/partials/project_edit_form.html" with project_edit_form=project_edit_form edit_project=edit_project selected_edit_streams=selected_edit_streams selected_edit_tags=selected_edit_tags %}
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-{% endif %}
-
-{% if can_edit and continuation_semesters %}
-{# Migrate Projects modal #}
-<dialog id="migrate-project-modal" class="modal">
-  <div class="modal-box max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">{% trans "Migrate Projects from Another Semester" %}</h3>
-    <form id="migrate-project-form" method="post" action="{% url 'planning:project_migrate' %}" hx-boost="false">
-      {% csrf_token %}
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Source Semester" %}</label>
-        <select id="migrate-proj-semester" name="source_semester" class="select select-bordered">
-          {% for sem in continuation_semesters %}
-          <option value="{{ sem.pk }}">{{ sem }}</option>
-          {% endfor %}
-        </select>
+  {% if can_edit and continuation_semesters %}
+    {# Migrate Projects modal #}
+    <dialog id="migrate-project-modal" class="modal">
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">{% trans "Migrate Projects from Another Semester" %}</h3>
+        <form id="migrate-project-form"
+              method="post"
+              action="{% url 'planning:project_migrate' %}"
+              hx-boost="false">
+          {% csrf_token %}
+          <div class="form-control mb-4">
+            <label class="label label-text">{% trans "Source Semester" %}</label>
+            <select id="migrate-proj-semester"
+                    name="source_semester"
+                    class="select select-bordered">
+              {% for sem in continuation_semesters %}<option value="{{ sem.pk }}">{{ sem }}</option>{% endfor %}
+            </select>
+          </div>
+          <div id="migrate-stream-filters"
+               class="flex flex-wrap gap-1.5 items-center mb-2 min-h-6"></div>
+          <div class="flex gap-2 mb-2">
+            <input type="text"
+                   id="migrate-proj-search"
+                   placeholder="{% trans 'Filter projects…' %}"
+                   class="input input-bordered input-sm flex-1"
+                   autocomplete="off"
+                   data-lpignore="true"
+                   data-form-type="other" />
+            <select id="migrate-set-all" class="select select-bordered select-sm">
+              <option value="">{% trans "Set all…" %}</option>
+              <option value="resourced">{% trans "All: Resourced" %}</option>
+              <option value="unallocated">{% trans "All: Unallocated" %}</option>
+              <option value="custom">{% trans "All: Custom" %}</option>
+            </select>
+            <button type="button"
+                    id="migrate-select-all"
+                    class="btn btn-xs btn-ghost self-center">{% trans "All" %}</button>
+            <button type="button"
+                    id="migrate-select-none"
+                    class="btn btn-xs btn-ghost self-center">{% trans "None" %}</button>
+          </div>
+          <div id="migrate-proj-list"
+               class="border border-base-300 rounded-lg overflow-y-auto max-h-72 divide-y divide-base-200">
+            <div class="p-4 text-sm text-neutral-400">{% trans "Select a semester above." %}</div>
+          </div>
+          <div class="modal-action">
+            <button type="button" id="close-migrate-project-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+            <button type="submit" class="btn btn-primary">{% trans "Migrate Selected" %}</button>
+          </div>
+        </form>
       </div>
-      <div id="migrate-stream-filters" class="flex flex-wrap gap-1.5 items-center mb-2 min-h-6"></div>
-      <div class="flex gap-2 mb-2">
-        <input type="text" id="migrate-proj-search" placeholder="{% trans 'Filter projects…' %}" class="input input-bordered input-sm flex-1" autocomplete="off" data-lpignore="true" data-form-type="other">
-        <select id="migrate-set-all" class="select select-bordered select-sm">
-          <option value="">{% trans "Set all…" %}</option>
-          <option value="resourced">{% trans "All: Resourced" %}</option>
-          <option value="unallocated">{% trans "All: Unallocated" %}</option>
-          <option value="custom">{% trans "All: Custom" %}</option>
-        </select>
-        <button type="button" id="migrate-select-all" class="btn btn-xs btn-ghost self-center">{% trans "All" %}</button>
-        <button type="button" id="migrate-select-none" class="btn btn-xs btn-ghost self-center">{% trans "None" %}</button>
-      </div>
-      <div id="migrate-proj-list" class="border border-base-300 rounded-lg overflow-y-auto max-h-72 divide-y divide-base-200">
-        <div class="p-4 text-sm text-neutral-400">{% trans "Select a semester above." %}</div>
-      </div>
-      <div class="modal-action">
-        <button type="button" id="close-migrate-project-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Migrate Selected" %}</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-{% endif %}
-
+      <form method="dialog" class="modal-backdrop">
+        <button>{% trans "Close" %}</button>
+      </form>
+    </dialog>
+  {% endif %}
+  {# djlint:off #}
 <script>
   window.projectPageConfig = {
     continuationData: {{ continuation_data_json|safe }},
@@ -247,5 +303,6 @@
     },
   };
 </script>
-<script src="{% static 'js/planning/pages/projects.js' %}" defer></script>
+  {# djlint:on #}
+  <script src="{% static 'js/planning/pages/projects.js' %}" defer></script>
 {% endblock %}

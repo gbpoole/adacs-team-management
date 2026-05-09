@@ -1,412 +1,618 @@
 {% extends "base.html" %}
+
 {% load static i18n planning_extras %}
 
-{% block title %} — {% trans "Planning" %}{% endblock %}
-
+{% block title %}
+  — {% trans "Planning" %}
+{% endblock %}
 {% block content %}
-<div class="h-full flex flex-col">
-  <div class="shrink-0 px-6 pt-6">
-    <div class="flex items-center justify-between mb-4">
-      <div>
-        <h1 class="text-2xl font-bold">{% trans "Planning" %}</h1>
-        <p class="text-sm text-neutral-500">{{ semester }}</p>
-      </div>
-    </div>
-
-    {# Controls — hidden for observers #}
-    {% if not is_observer %}
-    {% if all_tags or all_streams %}
-    <form id="filter-form" method="get" class="mb-3 flex flex-col gap-1.5">
-      {% if all_tags %}
-      <div class="flex items-start gap-2">
-        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <button type="button" data-group="tags" data-action="all"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
-          <button type="button" data-group="tags" data-action="none"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
-          {% for tag in all_tags %}
-          <label class="cursor-pointer select-none">
-            <input type="checkbox" name="tags" value="{{ tag.name }}" class="sr-only"
-                   {% if tag.name in selected_tags %}checked{% endif %}>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
-                         {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
-                  style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }}; border-color: {{ tag.colour }};{% endif %}">
-              {{ tag.name }}
-            </span>
-          </label>
-          {% endfor %}
+  <div class="h-full flex flex-col">
+    <div class="shrink-0 px-6 pt-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-bold">{% trans "Planning" %}</h1>
+          <p class="text-sm text-neutral-500">{{ semester }}</p>
         </div>
       </div>
-      {% endif %}
-      {% if all_streams %}
-      <div class="flex items-start gap-2">
-        <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <button type="button" data-group="streams" data-action="all"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "All" %}</button>
-          <button type="button" data-group="streams" data-action="none"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">{% trans "None" %}</button>
-          {% for stream in all_streams %}
-          <label class="cursor-pointer select-none">
-            <input type="checkbox" name="streams" value="{{ stream.name }}" class="sr-only"
-                   {% if stream.name in selected_streams %}checked{% endif %}>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors
-                         {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
-                  style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }}; border-color: {{ stream.colour }};{% endif %}">
-              {{ stream.name }}
-            </span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-    </form>
-    {% endif %}
-    {% endif %}
-    {% if my_developer_pk %}
-    <div class="flex justify-end mb-2">
-      <button id="focus-my-rows-btn" type="button" class="btn btn-sm btn-ghost text-xs">{% trans "Focus my rows" %}</button>
-    </div>
-    {% endif %}
-  </div>
-
-  {# Timeline table #}
-  {% if weeks %}
-  <div id="planning-scroll-container" class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
-    <table class="border-collapse" style="min-width: max-content; table-layout: fixed;">
-      <thead>
-        <tr class="bg-base-100">
-          <th class="sticky left-0 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left" style="width: 160px; min-width: 160px;">{% trans "Developer" %}</th>
-          {% for week in weeks %}
-          <th class="sticky top-0 z-20 bg-base-100 border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center" style="width: 64px; min-width: 64px;{% if forloop.counter0 == today_col %} position: relative; overflow: visible;{% endif %}">
-            {{ week|date:"d M" }}
-            {% if forloop.counter0 == today_col %}
-            <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_day_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:1;"></div>
-            {% endif %}
-          </th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in developer_rows %}
-          {# ── Real lane rows ── #}
-          {% for lane_row in row.lanes %}
-          <tr data-lane-pk="{{ lane_row.lane.pk }}"{% if my_developer_pk == row.developer.pk %} data-my-row="true"{% endif %}>
-            {% if forloop.first %}
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
-                rowspan="{{ row.lane_count|add:1 }}" style="width: 160px;">
-              <div class="flex items-center gap-1">
-                <span class="inline-block w-3 h-3 rounded-full shrink-0"
-                      style="background-color: {{ row.developer.colour }};"></span>
-                <span class="truncate">{{ row.developer.user.name|default:row.developer.user.email }}</span>
+      {# Controls — hidden for observers #}
+      {% if not is_observer %}
+        {% if all_tags or all_streams %}
+          <form id="filter-form" method="get" class="mb-3 flex flex-col gap-1.5">
+            {% if all_tags %}
+              <div class="flex items-start gap-2">
+                <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Tag filters:" %}</span>
+                <div class="flex flex-wrap gap-1.5 items-center">
+                  <button type="button"
+                          data-group="tags"
+                          data-action="all"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "All" %}
+                  </button>
+                  <button type="button"
+                          data-group="tags"
+                          data-action="none"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "None" %}
+                  </button>
+                  {% for tag in all_tags %}
+                    <label class="cursor-pointer select-none">
+                      <input type="checkbox"
+                             name="tags"
+                             value="{{ tag.name }}"
+                             class="sr-only"
+                             {% if tag.name in selected_tags %}checked{% endif %} />
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors {% if tag.name in selected_tags %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                            style="{% if tag.name in selected_tags %}background-color: {{ tag.colour }};
+                                   border-color: {{ tag.colour }};
+                                   {% endif %}">{{ tag.name }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
               </div>
-            </td>
             {% endif %}
-            {# Canvas cell #}
-            <td colspan="{{ weeks|length }}"
-                class="lane-canvas p-0"
-                style="position: relative; height: 32px; overflow: visible;
-                       background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.15) 63px, rgba(128,128,128,0.15) 64px);
-                       background-size: 64px 100%;">
-              {# Over-allocation shading — one div per over-allocated week column #}
-              {% for col in row.overallocated_cols %}
-              <div style="position:absolute;top:0;bottom:0;
-                          left:{{ col|multiply:64 }}px;width:64px;
-                          background:rgba(239,68,68,0.18);
-                          z-index:1;pointer-events:none;"></div>
+            {% if all_streams %}
+              <div class="flex items-start gap-2">
+                <span class="text-xs text-neutral-500 text-right shrink-0 pt-0.5 w-28">{% trans "Stream filters:" %}</span>
+                <div class="flex flex-wrap gap-1.5 items-center">
+                  <button type="button"
+                          data-group="streams"
+                          data-action="all"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "All" %}
+                  </button>
+                  <button type="button"
+                          data-group="streams"
+                          data-action="none"
+                          class="shrink-0 text-xs px-2 py-0.5 rounded border border-neutral-300 text-neutral-500 hover:bg-base-200 cursor-pointer">
+                    {% trans "None" %}
+                  </button>
+                  {% for stream in all_streams %}
+                    <label class="cursor-pointer select-none">
+                      <input type="checkbox"
+                             name="streams"
+                             value="{{ stream.name }}"
+                             class="sr-only"
+                             {% if stream.name in selected_streams %}checked{% endif %} />
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors {% if stream.name in selected_streams %}text-white{% else %}text-neutral-800 border-neutral-400 hover:bg-base-200{% endif %}"
+                            style="{% if stream.name in selected_streams %}background-color: {{ stream.colour }};
+                                   border-color: {{ stream.colour }};
+                                   {% endif %}">{{ stream.name }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </form>
+        {% endif %}
+      {% endif %}
+      {% if my_developer_pk %}
+        <div class="flex justify-end mb-2">
+          <button id="focus-my-rows-btn"
+                  type="button"
+                  class="btn btn-sm btn-ghost text-xs">{% trans "Focus my rows" %}</button>
+        </div>
+      {% endif %}
+    </div>
+    {# Timeline table #}
+    {% if weeks %}
+      <div id="planning-scroll-container"
+           class="flex-1 min-h-0 overflow-auto border border-base-300 rounded-lg mx-6 mb-6">
+        <table class="border-collapse"
+               style="min-width: max-content;
+                      table-layout: fixed">
+          <thead>
+            <tr class="bg-base-100">
+              <th class="sticky left-0 top-0 z-30 bg-base-100 border-b border-r border-base-300 px-3 py-2 text-left"
+                  style="width: 160px;
+                         min-width: 160px">{% trans "Developer" %}</th>
+              {% for week in weeks %}
+                <th class="sticky top-0 z-20 bg-base-100 border-b border-l border-base-300 px-1 py-2 text-xs font-normal text-center"
+                    style="width: 64px;
+                           min-width: 64px;
+                           {% if forloop.counter0 == today_col %} position: relative;
+                           overflow: visible;
+                           {% endif %}">
+                  {{ week|date:"d M" }}
+                  {% if forloop.counter0 == today_col %}
+                    <div style="position:absolute;
+                                top:0;
+                                bottom:0;
+                                width:2px;
+                                left:{{ today_day_px }}px;
+                                background:rgba(239,68,68,0.5);
+                                pointer-events:none;
+                                z-index:1"></div>
+                  {% endif %}
+                </th>
               {% endfor %}
-              {# Leave overlay on every real lane row #}
-              {% for leave in row.leave_cells %}
-              <div class="leave-bar{% if can_edit %} cursor-grab{% endif %}"
-                   style="position: absolute; top: 1px; height: 30px;
-                          left: {{ leave.col_start|multiply:64 }}px;
-                          width: {{ leave.colspan|multiply:64 }}px;
-                          z-index: 15;{% if not can_edit %} pointer-events: none;{% endif %}"
-                   data-leave-id="{{ leave.pk }}"
-                   data-col-start="{{ leave.col_start }}"
-                   data-col-end="{{ leave.col_end }}"
-                   data-start-date="{{ leave.start_date|date:'Y-m-d' }}"
-                   data-end-date="{{ leave.end_date|date:'Y-m-d' }}">
-                <div class="tooltip tooltip-top w-full h-full"
-                     data-tip="{{ row.developer.user.name|default:row.developer.user.email }} — {% trans 'Leave' %}: {{ leave.start_date|date:'d M Y' }} – {{ leave.end_date|date:'d M Y' }} ({{ leave.colspan }} wk{{ leave.colspan|pluralize }})">
-                  <div class="bg-base-300 h-full w-full" style="position: relative; opacity: 0.85;">
-                    {% if can_edit %}
-                    <div class="leave-resize-handle leave-resize-left"
-                         style="position:absolute;left:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
-                    <div class="leave-resize-handle leave-resize-right"
-                         style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in developer_rows %}
+              {# ── Real lane rows ── #}
+              {% for lane_row in row.lanes %}
+                <tr data-lane-pk="{{ lane_row.lane.pk }}"
+                    {% if my_developer_pk == row.developer.pk %}data-my-row="true"{% endif %}>
+                  {% if forloop.first %}
+                    <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
+                        rowspan="{{ row.lane_count|add:1 }}"
+                        style="width: 160px">
+                      <div class="flex items-center gap-1">
+                        <span class="inline-block w-3 h-3 rounded-full shrink-0"
+                              style="background-color: {{ row.developer.colour }}"></span>
+                        <span class="truncate">{{ row.developer.user.name|default:row.developer.user.email }}</span>
+                      </div>
+                    </td>
+                  {% endif %}
+                  {# Canvas cell #}
+                  <td colspan="{{ weeks|length }}"
+                      class="lane-canvas p-0"
+                      style="position: relative;
+                             height: 32px;
+                             overflow: visible;
+                             background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.15) 63px, rgba(128,128,128,0.15) 64px);
+                             background-size: 64px 100%">
+                    {# Over-allocation shading — one div per over-allocated week column #}
+                    {% for col in row.overallocated_cols %}
+                      <div style="position:absolute;
+                                  top:0;
+                                  bottom:0;
+                                  left:{{ col|multiply:64 }}px;
+                                  width:64px;
+                                  background:rgba(239,68,68,0.18);
+                                  z-index:1;
+                                  pointer-events:none"></div>
+                    {% endfor %}
+                    {# Leave overlay on every real lane row #}
+                    {% for leave in row.leave_cells %}
+                      <div class="leave-bar{% if can_edit %} cursor-grab{% endif %}"
+                           style="position: absolute;
+                                  top: 1px;
+                                  height: 30px;
+                                  left: {{ leave.col_start|multiply:64 }}px;
+                                  width: {{ leave.colspan|multiply:64 }}px;
+                                  z-index: 15;
+                                  {% if not can_edit %}pointer-events: none;{% endif %}"
+                           data-leave-id="{{ leave.pk }}"
+                           data-col-start="{{ leave.col_start }}"
+                           data-col-end="{{ leave.col_end }}"
+                           data-start-date="{{ leave.start_date|date:'Y-m-d' }}"
+                           data-end-date="{{ leave.end_date|date:'Y-m-d' }}">
+                        <div class="tooltip tooltip-top w-full h-full"
+                             data-tip="{{ row.developer.user.name|default:row.developer.user.email }} — {% trans 'Leave' %}: {{ leave.start_date|date:'d M Y' }} – {{ leave.end_date|date:'d M Y' }} ({{ leave.colspan }} wk{{ leave.colspan|pluralize }})">
+                          <div class="bg-base-300 h-full w-full"
+                               style="position: relative;
+                                      opacity: 0.85">
+                            {% if can_edit %}
+                              <div class="leave-resize-handle leave-resize-left"
+                                   style="position:absolute;
+                                          left:0;
+                                          top:0;
+                                          bottom:0;
+                                          width:8px;
+                                          cursor:ew-resize;
+                                          z-index:20"></div>
+                              <div class="leave-resize-handle leave-resize-right"
+                                   style="position:absolute;
+                                          right:0;
+                                          top:0;
+                                          bottom:0;
+                                          width:8px;
+                                          cursor:ew-resize;
+                                          z-index:20"></div>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                    {% for cell in lane_row.cells %}
+                      {% if cell.type == "phase" %}
+                        <div class="phase-bar"
+                             style="position: absolute;
+                                    top: 1px;
+                                    height: 30px;
+                                    left: {{ cell.col_start|multiply:64 }}px;
+                                    width: {{ cell.colspan|multiply:64 }}px;
+                                    z-index: 10"
+                             data-phase-id="{{ cell.phase.pk }}"
+                             data-col-start="{{ cell.col_start }}"
+                             data-col-end="{{ cell.col_end }}"
+                             data-project-id="{{ cell.phase.project.pk }}"
+                             data-developer-id="{{ cell.phase.developer.pk }}"
+                             data-start-date="{{ cell.phase.start_date|date:'Y-m-d' }}"
+                             data-end-date="{{ cell.phase.end_date|date:'Y-m-d' }}"
+                             data-effort-multiplier="{{ cell.phase.effort_multiplier }}">
+                          <div class="tooltip w-full h-full"
+                               data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks ({{ cell.phase.effort_multiplier }} FTE)">
+                            <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap {% if can_edit %}cursor-grab{% else %}cursor-default{% endif %}"
+                                 style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};
+                                        {% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);
+                                        {% endif %} position: relative">
+                              {% if can_edit %}
+                                <div class="phase-resize-handle phase-resize-left"
+                                     style="position:absolute;
+                                            left:0;
+                                            top:0;
+                                            bottom:0;
+                                            width:8px;
+                                            cursor:ew-resize;
+                                            z-index:20"></div>
+                              {% endif %}
+                              <span class="truncate" style="margin: 0 8px;">{{ cell.phase.display_name }}</span>
+                              {% if can_edit %}
+                                <button type="button"
+                                        class="phase-delete-btn"
+                                        data-phase-id="{{ cell.phase.pk }}"
+                                        style="position:absolute;
+                                               right:8px;
+                                               top:50%;
+                                               transform:translateY(-50%);
+                                               z-index:25;
+                                               background:rgba(0,0,0,0.35);
+                                               border:none;
+                                               border-radius:50%;
+                                               width:16px;
+                                               height:16px;
+                                               line-height:16px;
+                                               text-align:center;
+                                               color:white;
+                                               font-size:11px;
+                                               cursor:pointer;
+                                               padding:0;
+                                               display:none;
+                                               align-items:center;
+                                               justify-content:center">✕</button>
+                                <div class="phase-resize-handle phase-resize-right"
+                                     style="position:absolute;
+                                            right:0;
+                                            top:0;
+                                            bottom:0;
+                                            width:8px;
+                                            cursor:ew-resize;
+                                            z-index:20"></div>
+                              {% endif %}
+                            </div>
+                          </div>
+                        </div>
+                      {% else %}
+                        <div class="{% if can_edit %}timeline-cell hover:bg-primary/10 cursor-pointer{% endif %}"
+                             style="position: absolute;
+                                    top: 0;
+                                    height: 32px;
+                                    left: {{ cell.col_start|multiply:64 }}px;
+                                    width: {{ cell.colspan|multiply:64 }}px;
+                                    z-index: 2"
+                             data-developer="{{ row.developer.pk }}"
+                             data-lane-pk="{{ lane_row.lane.pk }}"
+                             data-col-start="{{ cell.col_start }}"
+                             data-col-end="{{ cell.col_end }}"></div>
+                      {% endif %}
+                    {% endfor %}
+                    {% if today_col >= 0 %}
+                      <div style="position:absolute;
+                                  top:0;
+                                  bottom:0;
+                                  width:2px;
+                                  left:{{ today_left_px }}px;
+                                  background:rgba(239,68,68,0.5);
+                                  pointer-events:none;
+                                  z-index:20"></div>
                     {% endif %}
-                  </div>
-                </div>
-              </div>
-              {% endfor %}
-              {% for cell in lane_row.cells %}
-                {% if cell.type == "phase" %}
-                <div class="phase-bar"
-                     style="position: absolute; top: 1px; height: 30px;
-                            left: {{ cell.col_start|multiply:64 }}px;
-                            width: {{ cell.colspan|multiply:64 }}px;
-                            z-index: 10;"
-                     data-phase-id="{{ cell.phase.pk }}"
-                     data-col-start="{{ cell.col_start }}"
-                     data-col-end="{{ cell.col_end }}"
-                     data-project-id="{{ cell.phase.project.pk }}"
-                     data-developer-id="{{ cell.phase.developer.pk }}"
-                     data-start-date="{{ cell.phase.start_date|date:'Y-m-d' }}"
-                     data-end-date="{{ cell.phase.end_date|date:'Y-m-d' }}"
-                     data-effort-multiplier="{{ cell.phase.effort_multiplier }}">
-                  <div class="tooltip w-full h-full"
-                       data-tip="{{ cell.phase.display_name }} — {{ cell.phase.effort_display }} wks ({{ cell.phase.effort_multiplier }} FTE)">
-                    <div class="h-full rounded text-xs text-white flex items-center px-1 overflow-hidden whitespace-nowrap {% if can_edit %}cursor-grab{% else %}cursor-default{% endif %}"
-                         style="{% if cell.phase.effort_multiplier == 1.0 %}background-color: {{ cell.phase.project.colour }};{% else %}background: linear-gradient(to bottom, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) 0%, color-mix(in srgb, {{ cell.phase.project.colour }} 35%, white) {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} {{ cell.phase.effort_unfilled_pct }}%, {{ cell.phase.project.colour }} 100%);{% endif %} position: relative;">
-                      {% if can_edit %}
-                      <div class="phase-resize-handle phase-resize-left"
-                           style="position:absolute;left:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
-                      {% endif %}
-                      <span class="truncate" style="margin: 0 8px;">{{ cell.phase.display_name }}</span>
-                      {% if can_edit %}
-                      <button type="button"
-                              class="phase-delete-btn"
-                              data-phase-id="{{ cell.phase.pk }}"
-                              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
-                                     z-index:25;background:rgba(0,0,0,0.35);border:none;border-radius:50%;
-                                     width:16px;height:16px;line-height:16px;text-align:center;
-                                     color:white;font-size:11px;cursor:pointer;padding:0;
-                                     display:none;align-items:center;justify-content:center;">✕</button>
-                      <div class="phase-resize-handle phase-resize-right"
-                           style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:20;"></div>
-                      {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                {# Developer has no real lanes — phantom row carries the developer name cell #}
+                <tr class="border-b-2 border-base-300"
+                    data-lane-pk="new"
+                    data-developer-pk="{{ row.developer.pk }}"
+                    {% if my_developer_pk == row.developer.pk %}data-my-row="true"{% endif %}>
+                  <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
+                      rowspan="1"
+                      style="width: 160px">
+                    <div class="flex items-center gap-1">
+                      <span class="inline-block w-3 h-3 rounded-full shrink-0"
+                            style="background-color: {{ row.developer.colour }}"></span>
+                      <span class="truncate">{{ row.developer.user.name|default:row.developer.user.email }}</span>
                     </div>
-                  </div>
-                </div>
-                {% else %}
-                <div class="{% if can_edit %}timeline-cell hover:bg-primary/10 cursor-pointer{% endif %}"
-                     style="position: absolute; top: 0; height: 32px;
-                            left: {{ cell.col_start|multiply:64 }}px;
-                            width: {{ cell.colspan|multiply:64 }}px;
-                            z-index: 2;"
-                     data-developer="{{ row.developer.pk }}"
-                     data-lane-pk="{{ lane_row.lane.pk }}"
-                     data-col-start="{{ cell.col_start }}"
-                     data-col-end="{{ cell.col_end }}"></div>
-                {% endif %}
+                  </td>
+                  <td colspan="{{ weeks|length }}"
+                      class="lane-canvas p-0"
+                      style="position: relative;
+                             height: 32px;
+                             overflow: visible;
+                             background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
+                             background-size: 64px 100%">
+                    {% if can_edit %}
+                      <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
+                           style="position: absolute;
+                                  top: 0;
+                                  height: 32px;
+                                  left: 0;
+                                  width: {{ weeks|length|multiply:64 }}px;
+                                  z-index: 2"
+                           data-developer="{{ row.developer.pk }}"
+                           data-lane-pk=""
+                           data-col-start="0"
+                           data-col-end="{{ weeks|length|add:-1 }}"></div>
+                    {% endif %}
+                    {% if today_col >= 0 %}
+                      <div style="position:absolute;
+                                  top:0;
+                                  bottom:0;
+                                  width:2px;
+                                  left:{{ today_left_px }}px;
+                                  background:rgba(239,68,68,0.5);
+                                  pointer-events:none;
+                                  z-index:20"></div>
+                    {% endif %}
+                  </td>
+                </tr>
               {% endfor %}
-              {% if today_col >= 0 %}
-              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:20;"></div>
+              {# ── Phantom lane row (always shown after real lanes when there are any) ── #}
+              {% if row.lane_count > 0 %}
+                <tr class="border-b-2 border-base-300"
+                    data-lane-pk="new"
+                    data-developer-pk="{{ row.developer.pk }}"
+                    {% if my_developer_pk == row.developer.pk %}data-my-row="true"{% endif %}>
+                  <td colspan="{{ weeks|length }}"
+                      class="lane-canvas p-0"
+                      style="position: relative;
+                             height: 32px;
+                             overflow: visible;
+                             background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
+                             background-size: 64px 100%">
+                    {% for col in row.overallocated_cols %}
+                      <div style="position:absolute;
+                                  top:0;
+                                  bottom:0;
+                                  left:{{ col|multiply:64 }}px;
+                                  width:64px;
+                                  background:rgba(239,68,68,0.18);
+                                  z-index:1;
+                                  pointer-events:none"></div>
+                    {% endfor %}
+                    {% if can_edit %}
+                      <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
+                           style="position: absolute;
+                                  top: 0;
+                                  height: 32px;
+                                  left: 0;
+                                  width: {{ weeks|length|multiply:64 }}px;
+                                  z-index: 2"
+                           data-developer="{{ row.developer.pk }}"
+                           data-lane-pk=""
+                           data-col-start="0"
+                           data-col-end="{{ weeks|length|add:-1 }}"></div>
+                    {% endif %}
+                    {% if today_col >= 0 %}
+                      <div style="position:absolute;
+                                  top:0;
+                                  bottom:0;
+                                  width:2px;
+                                  left:{{ today_left_px }}px;
+                                  background:rgba(239,68,68,0.5);
+                                  pointer-events:none;
+                                  z-index:20"></div>
+                    {% endif %}
+                  </td>
+                </tr>
               {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          {# Developer has no real lanes — phantom row carries the developer name cell #}
-          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}"{% if my_developer_pk == row.developer.pk %} data-my-row="true"{% endif %}>
-            <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
-                rowspan="1" style="width: 160px;">
-              <div class="flex items-center gap-1">
-                <span class="inline-block w-3 h-3 rounded-full shrink-0"
-                      style="background-color: {{ row.developer.colour }};"></span>
-                <span class="truncate">{{ row.developer.user.name|default:row.developer.user.email }}</span>
-              </div>
-            </td>
-            <td colspan="{{ weeks|length }}"
-                class="lane-canvas p-0"
-                style="position: relative; height: 32px; overflow: visible;
-                       background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
-                       background-size: 64px 100%;">
-              {% if can_edit %}
-              <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
-                   style="position: absolute; top: 0; height: 32px; left: 0;
-                          width: {{ weeks|length|multiply:64 }}px; z-index: 2;"
-                   data-developer="{{ row.developer.pk }}"
-                   data-lane-pk=""
-                   data-col-start="0"
-                   data-col-end="{{ weeks|length|add:-1 }}"></div>
-              {% endif %}
-              {% if today_col >= 0 %}
-              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:20;"></div>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-          {# ── Phantom lane row (always shown after real lanes when there are any) ── #}
-          {% if row.lane_count > 0 %}
-          <tr class="border-b-2 border-base-300" data-lane-pk="new" data-developer-pk="{{ row.developer.pk }}"{% if my_developer_pk == row.developer.pk %} data-my-row="true"{% endif %}>
-            <td colspan="{{ weeks|length }}"
-                class="lane-canvas p-0"
-                style="position: relative; height: 32px; overflow: visible;
-                       background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
-                       background-size: 64px 100%;">
-              {% for col in row.overallocated_cols %}
-              <div style="position:absolute;top:0;bottom:0;
-                          left:{{ col|multiply:64 }}px;width:64px;
-                          background:rgba(239,68,68,0.18);
-                          z-index:1;pointer-events:none;"></div>
-              {% endfor %}
-              {% if can_edit %}
-              <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
-                   style="position: absolute; top: 0; height: 32px; left: 0;
-                          width: {{ weeks|length|multiply:64 }}px; z-index: 2;"
-                   data-developer="{{ row.developer.pk }}"
-                   data-lane-pk=""
-                   data-col-start="0"
-                   data-col-end="{{ weeks|length|add:-1 }}"></div>
-              {% endif %}
-              {% if today_col >= 0 %}
-              <div style="position:absolute; top:0; bottom:0; width:2px; left:{{ today_left_px }}px; background:rgba(239,68,68,0.5); pointer-events:none; z-index:20;"></div>
-              {% endif %}
-            </td>
-          </tr>
-          {% endif %}
-        {% empty %}
-        <tr>
-          <td colspan="{{ weeks|length|add:1 }}" class="text-center text-neutral-500 p-4">{% trans "No developers found." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+            {% empty %}
+              <tr>
+                <td colspan="{{ weeks|length|add:1 }}"
+                    class="text-center text-neutral-500 p-4">{% trans "No developers found." %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="px-6 text-neutral-500">{% trans "No weeks in selected range." %}</p>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="px-6 text-neutral-500">{% trans "No weeks in selected range." %}</p>
+  <style>
+    .phase-bar:hover {
+      z-index: 25 !important;
+    }
+
+    .phase-bar:hover .phase-delete-btn {
+      display: flex !important;
+    }
+
+    tr[data-my-row="true"] td {
+      background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    }
+
+    .focus-my-rows tr:not([data-my-row="true"]) td {
+      opacity: 0.25;
+    }
+  </style>
+  {# Phase / Leave create modal #}
+  {% if can_edit %}
+    <dialog id="phase-create-modal" class="modal">
+      <div class="modal-box">
+        <div class="join mb-4 w-full">
+          <button type="button"
+                  id="create-toggle-phase"
+                  class="join-item btn btn-sm btn-primary flex-1">{% trans "New Phase" %}</button>
+          <button type="button"
+                  id="create-toggle-leave"
+                  class="join-item btn btn-sm btn-ghost flex-1">{% trans "New Leave" %}</button>
+        </div>
+        <form id="phase-create-form"
+              method="post"
+              action="{% url 'planning:phase_add' %}"
+              hx-boost="false">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+          <input type="hidden" id="phase-lane-pk" name="lane_pk" value="" />
+          <div class="form-control mb-3">
+            <label class="label label-text">{% trans "Developer" %}</label>
+            <input type="hidden" id="phase-developer" name="developer" />
+            <div id="phase-developer-display"
+                 class="input input-bordered bg-base-200 text-base-content/60 flex items-center"></div>
+          </div>
+          <div id="create-project-field" class="form-control mb-3">
+            <label class="label label-text">{% trans "Project" %}</label>
+            <select name="project" class="select select-bordered" required>
+              {% for project in projects %}<option value="{{ project.pk }}">{{ project.display_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="flex gap-3 mb-3">
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "Start Date" %}</label>
+              <input id="phase-start-date"
+                     type="date"
+                     name="start_date"
+                     class="input input-bordered"
+                     required />
+            </div>
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "End Date" %}</label>
+              <input id="phase-end-date"
+                     type="date"
+                     name="end_date"
+                     class="input input-bordered"
+                     required />
+            </div>
+          </div>
+          <div id="create-effort-field" class="form-control mb-4">
+            <label class="label label-text">
+              {% trans "Fractional Time" %} <span class="label-text-alt">(0–1)</span>
+            </label>
+            <input type="number"
+                   name="effort_multiplier"
+                   value="1.0"
+                   min="0"
+                   max="1"
+                   step="0.1"
+                   class="input input-bordered" />
+          </div>
+          <div class="modal-action">
+            <button type="button" id="close-phase-create-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+            <button id="phase-create-submit" type="submit" class="btn btn-primary">{% trans "Add Phase" %}</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>{% trans "Close" %}</button>
+      </form>
+    </dialog>
+    <dialog id="phase-edit-modal" class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">{% trans "Edit Phase" %}</h3>
+        <form id="phase-edit-form" method="post" action="" hx-boost="false">
+          {% csrf_token %}
+          <input type="hidden" id="edit-phase-id" name="_phase_id" value="" />
+          <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+          <div class="form-control mb-3">
+            <label class="label label-text">{% trans "Developer" %}</label>
+            <select id="edit-phase-developer"
+                    name="developer"
+                    class="select select-bordered"
+                    required>
+              {% for dev in developers %}
+                <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control mb-3">
+            <label class="label label-text">{% trans "Project" %}</label>
+            <select id="edit-phase-project"
+                    name="project"
+                    class="select select-bordered"
+                    required>
+              {% for project in projects %}<option value="{{ project.pk }}">{{ project.display_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="flex gap-3 mb-3">
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "Start Date" %}</label>
+              <input id="edit-phase-start-date"
+                     type="date"
+                     name="start_date"
+                     class="input input-bordered"
+                     required />
+            </div>
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "End Date" %}</label>
+              <input id="edit-phase-end-date"
+                     type="date"
+                     name="end_date"
+                     class="input input-bordered"
+                     required />
+            </div>
+          </div>
+          <div class="form-control mb-4">
+            <label class="label label-text">
+              {% trans "Fractional Time" %} <span class="label-text-alt">(0–1)</span>
+            </label>
+            <input id="edit-phase-effort"
+                   type="number"
+                   name="effort_multiplier"
+                   min="0"
+                   max="1"
+                   step="0.1"
+                   class="input input-bordered" />
+          </div>
+          <div class="modal-action">
+            <button type="button"
+                    id="confirm-delete-phase"
+                    class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
+            <button type="button" id="close-phase-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+            <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>{% trans "Close" %}</button>
+      </form>
+    </dialog>
+    <dialog id="leave-edit-modal" class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
+        <form id="leave-edit-form" method="post" action="" hx-boost="false">
+          {% csrf_token %}
+          <input type="hidden" id="edit-leave-id" name="_leave_id" value="" />
+          <div class="flex gap-3 mb-4">
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "Start Date" %}</label>
+              <input id="leave-edit-start-date"
+                     type="date"
+                     name="start_date"
+                     class="input input-bordered"
+                     required />
+            </div>
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "End Date" %}</label>
+              <input id="leave-edit-end-date"
+                     type="date"
+                     name="end_date"
+                     class="input input-bordered"
+                     required />
+            </div>
+          </div>
+          <div class="modal-action">
+            <button type="button"
+                    id="confirm-delete-leave"
+                    class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
+            <button type="button" id="close-leave-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+            <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>{% trans "Close" %}</button>
+      </form>
+    </dialog>
   {% endif %}
-</div>
-
-<style>
-  .phase-bar:hover { z-index: 25 !important; }
-  .phase-bar:hover .phase-delete-btn { display: flex !important; }
-  tr[data-my-row="true"] td { background-color: color-mix(in srgb, var(--color-primary) 8%, transparent); }
-  .focus-my-rows tr:not([data-my-row="true"]) td { opacity: 0.25; }
-</style>
-
-{# Phase / Leave create modal #}
-{% if can_edit %}
-<dialog id="phase-create-modal" class="modal">
-  <div class="modal-box">
-    <div class="join mb-4 w-full">
-      <button type="button" id="create-toggle-phase" class="join-item btn btn-sm btn-primary flex-1">{% trans "New Phase" %}</button>
-      <button type="button" id="create-toggle-leave" class="join-item btn btn-sm btn-ghost flex-1">{% trans "New Leave" %}</button>
-    </div>
-    <form id="phase-create-form" method="post" action="{% url 'planning:phase_add' %}" hx-boost="false">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <input type="hidden" id="phase-lane-pk" name="lane_pk" value="">
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Developer" %}</label>
-        <input type="hidden" id="phase-developer" name="developer">
-        <div id="phase-developer-display" class="input input-bordered bg-base-200 text-base-content/60 flex items-center"></div>
-      </div>
-      <div id="create-project-field" class="form-control mb-3">
-        <label class="label label-text">{% trans "Project" %}</label>
-        <select name="project" class="select select-bordered" required>
-          {% for project in projects %}
-          <option value="{{ project.pk }}">{{ project.display_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="flex gap-3 mb-3">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Start Date" %}</label>
-          <input id="phase-start-date" type="date" name="start_date" class="input input-bordered" required>
-        </div>
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "End Date" %}</label>
-          <input id="phase-end-date" type="date" name="end_date" class="input input-bordered" required>
-        </div>
-      </div>
-      <div id="create-effort-field" class="form-control mb-4">
-        <label class="label label-text">{% trans "Fractional Time" %} <span class="label-text-alt">(0–1)</span></label>
-        <input type="number" name="effort_multiplier" value="1.0" min="0" max="1" step="0.1" class="input input-bordered">
-      </div>
-      <div class="modal-action">
-        <button type="button" id="close-phase-create-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button id="phase-create-submit" type="submit" class="btn btn-primary">{% trans "Add Phase" %}</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-<dialog id="phase-edit-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Edit Phase" %}</h3>
-    <form id="phase-edit-form" method="post" action="" hx-boost="false">
-      {% csrf_token %}
-      <input type="hidden" id="edit-phase-id" name="_phase_id" value="">
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Developer" %}</label>
-        <select id="edit-phase-developer" name="developer" class="select select-bordered" required>
-          {% for dev in developers %}
-          <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Project" %}</label>
-        <select id="edit-phase-project" name="project" class="select select-bordered" required>
-          {% for project in projects %}
-          <option value="{{ project.pk }}">{{ project.display_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="flex gap-3 mb-3">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Start Date" %}</label>
-          <input id="edit-phase-start-date" type="date" name="start_date" class="input input-bordered" required>
-        </div>
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "End Date" %}</label>
-          <input id="edit-phase-end-date" type="date" name="end_date" class="input input-bordered" required>
-        </div>
-      </div>
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Fractional Time" %} <span class="label-text-alt">(0–1)</span></label>
-        <input id="edit-phase-effort" type="number" name="effort_multiplier" min="0" max="1" step="0.1" class="input input-bordered">
-      </div>
-      <div class="modal-action">
-        <button type="button" id="confirm-delete-phase" class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
-        <button type="button" id="close-phase-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-<dialog id="leave-edit-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">{% trans "Edit Leave" %}</h3>
-    <form id="leave-edit-form" method="post" action="" hx-boost="false">
-      {% csrf_token %}
-      <input type="hidden" id="edit-leave-id" name="_leave_id" value="">
-      <div class="flex gap-3 mb-4">
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "Start Date" %}</label>
-          <input id="leave-edit-start-date" type="date" name="start_date" class="input input-bordered" required>
-        </div>
-        <div class="form-control flex-1">
-          <label class="label label-text">{% trans "End Date" %}</label>
-          <input id="leave-edit-end-date" type="date" name="end_date" class="input input-bordered" required>
-        </div>
-      </div>
-      <div class="modal-action">
-        <button type="button" id="confirm-delete-leave" class="btn btn-error btn-outline mr-auto">{% trans "Delete" %}</button>
-        <button type="button" id="close-leave-edit-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-{% endif %}
-
+  {# djlint:off #}
 <script>
   window.planningPageConfig = {
     weeks: JSON.parse('{{ weeks_json|escapejs }}'),
     myDeveloperPk: {{ my_developer_pk|default:"null" }},
     developerNames: {
-      {% for dev in developers %}'{{ dev.pk }}': '{{ dev.user.name|default:dev.user.email|escapejs }}',
-      {% endfor %}
+      {% for dev in developers %}'{{ dev.pk }}': '{{ dev.user.name|default:dev.user.email|escapejs }}',{% endfor %}
     },
     labels: {
       operationFailed: "{% trans 'Operation failed' %}",
@@ -422,5 +628,6 @@
     },
   };
 </script>
-<script src="{% static 'js/planning/pages/planning.js' %}" defer></script>
+  {# djlint:on #}
+  <script src="{% static 'js/planning/pages/planning.js' %}" defer></script>
 {% endblock %}

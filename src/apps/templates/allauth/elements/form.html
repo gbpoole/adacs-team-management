@@ -5,7 +5,5 @@
       method="{{ attrs.method }}"
       action="{{ attrs.action }}">
   {% slot body %}{% endslot %}
-  <div class="flex flex-wrap gap-2 mt-4">
-    {% slot actions %}{% endslot %}
-  </div>
+  <div class="flex flex-wrap gap-2 mt-4">{% slot actions %}{% endslot %}</div>
 </form>

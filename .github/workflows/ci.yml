@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Ruff lint
+        run: poetry run ruff check src/apps/
+
+      - name: Ruff format
+        run: poetry run ruff format --check src/apps/
+
+      - name: djlint templates
+        run: poetry run djlint src/apps/templates/ --check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Check for missing migrations
+        working-directory: src
+        run: DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py makemigrations --check --dry-run
+
+      - name: Run tests
+        working-directory: src
+        run: DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning tests
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images
+        run: docker compose build django nginx

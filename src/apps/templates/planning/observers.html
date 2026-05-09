@@ -1,200 +1,236 @@
 {% extends "base.html" %}
+
 {% load static i18n planning_extras %}
 
-{% block title %} — {% trans "Observers" %}{% endblock %}
-
+{% block title %}
+  — {% trans "Observers" %}
+{% endblock %}
 {% block content %}
-<div class="h-full flex flex-col">
-  <div class="shrink-0 px-6 pt-6 pb-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">{% trans "Observers" %}</h1>
-        <p class="text-sm text-neutral-500">{{ semester }}</p>
-      </div>
-      <div class="flex gap-2">
-        <button id="open-add-observer-modal" class="btn btn-primary btn-sm">+ {% trans "Add Observer Access" %}</button>
+  <div class="h-full flex flex-col">
+    <div class="shrink-0 px-6 pt-6 pb-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">{% trans "Observers" %}</h1>
+          <p class="text-sm text-neutral-500">{{ semester }}</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="open-add-observer-modal" class="btn btn-primary btn-sm">+ {% trans "Add Observer Access" %}</button>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
-    <table class="table table-zebra w-full">
-      <colgroup>
-        <col style="width: 20%;">
-        <col style="width: 20%;">
-        <col style="width: 30%;">
-        <col style="width: 30%;">
-      </colgroup>
-      <thead>
-        <tr class="bg-base-100 sticky top-0 z-10">
-          <th>{% trans "Name" %}</th>
-          <th>{% trans "Organisation" %}</th>
-          <th>{% trans "Project Access" %}</th>
-          <th>{% trans "Stream Access" %}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for obs in observers %}
-        <tr class="cursor-pointer hover:bg-base-200 js-edit-observer-row"
-            data-pk="{{ obs.pk }}"
-            data-name="{{ obs.user.name|default:'' }}"
-            data-email="{{ obs.user.email }}"
-            data-organisation="{{ obs.user.organisation|default:'' }}"
-            data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
-            data-streams="{% for s in obs.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
-            data-all-projects="{% if obs.all_project_access %}true{% else %}false{% endif %}"
-            data-all-streams="{% if obs.all_stream_access %}true{% else %}false{% endif %}">
-          <td>{{ obs.user.name|default:"—" }}</td>
-          <td>{{ obs.user.organisation|default:"—" }}</td>
-          <td>
-            {% if obs.all_project_access %}
-              <span class="text-sm font-medium text-neutral-400">{% trans "All projects" %}</span>
-            {% else %}
-              {% for name, colour in obs.project_pills %}
-              <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-              {% empty %}—{% endfor %}
-            {% endif %}
-          </td>
-          <td>
-            {% if obs.all_stream_access %}
-              <span class="text-sm font-medium text-neutral-400">{% trans "All streams" %}</span>
-            {% else %}
-              {% for name, colour in obs.stream_pills %}
-              <span class="badge badge-sm" style="background-color: {{ colour }}; color: white; border-color: {{ colour }};">{{ name }}</span>
-              {% empty %}—{% endfor %}
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{# Add Observer Access modal #}
-<dialog id="add-observer-modal" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">{% trans "Add Observer Access" %}</h3>
-    <form id="add-observer-form" method="post" action="{% url 'planning:observer_add' %}" hx-boost="false">
-      {% csrf_token %}
-      <div class="form-control mb-4">
-        <label class="label label-text">{% trans "Person" %} <span class="text-error">*</span></label>
-        <select name="user" class="select select-bordered" required>
-          <option value="">{% trans "— select a person —" %}</option>
-          {% for u in available_users %}
-          <option value="{{ u.pk }}">{{ u.name|default:u.email }}{% if u.name %} ({{ u.email }}){% endif %}</option>
+    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+      <table class="table table-zebra w-full">
+        <colgroup>
+          <col style="width: 20%;" />
+          <col style="width: 20%;" />
+          <col style="width: 30%;" />
+          <col style="width: 30%;" />
+        </colgroup>
+        <thead>
+          <tr class="bg-base-100 sticky top-0 z-10">
+            <th>{% trans "Name" %}</th>
+            <th>{% trans "Organisation" %}</th>
+            <th>{% trans "Project Access" %}</th>
+            <th>{% trans "Stream Access" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obs in observers %}
+            <tr class="cursor-pointer hover:bg-base-200 js-edit-observer-row"
+                data-pk="{{ obs.pk }}"
+                data-name="{{ obs.user.name|default:'' }}"
+                data-email="{{ obs.user.email }}"
+                data-organisation="{{ obs.user.organisation|default:'' }}"
+                data-projects="{% for p in obs.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                data-streams="{% for s in obs.stream_access.all %}{{ s.pk }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                data-all-projects="{% if obs.all_project_access %}true{% else %}false{% endif %}"
+                data-all-streams="{% if obs.all_stream_access %}true{% else %}false{% endif %}">
+              <td>{{ obs.user.name|default:"—" }}</td>
+              <td>{{ obs.user.organisation|default:"—" }}</td>
+              <td>
+                {% if obs.all_project_access %}
+                  <span class="text-sm font-medium text-neutral-400">{% trans "All projects" %}</span>
+                {% else %}
+                  {% for name, colour in obs.project_pills %}
+                    <span class="badge badge-sm"
+                          style="background-color: {{ colour }};
+                                 color: white;
+                                 border-color: {{ colour }}">{{ name }}</span>
+                  {% empty %}—
+                  {% endfor %}
+                {% endif %}
+              </td>
+              <td>
+                {% if obs.all_stream_access %}
+                  <span class="text-sm font-medium text-neutral-400">{% trans "All streams" %}</span>
+                {% else %}
+                  {% for name, colour in obs.stream_pills %}
+                    <span class="badge badge-sm"
+                          style="background-color: {{ colour }};
+                                 color: white;
+                                 border-color: {{ colour }}">{{ name }}</span>
+                  {% empty %}—
+                  {% endfor %}
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-neutral-500">{% trans "No observers found." %}</td>
+            </tr>
           {% endfor %}
-        </select>
-      </div>
-      <div class="flex gap-3 mb-4">
-        {% if all_projects %}
-        <div class="form-control flex-1 min-w-0">
-          <label class="label label-text">{% trans "Project Access" %}</label>
-          <label class="flex items-center gap-2 mb-1 cursor-pointer">
-            <input type="checkbox" id="add-all-projects" name="all_project_access" class="checkbox checkbox-sm">
-            <span class="text-sm">{% trans "All projects" %}</span>
-          </label>
-          <select id="add-observer-projects" name="project_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
-            {% for project in all_projects %}
-            <option value="{{ project.pk }}">{{ project.display_name }}</option>
-            {% endfor %}
-          </select>
-          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
-        </div>
-        {% endif %}
-        {% if all_streams %}
-        <div class="form-control flex-1 min-w-0">
-          <label class="label label-text">{% trans "Stream Access" %}</label>
-          <label class="flex items-center gap-2 mb-1 cursor-pointer">
-            <input type="checkbox" id="add-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
-            <span class="text-sm">{% trans "All streams" %}</span>
-          </label>
-          <select id="add-observer-streams" name="stream_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
-            {% for stream in all_streams %}
-            <option value="{{ stream.pk }}">{{ stream.name }}</option>
-            {% endfor %}
-          </select>
-          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
-        </div>
-        {% endif %}
-      </div>
-      <div class="modal-action">
-        <button type="button" id="close-add-observer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
-      </div>
-    </form>
+        </tbody>
+      </table>
+    </div>
   </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-{# Edit Observer modal #}
-<dialog id="observer-edit-modal" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 id="edit-observer-name-heading" class="font-bold text-lg mb-1"></h3>
-    <p class="text-sm text-neutral-500 mb-4">
-      <span id="edit-observer-email-subheading"></span>
-      <span class="mx-1">·</span>
-      <span class="font-medium">{{ semester }}</span>
-    </p>
-    <form id="observer-edit-form" method="post" action="" hx-boost="false">
-      {% csrf_token %}
-      <input type="hidden" id="edit-observer-id" value="">
-      <div class="flex gap-3 mb-4">
-        {% if all_projects %}
-        <div class="form-control flex-1 min-w-0">
-          <label class="label label-text">{% trans "Project Access" %}</label>
-          <label class="flex items-center gap-2 mb-1 cursor-pointer">
-            <input type="checkbox" id="edit-all-projects" name="all_project_access" class="checkbox checkbox-sm">
-            <span class="text-sm">{% trans "All projects" %}</span>
+  {# Add Observer Access modal #}
+  <dialog id="add-observer-modal" class="modal">
+    <div class="modal-box w-11/12 max-w-2xl">
+      <h3 class="font-bold text-lg mb-4">{% trans "Add Observer Access" %}</h3>
+      <form id="add-observer-form"
+            method="post"
+            action="{% url 'planning:observer_add' %}"
+            hx-boost="false">
+        {% csrf_token %}
+        <div class="form-control mb-4">
+          <label class="label label-text">
+            {% trans "Person" %} <span class="text-error">*</span>
           </label>
-          <select id="edit-observer-projects" name="project_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
-            {% for project in all_projects %}
-            <option value="{{ project.pk }}">{{ project.display_name }}</option>
+          <select name="user" class="select select-bordered" required>
+            <option value="">{% trans "— select a person —" %}</option>
+            {% for u in available_users %}
+              <option value="{{ u.pk }}">
+                {{ u.name|default:u.email }}
+                {% if u.name %}({{ u.email }}){% endif %}
+              </option>
             {% endfor %}
           </select>
-          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
         </div>
-        {% endif %}
-        {% if all_streams %}
-        <div class="form-control flex-1 min-w-0">
-          <label class="label label-text">{% trans "Stream Access" %}</label>
-          <label class="flex items-center gap-2 mb-1 cursor-pointer">
-            <input type="checkbox" id="edit-all-streams" name="all_stream_access" class="checkbox checkbox-sm">
-            <span class="text-sm">{% trans "All streams" %}</span>
-          </label>
-          <select id="edit-observer-streams" name="stream_access" multiple class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
-            {% for stream in all_streams %}
-            <option value="{{ stream.pk }}">{{ stream.name }}</option>
-            {% endfor %}
-          </select>
-          <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+        <div class="flex gap-3 mb-4">
+          {% if all_projects %}
+            <div class="form-control flex-1 min-w-0">
+              <label class="label label-text">{% trans "Project Access" %}</label>
+              <label class="flex items-center gap-2 mb-1 cursor-pointer">
+                <input type="checkbox"
+                       id="add-all-projects"
+                       name="all_project_access"
+                       class="checkbox checkbox-sm" />
+                <span class="text-sm">{% trans "All projects" %}</span>
+              </label>
+              <select id="add-observer-projects"
+                      name="project_access"
+                      multiple
+                      class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
+                {% for project in all_projects %}<option value="{{ project.pk }}">{{ project.display_name }}</option>{% endfor %}
+              </select>
+              <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+            </div>
+          {% endif %}
+          {% if all_streams %}
+            <div class="form-control flex-1 min-w-0">
+              <label class="label label-text">{% trans "Stream Access" %}</label>
+              <label class="flex items-center gap-2 mb-1 cursor-pointer">
+                <input type="checkbox"
+                       id="add-all-streams"
+                       name="all_stream_access"
+                       class="checkbox checkbox-sm" />
+                <span class="text-sm">{% trans "All streams" %}</span>
+              </label>
+              <select id="add-observer-streams"
+                      name="stream_access"
+                      multiple
+                      class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
+                {% for stream in all_streams %}<option value="{{ stream.pk }}">{{ stream.name }}</option>{% endfor %}
+              </select>
+              <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+            </div>
+          {% endif %}
         </div>
-        {% endif %}
-      </div>
-      <div class="modal-action">
-        <button type="button" id="confirm-delete-observer" class="btn btn-error btn-outline mr-auto">{% trans "Remove All Access" %}</button>
-        <button type="button" id="close-edit-observer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
-        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
-      </div>
+        <div class="modal-action">
+          <button type="button" id="close-add-observer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-primary">{% trans "Add" %}</button>
+        </div>
+      </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>{% trans "Close" %}</button>
     </form>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>{% trans "Close" %}</button></form>
-</dialog>
-
-<script>
-  window.observersPageConfig = {
-    labels: {
-      saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
-      saveFailedStatus: "{% trans 'Save failed' %}",
-      removeFailed: "{% trans 'Remove failed. Please check your connection and try again.' %}",
-      removeFailedStatus: "{% trans 'Remove failed' %}",
-      removeConfirm: "{% trans 'Remove all project and stream access for this observer?' %}",
-    },
-  };
-</script>
-<script src="{% static 'js/planning/pages/observers.js' %}" defer></script>
+  </dialog>
+  {# Edit Observer modal #}
+  <dialog id="observer-edit-modal" class="modal">
+    <div class="modal-box w-11/12 max-w-2xl">
+      <h3 id="edit-observer-name-heading" class="font-bold text-lg mb-1"></h3>
+      <p class="text-sm text-neutral-500 mb-4">
+        <span id="edit-observer-email-subheading"></span>
+        <span class="mx-1">·</span>
+        <span class="font-medium">{{ semester }}</span>
+      </p>
+      <form id="observer-edit-form" method="post" action="" hx-boost="false">
+        {% csrf_token %}
+        <input type="hidden" id="edit-observer-id" value="" />
+        <div class="flex gap-3 mb-4">
+          {% if all_projects %}
+            <div class="form-control flex-1 min-w-0">
+              <label class="label label-text">{% trans "Project Access" %}</label>
+              <label class="flex items-center gap-2 mb-1 cursor-pointer">
+                <input type="checkbox"
+                       id="edit-all-projects"
+                       name="all_project_access"
+                       class="checkbox checkbox-sm" />
+                <span class="text-sm">{% trans "All projects" %}</span>
+              </label>
+              <select id="edit-observer-projects"
+                      name="project_access"
+                      multiple
+                      class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
+                {% for project in all_projects %}<option value="{{ project.pk }}">{{ project.display_name }}</option>{% endfor %}
+              </select>
+              <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+            </div>
+          {% endif %}
+          {% if all_streams %}
+            <div class="form-control flex-1 min-w-0">
+              <label class="label label-text">{% trans "Stream Access" %}</label>
+              <label class="flex items-center gap-2 mb-1 cursor-pointer">
+                <input type="checkbox"
+                       id="edit-all-streams"
+                       name="all_stream_access"
+                       class="checkbox checkbox-sm" />
+                <span class="text-sm">{% trans "All streams" %}</span>
+              </label>
+              <select id="edit-observer-streams"
+                      name="stream_access"
+                      multiple
+                      class="select select-bordered h-36 w-full min-w-0 whitespace-normal">
+                {% for stream in all_streams %}<option value="{{ stream.pk }}">{{ stream.name }}</option>{% endfor %}
+              </select>
+              <span class="label-text-alt mt-1 text-neutral-400">{% trans "Ctrl/Cmd to select multiple" %}</span>
+            </div>
+          {% endif %}
+        </div>
+        <div class="modal-action">
+          <button type="button"
+                  id="confirm-delete-observer"
+                  class="btn btn-error btn-outline mr-auto">{% trans "Remove All Access" %}</button>
+          <button type="button" id="close-edit-observer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
+          <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+        </div>
+      </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>{% trans "Close" %}</button>
+    </form>
+  </dialog>
+  <script>
+    window.observersPageConfig = {
+      labels: {
+        saveFailed: "{% trans 'Save failed. Please check your connection and try again.' %}",
+        saveFailedStatus: "{% trans 'Save failed' %}",
+        removeFailed: "{% trans 'Remove failed. Please check your connection and try again.' %}",
+        removeFailedStatus: "{% trans 'Remove failed' %}",
+        removeConfirm: "{% trans 'Remove all project and stream access for this observer?' %}",
+      },
+    };
+  </script>
+  <script src="{% static 'js/planning/pages/observers.js' %}" defer></script>
 {% endblock %}

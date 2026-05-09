@@ -24,15 +24,18 @@
     {% endif %}
     {# if field has a special template then use this #}
     {% if field|is_select %}
-      <div class="{% if field_class %}{{ field_class }}{% else %}mb-3{% endif %}"{% if flat_attrs %} {{ flat_attrs|safe }}{% endif %}>
+      <div class="{% if field_class %}{{ field_class }}{% else %}mb-3{% endif %}"
+           {% if flat_attrs %}{{ flat_attrs|safe }}{% endif %}>
         {% include 'crispywind/layout/select.html' %}
       </div>
     {% elif field|is_checkboxselectmultiple %}
-      <div class="{% if field_class %}{{ field_class }}{% else %}mb-3{% endif %}"{% if flat_attrs %} {{ flat_attrs|safe }}{% endif %}>
+      <div class="{% if field_class %}{{ field_class }}{% else %}mb-3{% endif %}"
+           {% if flat_attrs %}{{ flat_attrs|safe }}{% endif %}>
         {% include 'crispywind/layout/checkboxselectmultiple.html' %}
       </div>
     {% elif field|is_radioselect %}
-      <div class="{% if field_class %}{{ field_class }}{% else %}mb-3{% endif %}"{% if flat_attrs %} {{ flat_attrs|safe }}{% endif %}>
+      <div class="{% if field_class %}{{ field_class }}{% else %}mb-3{% endif %}"
+           {% if flat_attrs %}{{ flat_attrs|safe }}{% endif %}>
         {% include 'crispywind/layout/radioselect.html' %}
       </div>
     {% else %}

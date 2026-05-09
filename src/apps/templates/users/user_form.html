@@ -1,36 +1,38 @@
 {% extends "base.html" %}
+
 {% load i18n %}
 
-{% block title %} — {% trans "My Info" %}{% endblock %}
-
+{% block title %}
+  — {% trans "My Info" %}
+{% endblock %}
 {% block content %}
-<div class="flex justify-center px-6 py-8">
-  <div class="w-full max-w-md">
-    <div class="mb-4">
-      <a href="{{ request.user.get_absolute_url }}" class="btn btn-ghost btn-sm">← {% trans "My Profile" %}</a>
+  <div class="flex justify-center px-6 py-8">
+    <div class="w-full max-w-md">
+      <div class="mb-4">
+        <a href="{{ request.user.get_absolute_url }}"
+           class="btn btn-ghost btn-sm">← {% trans "My Profile" %}</a>
+      </div>
+      <h1 class="text-2xl font-bold mb-6">{% trans "My Info" %}</h1>
+      <form method="post" action="{% url 'users:update' %}">
+        {% csrf_token %}
+        <div class="form-control mb-3">
+          <label class="label label-text">{% trans "Name" %}</label>
+          <input type="text"
+                 name="name"
+                 value="{{ form.name.value|default:'' }}"
+                 class="input input-bordered w-full" />
+        </div>
+        <div class="form-control mb-3">
+          <label class="label label-text">{% trans "Organisation" %}</label>
+          <input type="text"
+                 name="organisation"
+                 value="{{ form.organisation.value|default:'' }}"
+                 class="input input-bordered w-full" />
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">{% trans "Update" %}</button>
+        </div>
+      </form>
     </div>
-    <h1 class="text-2xl font-bold mb-6">{% trans "My Info" %}</h1>
-
-    <form method="post" action="{% url 'users:update' %}">
-      {% csrf_token %}
-
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Name" %}</label>
-        <input type="text" name="name" value="{{ form.name.value|default:'' }}"
-               class="input input-bordered w-full">
-      </div>
-
-      <div class="form-control mb-3">
-        <label class="label label-text">{% trans "Organisation" %}</label>
-        <input type="text" name="organisation" value="{{ form.organisation.value|default:'' }}"
-               class="input input-bordered w-full">
-      </div>
-
-      <div class="flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm">{% trans "Update" %}</button>
-      </div>
-    </form>
   </div>
-</div>
-
 {% endblock %}

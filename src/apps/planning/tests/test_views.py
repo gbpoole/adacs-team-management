@@ -1412,7 +1412,9 @@ class ProjectCreateViewTests(PlanningTestCase):
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(response.status_code, 422)
-        content = response.content.decode()
+        import re
+
+        content = re.sub(r"\s+", " ", response.content.decode())
         self.assertIn('name="streams" value="Engineering" class="hidden" checked', content)
         self.assertIn('name="streams" value="Science" class="hidden" checked', content)
         self.assertIn('name="tags" value="AI" class="hidden" checked', content)
@@ -1581,7 +1583,9 @@ class ProjectUpdateViewTests(PlanningTestCase):
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(response.status_code, 422)
-        content = response.content.decode()
+        import re
+
+        content = re.sub(r"\s+", " ", response.content.decode())
         self.assertIn('name="streams" value="Engineering" class="hidden" checked', content)
         self.assertIn('name="streams" value="Data" class="hidden" checked', content)
         self.assertIn('name="tags" value="TagOne" class="hidden" checked', content)
