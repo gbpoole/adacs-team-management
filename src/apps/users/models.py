@@ -17,7 +17,7 @@ class Role(TextChoices):
 
 class User(AbstractUser):
     """
-    Default custom user model for adacs-team-planning.
+    Default custom user model for adacs-team-management.
     If adding fields that need to be filled at user signup,
     check forms.SignupForm and forms.SocialSignupForms accordingly.
     """

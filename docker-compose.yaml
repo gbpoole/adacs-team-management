@@ -3,7 +3,7 @@ services:
     build:
       context: .
       target: runner
-    container_name: adacs_team_planning_django
+    container_name: adacs_team_management_django
     env_file: .env
     ports:
       - "8000"
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       target: nginx
-    container_name: adacs_team_planning_static
+    container_name: adacs_team_management_static
     ports:
       - "8000:8000"
     depends_on:
@@ -40,7 +40,7 @@ services:
 
   db:
     image: mysql:8.4.3
-    container_name: adacs_team_planning_mysql
+    container_name: adacs_team_management_mysql
     env_file: .env
     volumes:
       - ./db:/var/lib/mysql
@@ -54,9 +54,9 @@ services:
 
   mailpit:
     image: axllent/mailpit
-    container_name: adacs_team_planning_mailpit
+    container_name: adacs_team_management_mailpit
     ports:
-      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:8026:8025"
     restart: unless-stopped
 
   cron:
@@ -64,7 +64,7 @@ services:
       context: .
       target: cron
     env_file: .env
-    container_name: adacs_team_planning_mailbox_cron
+    container_name: adacs_team_management_mailbox_cron
     depends_on:
       django:
         condition: service_healthy

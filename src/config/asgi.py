@@ -1,5 +1,5 @@
 """
-ASGI config for adacs-team-planning project.
+ASGI config for adacs-team-management project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

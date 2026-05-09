@@ -1,5 +1,5 @@
 """
-WSGI config for adacs-team-planning project.
+WSGI config for adacs-team-management project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

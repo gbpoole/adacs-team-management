@@ -29,9 +29,9 @@ LANGUAGE_CODE = "en-AU"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": config("MYSQL_DATABASE", "adacs_team_planning"),
-        "USER": config("MYSQL_USER", "adacs_team_planning"),
-        "PASSWORD": config("MYSQL_PASSWORD", "adacs_team_planning"),
+        "NAME": config("MYSQL_DATABASE", "adacs_team_management"),
+        "USER": config("MYSQL_USER", "adacs_team_management"),
+        "PASSWORD": config("MYSQL_PASSWORD", "adacs_team_management"),
         "HOST": config("DJANGO_MYSQL_HOST", "localhost"),
         "PORT": config("DJANGO_MYSQL_PORT", 3306, cast=int),
         "ATOMIC_REQUESTS": True,
@@ -294,8 +294,8 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "adacs-team-planning API",
-    "DESCRIPTION": "Documentation of API endpoints of adacs-team-planning",
+    "TITLE": "adacs-team-management API",
+    "DESCRIPTION": "Documentation of API endpoints of adacs-team-management",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",

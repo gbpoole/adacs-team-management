@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "adacs-team-planning"
-description = "Application for planning/scheduling ADACS project delivery"
+name = "adacs-team-management"
+description = "Application for planning/scheduling/etc. ADACS project delivery"
 version = "0.1.0"
 authors = []
 readme = "README.md"
