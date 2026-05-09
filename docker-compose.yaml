@@ -56,7 +56,7 @@ services:
     image: axllent/mailpit
     container_name: adacs_team_planning_mailpit
     ports:
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
     restart: unless-stopped
 
   cron:

@@ -40,13 +40,15 @@ COPY package.json package-lock.json styles.css ./
 RUN . /root/.nvm/nvm.sh && npm install
 
 COPY src /app/src
-COPY .env /app
 
 # Build tailwind css
 RUN . /root/.nvm/nvm.sh && npm run build
 
+# collectstatic uses a credential-free build settings module so that no .env
+# file needs to be present inside the image. Runtime secrets are injected at
+# startup via docker-compose env_file.
 WORKDIR /app/src
-RUN poetry run python manage.py collectstatic --noinput
+RUN DJANGO_SETTINGS_MODULE=config.settings.build poetry run python manage.py collectstatic --noinput --skip-checks
 
 
 FROM base AS runner
@@ -55,7 +57,7 @@ WORKDIR /app/src
 
 COPY --from=builder /app/.venv/ /app/.venv/
 
-COPY pyproject.toml poetry.lock .env /app/
+COPY pyproject.toml poetry.lock /app/
 COPY src /app/src
 
 # Copy built static files manifest - _after_ copying the rest of /src/ from the host

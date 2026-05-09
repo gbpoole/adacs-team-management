@@ -1,2 +1,3 @@
-# Exclude local-dev-only settings from production images
-src/config/settings/docker_dev.py
+# Never bake the .env file into images — secrets are injected at runtime via
+# docker-compose env_file. The image itself must contain no credentials.
+.env
