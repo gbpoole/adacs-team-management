@@ -1,0 +1,2 @@
+# Exclude local-dev-only settings from production images
+src/config/settings/docker_dev.py
