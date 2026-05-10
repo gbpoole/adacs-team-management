@@ -64,19 +64,26 @@ class DevelopersView(RoleRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = get_selected_semester(self.request)
         ctx["semester"] = semester
-        ctx["can_edit"] = self.request.user.role == Role.PM or self.request.user.is_superuser
+        ctx["can_edit"] = (
+            self.request.user.role == Role.PM or self.request.user.is_superuser
+        )
         ctx["all_tags"] = Tag.objects.all()
         ctx["selected_tags"] = self.request.GET.getlist("tags")
 
         sd_records = list(
-            SemesterDeveloper.objects.filter(semester=semester)
-            .prefetch_related("tags"),
+            SemesterDeveloper.objects.filter(semester=semester).prefetch_related(
+                "tags"
+            ),
         )
         sd_map = {sd.developer_id: sd for sd in sd_records}
 
-        phases = Phase.objects.filter(
-            semester=semester,
-        ).select_related("developer").prefetch_related("developer__leave_periods")
+        phases = (
+            Phase.objects.filter(
+                semester=semester,
+            )
+            .select_related("developer")
+            .prefetch_related("developer__leave_periods")
+        )
         effort_allocated = {}
         for phase in phases:
             effort_allocated[phase.developer_id] = (
@@ -89,15 +96,18 @@ class DevelopersView(RoleRequiredMixin, ListView):
             dev.semester_tags = list(sd.tags.all()) if sd else []
             dev.effort_allocated = round(effort_allocated.get(dev.pk, 0), 2)
             if dev.effort_available is not None:
-                dev.effort_unallocated = round(float(dev.effort_available) - dev.effort_allocated, 2)
+                dev.effort_unallocated = round(
+                    float(dev.effort_available) - dev.effort_allocated, 2
+                )
             else:
                 dev.effort_unallocated = None
 
         # For add-developer modal: all users not yet in this semester as developers
         all_dev_pks_in_sem = set(sd_map.keys())
         user_pks_in_sem = set(
-            SemesterDeveloper.objects.filter(semester=semester)
-            .values_list("developer__user_id", flat=True),
+            SemesterDeveloper.objects.filter(semester=semester).values_list(
+                "developer__user_id", flat=True
+            ),
         )
         User = get_user_model()
         ctx["available_users"] = list(
@@ -108,8 +118,9 @@ class DevelopersView(RoleRequiredMixin, ListView):
 
         # For migrate modal: other semesters and their exclusive developers
         other_semesters = list(
-            Semester.objects.exclude(pk=semester.pk)
-            .order_by("-year", "-semester_type"),
+            Semester.objects.exclude(pk=semester.pk).order_by(
+                "-year", "-semester_type"
+            ),
         )
         migrate_map = {}
         for sem in other_semesters:
@@ -179,15 +190,18 @@ class DeveloperDownloadView(RoleRequiredMixin, View):
         for sd in sd_records:
             user = sd.developer.user
             tags = "||".join(t.name for t in sd.tags.all())
-            writer.writerow([
-                user.email,
-                user.name or "",
-                user.organisation or "",
-                sd.effort_available,
-                tags,
-            ])
+            writer.writerow(
+                [
+                    user.email,
+                    user.name or "",
+                    user.organisation or "",
+                    sd.effort_available,
+                    tags,
+                ]
+            )
         response = HttpResponse(
-            output.getvalue(), content_type="application/octet-stream",
+            output.getvalue(),
+            content_type="application/octet-stream",
         )
         response["Content-Disposition"] = (
             f'attachment; filename="developers_{semester}.tsv"'
@@ -234,7 +248,8 @@ class DeveloperUpdateView(RoleRequiredMixin, View):
         if request.POST.get("update_base_tags"):
             profile.tags.set(tags)
         _upsert_semester_developer(
-            profile, request.POST.get("effort_available", "").strip(),
+            profile,
+            request.POST.get("effort_available", "").strip(),
             semester,
         )
         return redirect("planning:developers")

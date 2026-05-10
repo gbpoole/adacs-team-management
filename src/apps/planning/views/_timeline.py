@@ -47,13 +47,15 @@ def _build_lane_cells(n_weeks, phase_segments):
             end = col
             while end + 1 < n_weeks and not covered[end + 1]:
                 end += 1
-            cells.append({
-                "type": "empty",
-                "colspan": end - col + 1,
-                "phase": None,
-                "col_start": col,
-                "col_end": end,
-            })
+            cells.append(
+                {
+                    "type": "empty",
+                    "colspan": end - col + 1,
+                    "phase": None,
+                    "col_start": col,
+                    "col_end": end,
+                }
+            )
             col = end + 1
         else:
             col += 1

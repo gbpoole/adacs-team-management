@@ -19,9 +19,8 @@ import io
 import random
 from pathlib import Path
 
-from django.conf import settings
-
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
@@ -64,7 +63,8 @@ def _read_tsv(path):
     """Return a list of dicts from a tab-separated file with a header row."""
     return list(
         csv.DictReader(
-            io.StringIO(Path(path).read_text(encoding="utf-8-sig")), delimiter="\t",
+            io.StringIO(Path(path).read_text(encoding="utf-8-sig")),
+            delimiter="\t",
         ),
     )
 
@@ -89,10 +89,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if not getattr(settings, "SEED_DATA_ALLOWED", False):
-            raise CommandError(
+            msg = (
                 "seed_test_data refuses to run unless SEED_DATA_ALLOWED = True "
                 "in settings. This command is for development and testing only."
             )
+            raise CommandError(msg)
         with transaction.atomic():
             self._seed(*args, **options)
 
@@ -145,10 +146,16 @@ class Command(BaseCommand):
             is_superuser=True,
         )
         self._create_seed_account(
-            "developer@adacs.org.au", "Developer User", Role.USER, "testpass123",
+            "developer@adacs.org.au",
+            "Developer User",
+            Role.USER,
+            "testpass123",
         )
         observer_user = self._create_seed_account(
-            "observer@adacs.org.au", "Observer User", Role.USER, "testpass123",
+            "observer@adacs.org.au",
+            "Observer User",
+            Role.USER,
+            "testpass123",
         )
 
         self.stdout.write("Creating semesters...")
@@ -225,7 +232,8 @@ class Command(BaseCommand):
             tags = _get_or_create_tags(tag_names)
 
             proj_a, created_a = Project.objects.get_or_create(
-                name=name, semester=sem_a,
+                name=name,
+                semester=sem_a,
             )
             proj_a.streams.set(streams)
             if tags:
@@ -241,7 +249,8 @@ class Command(BaseCommand):
             projects_by_sem[sem_a].append(proj_a)
 
             proj_b, created_b = Project.objects.get_or_create(
-                name=name, semester=sem_b,
+                name=name,
+                semester=sem_b,
                 defaults={"continuation_of": proj_a},
             )
             if not proj_b.continuation_of:
@@ -261,11 +270,15 @@ class Command(BaseCommand):
             projects_by_sem[sem_b].append(proj_b)
 
         projects = projects_by_sem[sem_a] + projects_by_sem[sem_b]
-        self.stdout.write(f"  {len(projects_by_sem[sem_a])} projects loaded (x2 semesters).")
+        self.stdout.write(
+            f"  {len(projects_by_sem[sem_a])} projects loaded (x2 semesters)."
+        )
 
         # Give the fixed observer account access to the first few sem_a projects
         if projects_by_sem[sem_a]:
-            observer_access, _ = UserProjectAccess.objects.get_or_create(user=observer_user)
+            observer_access, _ = UserProjectAccess.objects.get_or_create(
+                user=observer_user
+            )
             observer_access.project_access.set(projects_by_sem[sem_a][:3])
 
         # ── Observers ─────────────────────────────────────────────────────────
@@ -290,7 +303,9 @@ class Command(BaseCommand):
                 user.set_password("testpass123")
                 user.save()
             access_names = [
-                n.strip() for n in row.get("project_access", "").split("||") if n.strip()
+                n.strip()
+                for n in row.get("project_access", "").split("||")
+                if n.strip()
             ]
             access_projects = [
                 project_by_name[n] for n in access_names if n in project_by_name
@@ -313,14 +328,19 @@ class Command(BaseCommand):
         self.stdout.write("Generating leave periods...")
         leave_count = 0
         for profile in random.sample(
-            dev_profiles, k=min(MAX_LEAVE_DEVELOPERS, len(dev_profiles)),
+            dev_profiles,
+            k=min(MAX_LEAVE_DEVELOPERS, len(dev_profiles)),
         ):
             start = datetime.date(
-                2026, random.randint(1, 10), random.choice([1, 8, 15, 22]),
+                2026,
+                random.randint(1, 10),
+                random.choice([1, 8, 15, 22]),
             )
             end = start + datetime.timedelta(days=random.choice([4, 7, 9, 14]))
             Leave.objects.get_or_create(
-                developer=profile, start_date=start, defaults={"end_date": end},
+                developer=profile,
+                start_date=start,
+                defaults={"end_date": end},
             )
             leave_count += 1
 
@@ -328,15 +348,20 @@ class Command(BaseCommand):
         self.stdout.write("Generating phases...")
         phase_count = 0
         sem_project_pairs = []
-        for sem, sem_projects in [(sem_a, projects_by_sem[sem_a]), (sem_b, projects_by_sem[sem_b])]:
+        for sem, sem_projects in [
+            (sem_a, projects_by_sem[sem_a]),
+            (sem_b, projects_by_sem[sem_b]),
+        ]:
             for project in random.sample(
-                sem_projects, k=min(MAX_PHASE_PROJECTS, len(sem_projects)),
+                sem_projects,
+                k=min(MAX_PHASE_PROJECTS, len(sem_projects)),
             ):
                 sem_project_pairs.append((sem, project))
 
         for profile in dev_profiles:
             pairs = random.sample(
-                sem_project_pairs, k=random.randint(*PHASES_PER_DEVELOPER_RANGE),
+                sem_project_pairs,
+                k=random.randint(*PHASES_PER_DEVELOPER_RANGE),
             )
             for sem, project in pairs:
                 offset_weeks = random.randint(*PHASE_OFFSET_WEEKS_RANGE)
@@ -366,7 +391,13 @@ class Command(BaseCommand):
         )
 
     def _create_seed_account(
-        self, email, name, role, password, is_staff=False, is_superuser=False,
+        self,
+        email,
+        name,
+        role,
+        password,
+        is_staff=False,
+        is_superuser=False,
     ):
         user, created = User.objects.get_or_create(
             email=email,
@@ -391,7 +422,8 @@ class Command(BaseCommand):
 
     def _get_or_create_semester(self, year, semester_type):
         sem, created = Semester.objects.get_or_create(
-            year=year, semester_type=semester_type,
+            year=year,
+            semester_type=semester_type,
         )
         if created:
             self.stdout.write(f"  Created {sem}")

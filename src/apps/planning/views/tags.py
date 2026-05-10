@@ -53,7 +53,9 @@ class TagUpdateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if name:
             if "||" in name or "\t" in name:
-                messages.error(request, "Tag name may not contain '||' or tab characters.")
+                messages.error(
+                    request, "Tag name may not contain '||' or tab characters."
+                )
                 return redirect("planning:tags")
             tag.name = name
         colour = request.POST.get("colour", "").strip()

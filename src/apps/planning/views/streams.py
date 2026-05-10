@@ -36,7 +36,9 @@ class StreamCreateView(RoleRequiredMixin, View):
         if not name:
             return redirect("planning:streams")
         if "||" in name or "\t" in name:
-            messages.error(request, "Stream name may not contain '||' or tab characters.")
+            messages.error(
+                request, "Stream name may not contain '||' or tab characters."
+            )
             return redirect("planning:streams")
         colour = request.POST.get("colour", "").strip()
         stream = Stream(name=name, colour=colour)
@@ -52,7 +54,9 @@ class StreamUpdateView(RoleRequiredMixin, View):
         name = request.POST.get("name", "").strip()
         if name:
             if "||" in name or "\t" in name:
-                messages.error(request, "Stream name may not contain '||' or tab characters.")
+                messages.error(
+                    request, "Stream name may not contain '||' or tab characters."
+                )
                 return redirect("planning:streams")
             stream.name = name
         colour = request.POST.get("colour", "").strip()

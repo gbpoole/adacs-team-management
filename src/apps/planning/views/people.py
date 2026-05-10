@@ -77,11 +77,17 @@ class PersonUpdateView(RoleRequiredMixin, View):
                 profile.save(update_fields=["base_effort_weeks"])
             except (ValueError, TypeError):
                 pass
-        tag_names = [n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n]
+        tag_names = [
+            n for n in request.POST.getlist("tags") if "||" not in n and "\t" not in n
+        ]
         profile.tags.set(_get_or_create_tags(tag_names))
 
         project_pks = request.POST.getlist("project_access")
-        stream_names = [n for n in request.POST.getlist("stream_access") if "||" not in n and "\t" not in n]
+        stream_names = [
+            n
+            for n in request.POST.getlist("stream_access")
+            if "||" not in n and "\t" not in n
+        ]
         streams = _get_or_create_streams(stream_names)
         all_projects = "all_project_access" in request.POST
         all_streams = "all_stream_access" in request.POST

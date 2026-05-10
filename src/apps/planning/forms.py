@@ -65,7 +65,9 @@ class ProjectWriteForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
         try:
-            cleaned["effort_resourced"] = Decimal(cleaned.get("effort_resourced", 0) or 0)
+            cleaned["effort_resourced"] = Decimal(
+                cleaned.get("effort_resourced", 0) or 0
+            )
         except (InvalidOperation, TypeError):
             self.add_error("effort_resourced", "Enter a valid resourced effort value.")
         return cleaned

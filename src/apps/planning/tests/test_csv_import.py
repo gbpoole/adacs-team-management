@@ -25,7 +25,8 @@ class TestValidateRows(TestCase):
     def test_returns_error_with_row_number(self):
         rows = [{"field": "bad"}]
         result = _validate_rows(
-            rows, {"field": self._make_validator("something wrong")},
+            rows,
+            {"field": self._make_validator("something wrong")},
         )
         self.assertEqual(len(result), 1)
         self.assertIn("Row 2:", result[0])

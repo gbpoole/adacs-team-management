@@ -109,7 +109,8 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
                         phase.display_name = phase.project.name
                         phase.effort_display = phase.effort_weeks()
                         phase.effort_unfilled_pct = round(
-                            (1 - phase.effort_multiplier) * 100, 1,
+                            (1 - phase.effort_multiplier) * 100,
+                            1,
                         )
                         phase_segments.append((start_col, span, phase))
                         for col in range(start_col, start_col + span):
@@ -148,7 +149,11 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
 
         today = datetime.date.today()
         today_col = next(
-            (i for i, w in enumerate(weeks) if w <= today < w + datetime.timedelta(days=7)),
+            (
+                i
+                for i, w in enumerate(weeks)
+                if w <= today < w + datetime.timedelta(days=7)
+            ),
             -1,
         )
         today_day_px = today.weekday() * 64 // 7
@@ -169,6 +174,8 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
         ctx["projects"] = all_projects
         ctx["developers"] = devs
         ctx["my_developer_pk"] = (
-            DeveloperProfile.objects.filter(user=user).values_list("pk", flat=True).first()
+            DeveloperProfile.objects.filter(user=user)
+            .values_list("pk", flat=True)
+            .first()
         )
         return ctx

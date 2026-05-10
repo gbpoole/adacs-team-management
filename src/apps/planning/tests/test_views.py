@@ -257,7 +257,9 @@ class ProjectsViewTests(PlanningTestCase):
     def test_observer_with_combined_access_sees_union(self):
         stream = StreamFactory()
         project_direct = ProjectFactory(semester=self.semester, name="Direct Project")
-        project_via_stream = ProjectFactory(semester=self.semester, name="Stream Project")
+        project_via_stream = ProjectFactory(
+            semester=self.semester, name="Stream Project"
+        )
         project_via_stream.streams.add(stream)
         ProjectFactory(semester=self.semester, name="Hidden Project")
         obs = UserProjectAccessFactory()
@@ -298,7 +300,9 @@ class ProjectsViewTests(PlanningTestCase):
 
     def test_user_with_phase_sees_project_despite_empty_access_record(self):
         dev = make_semester_developer(semester=self.semester)
-        project_with_phase = ProjectFactory(semester=self.semester, name="Phase Project")
+        project_with_phase = ProjectFactory(
+            semester=self.semester, name="Phase Project"
+        )
         ProjectFactory(semester=self.semester, name="Hidden Project")
         access = UserProjectAccessFactory(user=dev.user)
         Phase.objects.create(
@@ -1415,7 +1419,9 @@ class ProjectCreateViewTests(PlanningTestCase):
         import re
 
         content = re.sub(r"\s+", " ", response.content.decode())
-        self.assertIn('name="streams" value="Engineering" class="hidden" checked', content)
+        self.assertIn(
+            'name="streams" value="Engineering" class="hidden" checked', content
+        )
         self.assertIn('name="streams" value="Science" class="hidden" checked', content)
         self.assertIn('name="tags" value="AI" class="hidden" checked', content)
         self.assertIn('name="tags" value="ML" class="hidden" checked', content)
@@ -1586,7 +1592,9 @@ class ProjectUpdateViewTests(PlanningTestCase):
         import re
 
         content = re.sub(r"\s+", " ", response.content.decode())
-        self.assertIn('name="streams" value="Engineering" class="hidden" checked', content)
+        self.assertIn(
+            'name="streams" value="Engineering" class="hidden" checked', content
+        )
         self.assertIn('name="streams" value="Data" class="hidden" checked', content)
         self.assertIn('name="tags" value="TagOne" class="hidden" checked', content)
         self.assertIn('name="tags" value="TagTwo" class="hidden" checked', content)
@@ -1641,7 +1649,9 @@ class ProjectMigrateViewTests(PlanningTestCase):
         self.pm = PMUserFactory()
         self.target_sem = SemesterFactory(year=2026, semester_type=SemesterType.A)
         self.source_sem = SemesterFactory(year=2025, semester_type=SemesterType.B)
-        self.source_project = ProjectFactory(semester=self.source_sem, name="Old Project")
+        self.source_project = ProjectFactory(
+            semester=self.source_sem, name="Old Project"
+        )
         ProjectAllocationFactory(
             project=self.source_project,
             semester=self.source_sem,
@@ -1649,7 +1659,7 @@ class ProjectMigrateViewTests(PlanningTestCase):
             weeks_carryover=2,
         )
 
-    def _migrate(self, effort=None, extra=None, hx=False):
+    def _migrate(self, effort=None, extra=None, *, hx=False):
         self.client.force_login(self.pm)
         session = self.client.session
         session["selected_semester"] = "2026A"
@@ -2008,7 +2018,9 @@ class ProjectDownloadViewTests(PlanningTestCase):
         self.assertIn(b"Dev Lead Person", response.content)
 
     def test_tsv_contains_external_science_lead(self):
-        ProjectFactory(semester=self.semester, name="Sci Project", science_lead_name="Prof. Smith")
+        ProjectFactory(
+            semester=self.semester, name="Sci Project", science_lead_name="Prof. Smith"
+        )
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Prof. Smith", response.content)

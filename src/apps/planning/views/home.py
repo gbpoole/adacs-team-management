@@ -66,7 +66,9 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 ctx["my_effort_available"] = sd.effort_available if sd else None
                 my_phases = list(
                     Phase.objects.filter(developer=profile, semester=semester)
-                    .select_related("project", "project__dev_lead", "project__science_lead")
+                    .select_related(
+                        "project", "project__dev_lead", "project__science_lead"
+                    )
                     .order_by("start_date"),
                 )
                 for ph in my_phases:
@@ -82,7 +84,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     ph for ph in my_phases if ph.start_date <= today <= ph.end_date
                 ]
                 ctx["my_next_phase"] = next(
-                    (ph for ph in my_phases if ph.start_date > today), None,
+                    (ph for ph in my_phases if ph.start_date > today),
+                    None,
                 )
                 ctx["my_upcoming_leave"] = Leave.objects.filter(
                     developer=profile,
