@@ -1,4 +1,4 @@
-# ADACS Team Planning
+# ADACS Team Management
 
 A Django web application for allocating developers across projects on a semesterly basis. It provides Gantt-style planning and schedule views, project and leave management, and role-based access control for team members, observers, and project managers.
 
@@ -45,8 +45,10 @@ This starts:
 - **django** — Gunicorn app server (auto-runs migrations on startup)
 - **nginx** — Reverse proxy serving static files
 - **db** — MySQL 8.4
-- **mailpit** — Local mail catcher bound to `127.0.0.1:8025` (UI at `http://localhost:8025`); intercepts all outgoing email including password resets — do not expose this port publicly
+- **mailpit** — Local mail catcher bound to `127.0.0.1:8026` (UI at `http://localhost:8026`); intercepts all outgoing email including password resets — do not expose this port publicly
 - **cron** — Background job for queued email delivery
+
+All services are configured with `restart: unless-stopped`, so they recover automatically after a crash or host reboot. Dependent containers (`django`, `nginx`, `cron`) are also configured to restart whenever their dependencies (`db`, `django`) return to a healthy state, so a database restart will automatically bring the rest of the stack back up.
 
 **Security note:** The Docker image itself contains no secrets. All credentials from `.env` are injected at container startup via `env_file` and are never baked into the image layers. Do not push the `.env` file into any repository or image registry.
 
