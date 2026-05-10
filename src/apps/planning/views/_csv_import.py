@@ -64,18 +64,24 @@ def _validate_rows(rows, validators):
 
 
 def _validate_developer_rows(rows):
-    return _validate_rows(rows, {
-        "email": _validate_email,
-        "name": _validate_name,
-        "effort_available": _validate_effort,
-    })
+    return _validate_rows(
+        rows,
+        {
+            "email": _validate_email,
+            "name": _validate_name,
+            "effort_available": _validate_effort,
+        },
+    )
 
 
 def _validate_project_rows(rows):
-    return _validate_rows(rows, {
-        "name": _validate_name,
-        "effort_resourced": _validate_effort,
-    })
+    return _validate_rows(
+        rows,
+        {
+            "name": _validate_name,
+            "effort_resourced": _validate_effort,
+        },
+    )
 
 
 def _validate_observer_rows(rows, valid_project_names: set[str]):
@@ -98,6 +104,8 @@ def _validate_observer_rows(rows, valid_project_names: set[str]):
 
 
 def _upload_error(request, redirect_name, errors):
-    msg = "Upload failed — fix the following errors and try again:\n" + "\n".join(f"• {e}" for e in errors)
+    msg = "Upload failed — fix the following errors and try again:\n" + "\n".join(
+        f"• {e}" for e in errors
+    )
     messages.error(request, msg)
     return redirect(f"planning:{redirect_name}")

@@ -44,20 +44,42 @@ app_name = "planning"
 urlpatterns = [
     path("developers/", DevelopersView.as_view(), name="developers"),
     path("developers/add/", DeveloperCreateView.as_view(), name="developer_add"),
-    path("developers/download/", DeveloperDownloadView.as_view(), name="developer_download"),
-    path("developers/migrate/", DeveloperMigrateView.as_view(), name="developer_migrate"),
-    path("developers/<int:pk>/edit/", DeveloperUpdateView.as_view(), name="developer_edit"),
-    path("developers/<int:pk>/delete/", DeveloperDeleteView.as_view(), name="developer_delete"),
+    path(
+        "developers/download/",
+        DeveloperDownloadView.as_view(),
+        name="developer_download",
+    ),
+    path(
+        "developers/migrate/", DeveloperMigrateView.as_view(), name="developer_migrate"
+    ),
+    path(
+        "developers/<int:pk>/edit/",
+        DeveloperUpdateView.as_view(),
+        name="developer_edit",
+    ),
+    path(
+        "developers/<int:pk>/delete/",
+        DeveloperDeleteView.as_view(),
+        name="developer_delete",
+    ),
     path("observers/", ObserversView.as_view(), name="observers"),
     path("observers/add/", ObserverCreateView.as_view(), name="observer_add"),
-    path("observers/<int:pk>/edit/", ObserverUpdateView.as_view(), name="observer_edit"),
-    path("observers/<int:pk>/delete/", ObserverDeleteView.as_view(), name="observer_delete"),
+    path(
+        "observers/<int:pk>/edit/", ObserverUpdateView.as_view(), name="observer_edit"
+    ),
+    path(
+        "observers/<int:pk>/delete/",
+        ObserverDeleteView.as_view(),
+        name="observer_delete",
+    ),
     path("projects/", ProjectsView.as_view(), name="projects"),
     path("projects/add/", ProjectCreateView.as_view(), name="project_add"),
     path("projects/download/", ProjectDownloadView.as_view(), name="project_download"),
     path("projects/migrate/", ProjectMigrateView.as_view(), name="project_migrate"),
     path("projects/<int:pk>/edit/", ProjectUpdateView.as_view(), name="project_edit"),
-    path("projects/<int:pk>/delete/", ProjectDeleteView.as_view(), name="project_delete"),
+    path(
+        "projects/<int:pk>/delete/", ProjectDeleteView.as_view(), name="project_delete"
+    ),
     path("leave/", LeaveView.as_view(), name="leave"),
     path("leave/add/", LeaveCreateView.as_view(), name="leave_add"),
     path("leave/<int:pk>/delete/", LeaveDeleteView.as_view(), name="leave_delete"),

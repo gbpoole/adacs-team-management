@@ -170,6 +170,7 @@ ignore = [
   "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
   "SIM102", # sometimes it's better to nest
   "E501", # Keep long strings/comments where wrapping hurts readability
+  "COM812", # Conflicts with ruff formatter (formatter manages trailing commas)
   "UP038" # Checks for uses of isinstance/issubclass that take a tuple
           # of types for comparison.
           # Deactivated because it can make the code slow:

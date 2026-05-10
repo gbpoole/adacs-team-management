@@ -52,7 +52,9 @@ class LeaveView(PMOrHasDeveloperProfileMixin, ListView):
         ctx["can_edit"] = user.role == Role.PM or user.is_superuser
         ctx["is_developer"] = user.role != Role.PM and not user.is_superuser
         ctx["show_past"] = bool(self.request.GET.get("show_past"))
-        ctx["developers"] = DeveloperProfile.objects.select_related("user").order_by("user__name")
+        ctx["developers"] = DeveloperProfile.objects.select_related("user").order_by(
+            "user__name"
+        )
         if ctx["is_developer"]:
             try:
                 ctx["my_developer_id"] = user.developer_profile.pk
@@ -93,7 +95,6 @@ class LeaveDeleteView(PMOrHasDeveloperProfileMixin, View):
 
 
 class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
-
     def post(self, request, pk, *args, **kwargs):
         leave = get_object_or_404(Leave, pk=pk)
         if denied := _check_leave_ownership(request.user, leave):
@@ -104,6 +105,8 @@ class LeaveUpdateView(PMOrHasDeveloperProfileMixin, View):
         updated_leave = form.save(commit=False)
         updated_leave.save(update_fields=["start_date", "end_date"])
         next_url = request.POST.get("next")
-        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}
+        ):
             return _redirect_or_hx_redirect(request, next_url)
         return HttpResponse(status=204)

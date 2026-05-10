@@ -42,14 +42,17 @@ def _is_semester_developer(user, semester):
     from apps.planning.models import Project
     from apps.planning.models import SemesterDeveloper
 
-    return SemesterDeveloper.objects.filter(
-        developer__user=user,
-        semester=semester,
-        effort_available__gt=0,
-    ).exists() or Project.objects.filter(
-        semester=semester,
-        dev_lead=user,
-    ).exists()
+    return (
+        SemesterDeveloper.objects.filter(
+            developer__user=user,
+            semester=semester,
+            effort_available__gt=0,
+        ).exists()
+        or Project.objects.filter(
+            semester=semester,
+            dev_lead=user,
+        ).exists()
+    )
 
 
 def _has_project_access_policy(user):

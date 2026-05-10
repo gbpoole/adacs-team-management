@@ -127,7 +127,8 @@ class ProjectsView(LoginRequiredMixin, ListView):
         # (each source project can only be continued by one other project).
         already_linked_pks = set(
             Project.objects.filter(continuations__isnull=False).values_list(
-                "pk", flat=True,
+                "pk",
+                flat=True,
             ),
         )
 
@@ -304,7 +305,10 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             alloc, created = ProjectAllocation.objects.get_or_create(
                 project=project,
                 semester=semester,
-                defaults={"weeks_new": cleaned["effort_resourced"], "weeks_carryover": 0},
+                defaults={
+                    "weeks_new": cleaned["effort_resourced"],
+                    "weeks_carryover": 0,
+                },
             )
             if not created:
                 alloc.weeks_new = cleaned["effort_resourced"]

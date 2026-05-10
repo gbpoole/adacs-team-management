@@ -88,7 +88,8 @@ class PhaseUpdateView(RoleRequiredMixin, View):
         lane_pk = request.POST.get("lane_pk")
         if lane_pk == "new":
             developer = get_object_or_404(
-                DeveloperProfile, pk=request.POST.get("developer_pk"),
+                DeveloperProfile,
+                pk=request.POST.get("developer_pk"),
             )
             preferred_lane = _create_next_lane(developer, phase.semester)
             phase.developer = developer

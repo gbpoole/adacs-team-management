@@ -66,6 +66,13 @@ class LeaveAdmin(admin.ModelAdmin):
 
 @admin.register(Phase)
 class PhaseAdmin(admin.ModelAdmin):
-    list_display = ["developer", "project", "semester", "start_date", "end_date", "effort_multiplier"]
+    list_display = [
+        "developer",
+        "project",
+        "semester",
+        "start_date",
+        "end_date",
+        "effort_multiplier",
+    ]
     list_filter = ["semester", "project"]
     search_fields = ["developer__user__email", "developer__user__name"]

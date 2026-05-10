@@ -17,6 +17,7 @@ def _validate_name_chars(value):
         msg = "Name may not contain tab characters."
         raise ValidationError(msg)
 
+
 # ---------------------------------------------------------------------------
 # Colour palette
 # ---------------------------------------------------------------------------
@@ -56,7 +57,8 @@ def _assign_colour_if_blank(instance, model_class) -> None:
     if not instance.colour:
         used = set(
             model_class.objects.exclude(pk=instance.pk).values_list(
-                "colour", flat=True,
+                "colour",
+                flat=True,
             ),
         )
         if len(used) < len(COLOUR_PALETTE):
@@ -72,7 +74,9 @@ def _assign_colour_if_blank(instance, model_class) -> None:
 
 
 class Tag(models.Model):
-    name = models.CharField(_("name"), max_length=100, unique=True, validators=[_validate_name_chars])
+    name = models.CharField(
+        _("name"), max_length=100, unique=True, validators=[_validate_name_chars]
+    )
     colour = models.CharField(
         _("colour"),
         max_length=7,
@@ -188,7 +192,9 @@ class Semester(models.Model):
 class Stream(models.Model):
     """Named stream (work category) for grouping projects."""
 
-    name = models.CharField(_("name"), max_length=100, unique=True, validators=[_validate_name_chars])
+    name = models.CharField(
+        _("name"), max_length=100, unique=True, validators=[_validate_name_chars]
+    )
     colour = models.CharField(
         _("colour"),
         max_length=7,
@@ -213,7 +219,9 @@ class Stream(models.Model):
 
 
 class Project(models.Model):
-    name = models.CharField(_("name"), max_length=255, validators=[_validate_name_chars])
+    name = models.CharField(
+        _("name"), max_length=255, validators=[_validate_name_chars]
+    )
     semester = models.ForeignKey(
         "Semester",
         on_delete=models.CASCADE,
@@ -420,7 +428,9 @@ class UserProjectAccess(models.Model):
     )
     all_project_access = models.BooleanField(
         default=False,
-        help_text=_("When true, user can view all projects regardless of project_access list."),
+        help_text=_(
+            "When true, user can view all projects regardless of project_access list."
+        ),
     )
     all_stream_access = models.BooleanField(
         default=False,

@@ -42,7 +42,11 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
 
         today = datetime.date.today()
         today_col = next(
-            (i for i, w in enumerate(weeks) if w <= today < w + datetime.timedelta(days=7)),
+            (
+                i
+                for i, w in enumerate(weeks)
+                if w <= today < w + datetime.timedelta(days=7)
+            ),
             -1,
         )
         today_day_px = today.weekday() * 64 // 7
@@ -133,17 +137,41 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
                 while col < len(weeks):
                     if col in phase_at:
                         s, sp, ph = phase_at[col]
-                        cell_today_px = (today_left_px - s * 64) if today_col >= 0 and s <= today_col <= s + sp - 1 else -1
-                        dev_cells.append({"type": "phase", "colspan": sp, "phase": ph, "col_start": s, "col_end": s + sp - 1, "today_px": cell_today_px})
+                        cell_today_px = (
+                            (today_left_px - s * 64)
+                            if today_col >= 0 and s <= today_col <= s + sp - 1
+                            else -1
+                        )
+                        dev_cells.append(
+                            {
+                                "type": "phase",
+                                "colspan": sp,
+                                "phase": ph,
+                                "col_start": s,
+                                "col_end": s + sp - 1,
+                                "today_px": cell_today_px,
+                            }
+                        )
                         col += sp
                     else:
                         next_p = min(
                             (s for s in phase_at if s > col),
                             default=len(weeks),
                         )
-                        cell_today_px = (today_left_px - col * 64) if today_col >= 0 and col <= today_col <= next_p - 1 else -1
+                        cell_today_px = (
+                            (today_left_px - col * 64)
+                            if today_col >= 0 and col <= today_col <= next_p - 1
+                            else -1
+                        )
                         dev_cells.append(
-                            {"type": "empty", "colspan": next_p - col, "phase": None, "col_start": col, "col_end": next_p - 1, "today_px": cell_today_px},
+                            {
+                                "type": "empty",
+                                "colspan": next_p - col,
+                                "phase": None,
+                                "col_start": col,
+                                "col_end": next_p - 1,
+                                "today_px": cell_today_px,
+                            },
                         )
                         col = next_p
                 if dev_cells:
@@ -175,6 +203,8 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
         ctx["selected_tags"] = tag_filter
         ctx["selected_streams"] = stream_filter
         ctx["my_developer_pk"] = (
-            DeveloperProfile.objects.filter(user=user).values_list("pk", flat=True).first()
+            DeveloperProfile.objects.filter(user=user)
+            .values_list("pk", flat=True)
+            .first()
         )
         return ctx
