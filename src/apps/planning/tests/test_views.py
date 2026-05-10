@@ -1649,7 +1649,7 @@ class ProjectMigrateViewTests(PlanningTestCase):
             weeks_carryover=2,
         )
 
-    def _migrate(self, effort=None, extra=None, hx=False):
+    def _migrate(self, effort=None, extra=None, *, hx=False):
         self.client.force_login(self.pm)
         session = self.client.session
         session["selected_semester"] = "2026A"

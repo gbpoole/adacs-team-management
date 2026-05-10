@@ -19,9 +19,8 @@ import io
 import random
 from pathlib import Path
 
-from django.conf import settings
-
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
@@ -89,10 +88,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if not getattr(settings, "SEED_DATA_ALLOWED", False):
-            raise CommandError(
+            msg = (
                 "seed_test_data refuses to run unless SEED_DATA_ALLOWED = True "
                 "in settings. This command is for development and testing only."
             )
+            raise CommandError(msg)
         with transaction.atomic():
             self._seed(*args, **options)
 
