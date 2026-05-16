@@ -35,7 +35,7 @@ mysqlclient = "^2.2.7"
 djangorestframework = "^3.16.0"  # https://github.com/encode/django-rest-framework
 django-cors-headers = "^4.7.0"  # https://github.com/adamchainz/django-cors-headers
 # DRF-spectacular for API documentation
-drf-spectacular = "^0.28.0"  # https://github.com/tfranzel/drf-spectacular
+drf-spectacular = ">=0.28,<0.30"  # https://github.com/tfranzel/drf-spectacular
 
 [tool.poetry.group.dev.dependencies]
 django-debug-toolbar = "^5.2.0"
