@@ -64,3 +64,39 @@ jobs:
 
       - name: Build images
         run: docker compose build django nginx
+
+  # ---------------------------------------------------------------------------
+  # Optional CD: deploy to Nectar VM on every push to main.
+  #
+  # To enable, add these secrets in GitHub → Settings → Secrets and variables
+  # → Actions:
+  #   NECTAR_VM_IP      — public IP of your Nectar VM
+  #   NECTAR_DEPLOY_KEY — SSH private key (the matching public key must be in
+  #                       ~/.ssh/authorized_keys on the VM for the ubuntu user)
+  #
+  # To generate a dedicated deploy key pair (on your local machine):
+  #   ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/nectar_deploy
+  #   # Add ~/.ssh/nectar_deploy.pub to the VM's authorized_keys
+  #   # Add the contents of ~/.ssh/nectar_deploy as the NECTAR_DEPLOY_KEY secret
+  #
+  # This job is skipped automatically when either secret is absent.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Nectar
+    runs-on: ubuntu-latest
+    needs: [lint, test, docker]
+    if: >
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      vars.NECTAR_DEPLOY_ENABLED == 'true'
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.NECTAR_VM_IP }}
+          username: ubuntu
+          key: ${{ secrets.NECTAR_DEPLOY_KEY }}
+          script: |
+            cd /home/ubuntu/adacs-team-management
+            bash scripts/update.sh
