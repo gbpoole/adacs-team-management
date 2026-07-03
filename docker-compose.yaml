@@ -25,7 +25,7 @@ services:
       target: nginx
     container_name: adacs_team_management_static
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       django:
         condition: service_healthy
