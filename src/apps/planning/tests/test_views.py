@@ -114,7 +114,7 @@ class HomeViewTests(TestCase):
 
     def test_pm_sees_summary_counts(self):
         DeveloperProfileFactory()
-        ProjectFactory()
+        ProjectFactory(semester=Semester.get_current())
         self.client.force_login(PMUserFactory())
         response = self.client.get(reverse("home"))
         self.assertEqual(response.context["dev_count"], 1)
@@ -196,7 +196,7 @@ class ObserversViewTests(PlanningTestCase):
 class ProjectsViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:projects")
-        self.semester = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.semester = Semester.get_current()
 
     def test_redirects_anonymous(self):
         response = self.client.get(self.url)
@@ -1991,7 +1991,7 @@ class ProjectDownloadViewTests(PlanningTestCase):
     def setUp(self):
         self.url = reverse("planning:project_download")
         self.pm = PMUserFactory()
-        self.semester = SemesterFactory(year=2026, semester_type=SemesterType.A)
+        self.semester = Semester.get_current()
 
     def test_role_access(self):
         self.assertRoleAccess(self.url, method="get", denied=["developer", "observer"])

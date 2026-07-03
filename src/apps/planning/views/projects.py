@@ -57,9 +57,8 @@ class ProjectsView(LoginRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         semester = get_selected_semester(self.request)
         ctx["semester"] = semester
-        ctx["can_edit"] = (
-            self.request.user.role == Role.PM or self.request.user.is_superuser
-        )
+        can_edit = self.request.user.role == Role.PM or self.request.user.is_superuser
+        ctx["can_edit"] = can_edit
         ctx["all_tags"] = Tag.objects.all()
         ctx["streams"] = Stream.objects.order_by("name")
         ctx["selected_tags"] = self.request.GET.getlist("tags")
@@ -95,67 +94,72 @@ class ProjectsView(LoginRequiredMixin, ListView):
                 project.continuation_of.name if project.continuation_of else None
             )
 
-        # Build per-semester project data for continuation-of selectors and migration modal.
-        # Only past semesters are relevant (earlier year, or same year with earlier type).
-        other_semesters = list(
-            Semester.objects.filter(
-                Q(year__lt=semester.year)
-                | Q(year=semester.year, semester_type__lt=semester.semester_type),
-            ).order_by("-year", "-semester_type"),
-        )
-
-        # Bulk-fetch allocations and phase totals for all other semesters
-        other_sem_pks = [s.pk for s in other_semesters]
-        alloc_by_sem_proj = {}
-        for proj_pk, sem_pk, new, carry in ProjectAllocation.objects.filter(
-            semester__in=other_sem_pks,
-        ).values_list("project_id", "semester_id", "weeks_new", "weeks_carryover"):
-            alloc_by_sem_proj[(sem_pk, proj_pk)] = float(new + carry)
-
-        phase_by_sem_proj: dict = {}
-        for phase in (
-            Phase.objects.filter(semester__in=other_sem_pks)
-            .select_related("developer")
-            .prefetch_related("developer__leave_periods")
-        ):
-            key = (phase.semester_id, phase.project_id)
-            phase_by_sem_proj[key] = (
-                phase_by_sem_proj.get(key, 0) + phase.effort_weeks()
+        # Build per-semester project data for the continuation-of and migration modals.
+        # Only PM/superuser can create or migrate projects, so non-PM users must not
+        # receive a JSON blob of every past-semester project name in the HTML (information leak).
+        if can_edit:
+            other_semesters = list(
+                Semester.objects.filter(
+                    Q(year__lt=semester.year)
+                    | Q(year=semester.year, semester_type__lt=semester.semester_type),
+                ).order_by("-year", "-semester_type"),
             )
 
-        # Projects already targeted by some other project's continuation_of
-        # (each source project can only be continued by one other project).
-        already_linked_pks = set(
-            Project.objects.filter(continuations__isnull=False).values_list(
-                "pk",
-                flat=True,
-            ),
-        )
+            # Bulk-fetch allocations and phase totals for all other semesters
+            other_sem_pks = [s.pk for s in other_semesters]
+            alloc_by_sem_proj = {}
+            for proj_pk, sem_pk, new, carry in ProjectAllocation.objects.filter(
+                semester__in=other_sem_pks,
+            ).values_list("project_id", "semester_id", "weeks_new", "weeks_carryover"):
+                alloc_by_sem_proj[(sem_pk, proj_pk)] = float(new + carry)
 
-        continuation_map = {}
-        for sem in other_semesters:
-            projects_in_sem = (
-                Project.objects.filter(semester=sem)
-                .prefetch_related("streams")
-                .order_by("name")
-            )
-            entries = []
-            for p in projects_in_sem:
-                w_res = alloc_by_sem_proj.get((sem.pk, p.pk), 0)
-                w_alloc = round(phase_by_sem_proj.get((sem.pk, p.pk), 0), 2)
-                entries.append(
-                    {
-                        "pk": p.pk,
-                        "name": p.name,
-                        "weeks_resourced": w_res,
-                        "weeks_unallocated": round(max(0, w_res - w_alloc), 2),
-                        "streams": [s.name for s in p.streams.all()],
-                        "already_linked": p.pk in already_linked_pks,
-                    },
+            phase_by_sem_proj: dict = {}
+            for phase in (
+                Phase.objects.filter(semester__in=other_sem_pks)
+                .select_related("developer")
+                .prefetch_related("developer__leave_periods")
+            ):
+                key = (phase.semester_id, phase.project_id)
+                phase_by_sem_proj[key] = (
+                    phase_by_sem_proj.get(key, 0) + phase.effort_weeks()
                 )
-            continuation_map[str(sem.pk)] = entries
-        ctx["continuation_semesters"] = other_semesters
-        ctx["continuation_data_json"] = json.dumps(continuation_map)
+
+            # Projects already targeted by some other project's continuation_of
+            # (each source project can only be continued by one other project).
+            already_linked_pks = set(
+                Project.objects.filter(continuations__isnull=False).values_list(
+                    "pk",
+                    flat=True,
+                ),
+            )
+
+            continuation_map = {}
+            for sem in other_semesters:
+                projects_in_sem = (
+                    Project.objects.filter(semester=sem)
+                    .prefetch_related("streams")
+                    .order_by("name")
+                )
+                entries = []
+                for p in projects_in_sem:
+                    w_res = alloc_by_sem_proj.get((sem.pk, p.pk), 0)
+                    w_alloc = round(phase_by_sem_proj.get((sem.pk, p.pk), 0), 2)
+                    entries.append(
+                        {
+                            "pk": p.pk,
+                            "name": p.name,
+                            "weeks_resourced": w_res,
+                            "weeks_unallocated": round(max(0, w_res - w_alloc), 2),
+                            "streams": [s.name for s in p.streams.all()],
+                            "already_linked": p.pk in already_linked_pks,
+                        },
+                    )
+                continuation_map[str(sem.pk)] = entries
+            ctx["continuation_semesters"] = other_semesters
+            ctx["continuation_data_json"] = json.dumps(continuation_map)
+        else:
+            ctx["continuation_semesters"] = []
+            ctx["continuation_data_json"] = json.dumps({})
         ctx["project_add_form"] = ProjectWriteForm()
         ctx["selected_add_streams"] = []
         ctx["selected_add_tags"] = []
