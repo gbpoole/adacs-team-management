@@ -89,7 +89,8 @@ if command -v openstack &>/dev/null; then
     info "OpenStack CLI already installed."
 else
     info "Installing OpenStack CLI..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -q python3-openstackclient
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
+        python3-openstackclient python3-designateclient
     info "OpenStack CLI installed."
 fi
 
