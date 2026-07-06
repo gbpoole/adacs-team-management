@@ -87,6 +87,21 @@ prompt "reCAPTCHA secret key:"
 read -rsp "  RECAPTCHA_PRIVATE_KEY: " RECAPTCHA_PRIVATE_KEY
 echo
 
+echo
+info "Nectar Object Storage backup (optional)."
+info "  Uploads each dump to Swift so backups survive VM loss."
+info "  Requires the OpenStack CLI and sourced credentials (. ~/openrc.sh) at backup time."
+info "  Leave blank to skip — you can add SWIFT_BACKUP_CONTAINER to .env later."
+prompt "Swift container name for backups (blank = disabled):"
+read -rp "  SWIFT_BACKUP_CONTAINER: " SWIFT_BACKUP_CONTAINER
+
+SWIFT_RETENTION_DAYS=""
+if [[ -n "$SWIFT_BACKUP_CONTAINER" ]]; then
+    prompt "Retention period for Swift backup objects in days (default: 90):"
+    read -rp "  SWIFT_RETENTION_DAYS [90]: " SWIFT_RETENTION_DAYS
+    SWIFT_RETENTION_DAYS="${SWIFT_RETENTION_DAYS:-90}"
+fi
+
 # ---------------------------------------------------------------------------
 # Auto-generate secrets (no Django dependency required)
 # ---------------------------------------------------------------------------
@@ -144,6 +159,16 @@ fi
 
 cat >> .env << EOF
 
+# === Backups ===
+# Set SWIFT_BACKUP_CONTAINER to push each dump to Nectar Object Storage (Swift).
+# Create the container first: openstack container create <name>
+# Credentials must be sourced at backup time: . ~/openrc.sh
+SWIFT_BACKUP_CONTAINER=${SWIFT_BACKUP_CONTAINER}
+SWIFT_RETENTION_DAYS=${SWIFT_RETENTION_DAYS:-90}
+EOF
+
+cat >> .env << EOF
+
 # === HTTPS hardening (must be True for production) ===
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
@@ -177,5 +202,12 @@ echo "  DJANGO_SECRET_KEY   = ${SECRET_KEY:0:6}... (auto-generated, 50 chars)"
 echo "  MYSQL_ROOT_PASSWORD = *** (auto-generated)"
 echo "  MYSQL_PASSWORD      = *** (auto-generated)"
 echo "  RECAPTCHA_PUBLIC_KEY= ${RECAPTCHA_PUBLIC_KEY:0:6}..."
+if [[ -n "$SWIFT_BACKUP_CONTAINER" ]]; then
+    echo "  SWIFT_BACKUP_CONTAINER = ${SWIFT_BACKUP_CONTAINER}"
+    echo "  SWIFT_RETENTION_DAYS   = ${SWIFT_RETENTION_DAYS}"
+    echo ""
+    warn "Remember to create the Swift container before running backups:"
+    warn "  . ~/openrc.sh && openstack container create ${SWIFT_BACKUP_CONTAINER}"
+fi
 echo
 info "Next: bash scripts/setup-dns.sh --zone <zone> --ip <ip>"

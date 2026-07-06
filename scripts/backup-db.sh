@@ -19,6 +19,7 @@ ENV_FILE="${APP_DIR}/.env"
 COMPOSE_FILE="${APP_DIR}/docker-compose.yaml"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/adacs}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
+SWIFT_RETENTION_DAYS="${SWIFT_RETENTION_DAYS:-90}"
 TIMESTAMP=$(date -u '+%Y%m%d_%H%M%S')
 BACKUP_FILE="${BACKUP_DIR}/db_${TIMESTAMP}.sql.gz"
 LOG_FILE="/var/log/adacs-backup.log"
@@ -90,12 +91,30 @@ fi
 # Set SWIFT_BACKUP_CONTAINER in .env to enable.
 # ---------------------------------------------------------------------------
 SWIFT_CONTAINER=$(grep '^SWIFT_BACKUP_CONTAINER=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+# Allow .env to override the default retention for Swift objects
+_swift_ret=$(grep '^SWIFT_RETENTION_DAYS=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+[[ -n "$_swift_ret" ]] && SWIFT_RETENTION_DAYS="$_swift_ret"
+
 if [[ -n "$SWIFT_CONTAINER" ]]; then
     if command -v openstack &>/dev/null; then
         info "Uploading to Nectar Object Storage container: ${SWIFT_CONTAINER}..."
         openstack object create "$SWIFT_CONTAINER" "$BACKUP_FILE" \
             --name "$(basename "$BACKUP_FILE")"
         info "Uploaded."
+
+        # Remove Swift objects whose filename date is older than the retention window.
+        # Filenames have the form db_YYYYMMDD_HHMMSS.sql.gz so lexicographic comparison
+        # of the YYYYMMDD prefix is safe.
+        SWIFT_CUTOFF=$(date -u -d "${SWIFT_RETENTION_DAYS} days ago" '+%Y%m%d')
+        info "Pruning Swift objects older than ${SWIFT_RETENTION_DAYS} days (before ${SWIFT_CUTOFF})..."
+        while IFS= read -r obj; do
+            obj_date="${obj#db_}"
+            obj_date="${obj_date:0:8}"
+            if [[ "$obj_date" < "$SWIFT_CUTOFF" ]]; then
+                openstack object delete "$SWIFT_CONTAINER" "$obj" \
+                    && info "Deleted old Swift object: ${obj}"
+            fi
+        done < <(openstack object list "$SWIFT_CONTAINER" -f value -c Name 2>/dev/null || true)
     else
         warn "SWIFT_BACKUP_CONTAINER is set but openstack CLI is not available."
     fi
