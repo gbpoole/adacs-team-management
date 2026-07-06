@@ -100,7 +100,8 @@
         {% for person in available_people %}
           <option value="{{ person.pk }}"
                   {% if project_add_form.dev_lead.value == person.pk|stringformat:"s" %}selected{% endif %}>
-            {{ person.display_name }}{% if not person.is_registered %} (unregistered){% endif %}
+            {{ person.display_name }}
+            {% if not person.is_registered %}(unregistered){% endif %}
           </option>
         {% endfor %}
       </select>
@@ -113,7 +114,8 @@
       {% for person in available_people %}
         <option value="{{ person.pk }}"
                 {% if project_add_form.science_lead.value == person.pk|stringformat:"s" %}selected{% endif %}>
-          {{ person.display_name }}{% if not person.is_registered %} (unregistered){% endif %}
+          {{ person.display_name }}
+          {% if not person.is_registered %}(unregistered){% endif %}
         </option>
       {% endfor %}
     </select>

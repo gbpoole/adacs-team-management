@@ -169,7 +169,8 @@
                 {% if project.science_lead %}
                   {{ project.science_lead.display_name }}
                   {% if not project.science_lead.is_registered %}
-                    <span class="badge badge-xs badge-outline ml-1" title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
+                    <span class="badge badge-xs badge-outline ml-1"
+                          title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
                   {% endif %}
                 {% else %}
                   —
@@ -179,7 +180,8 @@
                 {% if project.dev_lead %}
                   {{ project.dev_lead.display_name }}
                   {% if not project.dev_lead.is_registered %}
-                    <span class="badge badge-xs badge-outline ml-1" title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
+                    <span class="badge badge-xs badge-outline ml-1"
+                          title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
                   {% endif %}
                 {% else %}
                   —

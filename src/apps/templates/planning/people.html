@@ -85,8 +85,9 @@
         </thead>
         <tbody>
           {% for person in people %}
-            <tr {% if can_edit %} class="cursor-pointer hover:bg-base-200" onclick="openEditPerson(this)" data-pk="{{ person.pk }}" data-effort="{{ person.base_effort_weeks|floatformat:1 }}"
-                data-tags="{% for t in person.tags.all %}{{ t.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            <tr {% if can_edit %} class="cursor-pointer hover:bg-base-200" onclick="openEditPerson(this)" data-pk="{{ person.pk }}" data-effort="{{ person.base_effort_weeks|floatformat:1 }}" data-tags="{% for t in person.tags.all %}{{ t.name }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+                "
                 data-projects="{% if person.access_policy_record %}{% for p in person.access_policy_record.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
                 data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
                 data-all-projects="{% if person.access_policy_record and person.access_policy_record.all_project_access %}true{% else %}false{% endif %}"
@@ -99,10 +100,17 @@
               <td>
                 {{ person.display_name }}
                 {% if not person.is_registered %}
-                  <span class="badge badge-xs badge-outline ml-1" title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
+                  <span class="badge badge-xs badge-outline ml-1"
+                        title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
                 {% endif %}
               </td>
-              <td>{% if person.user_id %}{{ person.user.organisation|default:"—" }}{% else %}—{% endif %}</td>
+              <td>
+                {% if person.user_id %}
+                  {{ person.user.organisation|default:"—" }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
               <td>{{ person.base_effort_weeks|floatformat:1 }}</td>
               <td>
                 {% for tag in person.tags.all %}
