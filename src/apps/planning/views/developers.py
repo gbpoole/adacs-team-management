@@ -3,6 +3,8 @@ import io
 import json
 
 from django.contrib.auth import get_user_model
+from django.db.models import Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
@@ -50,7 +52,11 @@ class DevelopersView(RoleRequiredMixin, ListView):
             DeveloperProfile.objects.select_related("user")
             .prefetch_related("tags")
             .filter(semester_records__semester=semester)
-            .order_by("user__name", "user__email")
+            .annotate(
+                sort_name=Coalesce("user__name", "name", Value("")),
+                sort_email=Coalesce("user__email", "email", Value("")),
+            )
+            .order_by("sort_name", "sort_email")
         )
         tag_filter = self.request.GET.getlist("tags")
         if tag_filter:
@@ -102,18 +108,25 @@ class DevelopersView(RoleRequiredMixin, ListView):
             else:
                 dev.effort_unallocated = None
 
-        # For add-developer modal: all users not yet in this semester as developers
+        # For add-developer modal: profiles not yet in this semester, and users with no profile
         all_dev_pks_in_sem = set(sd_map.keys())
-        user_pks_in_sem = set(
-            SemesterDeveloper.objects.filter(semester=semester).values_list(
-                "developer__user_id", flat=True
-            ),
+        ctx["available_profiles"] = list(
+            DeveloperProfile.objects.exclude(pk__in=all_dev_pks_in_sem)
+            .select_related("user")
+            .annotate(
+                sort_name=Coalesce("user__name", "name", Value("")),
+                sort_email=Coalesce("user__email", "email", Value("")),
+            )
+            .order_by("sort_name", "sort_email")
+        )
+        profile_user_pks = set(
+            DeveloperProfile.objects.exclude(user__isnull=True).values_list(
+                "user_id", flat=True
+            )
         )
         User = get_user_model()
         ctx["available_users"] = list(
-            User.objects.exclude(pk__in=user_pks_in_sem)
-            .select_related("developer_profile")
-            .order_by("name", "email"),
+            User.objects.exclude(pk__in=profile_user_pks).order_by("name", "email")
         )
 
         # For migrate modal: other semesters and their exclusive developers
@@ -133,8 +146,8 @@ class DevelopersView(RoleRequiredMixin, ListView):
             migrate_map[str(sem.pk)] = [
                 {
                     "pk": d.pk,
-                    "name": d.user.name or d.user.email,
-                    "email": d.user.email,
+                    "name": d.display_name,
+                    "email": d.display_email,
                     "tags": [t.name for t in d.tags.all()],
                 }
                 for d in devs
@@ -149,9 +162,29 @@ class DeveloperCreateView(RoleRequiredMixin, View):
 
     def post(self, request, *args, **kwargs):
         User = get_user_model()
-        pks = request.POST.getlist("user_pks")
         semester = get_selected_semester(request)
-        for pk_str in pks:
+
+        # Path 1: existing DeveloperProfiles (registered or unregistered) not yet in semester
+        for pk_str in request.POST.getlist("profile_pks"):
+            try:
+                profile = DeveloperProfile.objects.get(pk=int(pk_str))
+            except (DeveloperProfile.DoesNotExist, ValueError):
+                continue
+            effort_str = request.POST.get(f"effort_{profile.pk}", "").strip()
+            if not effort_str:
+                effort_str = str(profile.base_effort_weeks)
+            if request.POST.get(f"update_base_{profile.pk}"):
+                try:
+                    profile.base_effort_weeks = float(effort_str)
+                    profile.save(update_fields=["base_effort_weeks"])
+                except (ValueError, TypeError):
+                    pass
+            sd, sd_created = _upsert_semester_developer(profile, effort_str, semester)
+            if sd is not None and sd_created:
+                sd.tags.set(profile.tags.all())
+
+        # Path 2: Users not yet linked to any DeveloperProfile
+        for pk_str in request.POST.getlist("user_pks"):
             try:
                 user = User.objects.get(pk=int(pk_str))
             except (User.DoesNotExist, ValueError):
@@ -160,7 +193,6 @@ class DeveloperCreateView(RoleRequiredMixin, View):
             effort_str = request.POST.get(f"effort_{user.pk}", "").strip()
             if not effort_str:
                 effort_str = str(profile.base_effort_weeks)
-            # Update base effort if newly created or explicitly requested
             if profile_created or request.POST.get(f"update_base_{user.pk}"):
                 try:
                     profile.base_effort_weeks = float(effort_str)
@@ -170,6 +202,22 @@ class DeveloperCreateView(RoleRequiredMixin, View):
             sd, sd_created = _upsert_semester_developer(profile, effort_str, semester)
             if sd is not None and sd_created:
                 sd.tags.set(profile.tags.all())
+
+        # Path 3: new unregistered person
+        new_name = request.POST.get("new_name", "").strip()
+        new_email = request.POST.get("new_email", "").strip() or None
+        if new_name or new_email:
+            profile = DeveloperProfile.objects.create(name=new_name, email=new_email)
+            effort_str = request.POST.get("new_effort", "").strip()
+            if not effort_str:
+                effort_str = str(profile.base_effort_weeks)
+            try:
+                profile.base_effort_weeks = float(effort_str)
+                profile.save(update_fields=["base_effort_weeks"])
+            except (ValueError, TypeError):
+                pass
+            _upsert_semester_developer(profile, effort_str, semester)
+
         return redirect("planning:developers")
 
 
@@ -182,19 +230,27 @@ class DeveloperDownloadView(RoleRequiredMixin, View):
             SemesterDeveloper.objects.filter(semester=semester)
             .select_related("developer__user")
             .prefetch_related("tags")
-            .order_by("developer__user__name", "developer__user__email")
+            .annotate(
+                sort_name=Coalesce(
+                    "developer__user__name", "developer__name", Value("")
+                ),
+                sort_email=Coalesce(
+                    "developer__user__email", "developer__email", Value("")
+                ),
+            )
+            .order_by("sort_name", "sort_email")
         )
         output = io.StringIO()
         writer = csv.writer(output, delimiter="\t")
         writer.writerow(["email", "name", "organisation", "effort_available", "tags"])
         for sd in sd_records:
-            user = sd.developer.user
+            developer = sd.developer
             tags = "||".join(t.name for t in sd.tags.all())
             writer.writerow(
                 [
-                    user.email,
-                    user.name or "",
-                    user.organisation or "",
+                    developer.display_email,
+                    developer.display_name,
+                    developer.user.organisation if developer.user_id else "",
                     sd.effort_available,
                     tags,
                 ]

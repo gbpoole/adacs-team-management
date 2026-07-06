@@ -4,10 +4,11 @@ import json
 import math
 
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Q
+from django.db.models import Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
@@ -15,6 +16,7 @@ from django.views import View
 from django.views.generic import ListView
 
 from apps.planning.forms import ProjectWriteForm
+from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
@@ -254,13 +256,8 @@ class ProjectDownloadView(RoleRequiredMixin, View):
             streams = "||".join(s.name for s in p.streams.all())
             tags = "||".join(t.name for t in p.tags.all())
             effort = resourced_map.get(p.pk, 0)
-            if p.science_lead:
-                sci = p.science_lead.name or p.science_lead.email
-            elif p.science_lead_name:
-                sci = p.science_lead_name + " (external)"
-            else:
-                sci = ""
-            dev = (p.dev_lead.name or p.dev_lead.email) if p.dev_lead else ""
+            sci = p.science_lead.display_name if p.science_lead else ""
+            dev = p.dev_lead.display_name if p.dev_lead else ""
             cont = p.continuation_of.name if p.continuation_of else ""
             writer.writerow([p.name, streams, tags, effort, sci, dev, cont])
         response = HttpResponse(
@@ -370,7 +367,6 @@ class ProjectMigrateView(RoleRequiredMixin, View):
                     continuation_of=source,
                     dev_lead=source.dev_lead,
                     science_lead=source.science_lead,
-                    science_lead_name=source.science_lead_name,
                 )
                 new_project.save()
                 new_project.streams.set(source.streams.all())
@@ -403,29 +399,24 @@ def _parse_effort_weeks(request, effort_str, project_name=""):
 
 
 def _apply_lead_fields(project, cleaned_data):
-    """Set dev_lead, science_lead, science_lead_name from POST data."""
-    User = get_user_model()
+    """Set dev_lead and science_lead from POST data."""
     dev_lead_pk = cleaned_data.get("dev_lead")
     if dev_lead_pk:
         try:
-            project.dev_lead = User.objects.get(pk=int(dev_lead_pk))
-        except (User.DoesNotExist, ValueError):
+            project.dev_lead = DeveloperProfile.objects.get(pk=int(dev_lead_pk))
+        except (DeveloperProfile.DoesNotExist, ValueError):
             project.dev_lead = None
     else:
         project.dev_lead = None
 
     science_lead_pk = cleaned_data.get("science_lead")
-    science_lead_name = (cleaned_data.get("science_lead_name") or "").strip()
     if science_lead_pk:
         try:
-            project.science_lead = User.objects.get(pk=int(science_lead_pk))
-            project.science_lead_name = ""
-        except (User.DoesNotExist, ValueError):
+            project.science_lead = DeveloperProfile.objects.get(pk=int(science_lead_pk))
+        except (DeveloperProfile.DoesNotExist, ValueError):
             project.science_lead = None
-            project.science_lead_name = science_lead_name
     else:
         project.science_lead = None
-        project.science_lead_name = science_lead_name
 
 
 def _apply_continuation(project, cleaned_data):
@@ -442,11 +433,17 @@ def _apply_continuation(project, cleaned_data):
 
 
 def _project_modal_options_context(semester):
-    User = get_user_model()
     return {
         "all_tags": Tag.objects.all(),
         "streams": Stream.objects.order_by("name"),
-        "available_people": list(User.objects.order_by("name", "email")),
+        "available_people": list(
+            DeveloperProfile.objects.select_related("user")
+            .annotate(
+                sort_name=Coalesce("user__name", "name", Value("")),
+                sort_email=Coalesce("user__email", "email", Value("")),
+            )
+            .order_by("sort_name", "sort_email")
+        ),
         "continuation_semesters": list(
             Semester.objects.filter(
                 Q(year__lt=semester.year)

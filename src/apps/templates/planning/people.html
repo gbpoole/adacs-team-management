@@ -11,7 +11,7 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold">{% trans "People" %}</h1>
-          <p class="text-sm text-neutral-500">{% trans "All users" %}</p>
+          <p class="text-sm text-neutral-500">{% trans "All people" %}</p>
         </div>
       </div>
     </div>
@@ -85,41 +85,33 @@
         </thead>
         <tbody>
           {% for person in people %}
-            <tr {% if can_edit %} class="cursor-pointer hover:bg-base-200" onclick="openEditPerson(this)" data-pk="{{ person.pk }}" data-effort="{% if person.developer_profile %}{{ person.developer_profile.base_effort_weeks|floatformat:1 }}{% else %}20.0{% endif %}
-                "
-                data-tags="{% if person.developer_profile %}{% for t in person.developer_profile.tags.all %}{{ t.name }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
+            <tr {% if can_edit %} class="cursor-pointer hover:bg-base-200" onclick="openEditPerson(this)" data-pk="{{ person.pk }}" data-effort="{{ person.base_effort_weeks|floatformat:1 }}"
+                data-tags="{% for t in person.tags.all %}{{ t.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
                 data-projects="{% if person.access_policy_record %}{% for p in person.access_policy_record.project_access.all %}{{ p.pk }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
                 data-streams="{% if person.access_policy_record %}{% for s in person.access_policy_record.stream_access.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}"
                 data-all-projects="{% if person.access_policy_record and person.access_policy_record.all_project_access %}true{% else %}false{% endif %}"
                 data-all-streams="{% if person.access_policy_record and person.access_policy_record.all_stream_access %}true{% else %}false{% endif %}"
                 {% endif %}
-                data-name="{{ person.name|default:'' }}"
-                data-email="{{ person.email }}"
-                data-sort-name="{{ person.name|default:person.email|lower }}"
-                data-sort-organisation="{{ person.organisation|default:''|lower }}">
-              <td>{{ person.name|default:person.email }}</td>
-              <td>{{ person.organisation|default:"—" }}</td>
+                data-name="{{ person.display_name }}"
+                data-email="{{ person.display_email }}"
+                data-sort-name="{{ person.display_name|lower }}"
+                data-sort-organisation="{% if person.user_id %}{{ person.user.organisation|default:''|lower }}{% endif %}">
               <td>
-                {% if person.developer_profile %}
-                  {{ person.developer_profile.base_effort_weeks|floatformat:1 }}
-                {% else %}
-                  —
+                {{ person.display_name }}
+                {% if not person.is_registered %}
+                  <span class="badge badge-xs badge-outline ml-1" title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
                 {% endif %}
               </td>
+              <td>{% if person.user_id %}{{ person.user.organisation|default:"—" }}{% else %}—{% endif %}</td>
+              <td>{{ person.base_effort_weeks|floatformat:1 }}</td>
               <td>
-                {% with profile=person.developer_profile %}
-                  {% if profile %}
-                    {% for tag in profile.tags.all %}
-                      <span class="badge badge-sm"
-                            style="background-color: {{ tag.colour }};
-                                   color: white;
-                                   border-color: {{ tag.colour }}">{{ tag }}</span>
-                    {% empty %}—
-                    {% endfor %}
-                  {% else %}
-                    —
-                  {% endif %}
-                {% endwith %}
+                {% for tag in person.tags.all %}
+                  <span class="badge badge-sm"
+                        style="background-color: {{ tag.colour }};
+                               color: white;
+                               border-color: {{ tag.colour }}">{{ tag }}</span>
+                {% empty %}—
+                {% endfor %}
               </td>
               <td>
                 {% if not person.access_policy_record or person.access_policy_record.all_project_access %}

@@ -134,7 +134,6 @@
                 data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
                 data-dev-lead-pk="{{ project.dev_lead.pk|default:'' }}"
                 data-science-lead-pk="{{ project.science_lead.pk|default:'' }}"
-                data-science-lead-name="{{ project.science_lead_name|default:'' }}"
                 data-continuation-of-pk="{{ project.continuation_of.pk|default:'' }}"
                 data-sort-name="{{ project.display_name|lower }}"
                 data-sort-resourced="{{ project.effort_resourced }}"
@@ -168,16 +167,20 @@
               </td>
               <td>
                 {% if project.science_lead %}
-                  {{ project.science_lead.name|default:project.science_lead.email }}
-                {% elif project.science_lead_name %}
-                  <span class="italic text-neutral-400" title="{% trans 'Not in system' %}">{{ project.science_lead_name }}</span>
+                  {{ project.science_lead.display_name }}
+                  {% if not project.science_lead.is_registered %}
+                    <span class="badge badge-xs badge-outline ml-1" title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
+                  {% endif %}
                 {% else %}
                   —
                 {% endif %}
               </td>
               <td>
                 {% if project.dev_lead %}
-                  {{ project.dev_lead.name|default:project.dev_lead.email }}
+                  {{ project.dev_lead.display_name }}
+                  {% if not project.dev_lead.is_registered %}
+                    <span class="badge badge-xs badge-outline ml-1" title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
+                  {% endif %}
                 {% else %}
                   —
                 {% endif %}

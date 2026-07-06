@@ -322,7 +322,7 @@ class ProjectsViewTests(PlanningTestCase):
 
     def test_user_as_dev_lead_sees_project_despite_empty_access_record(self):
         dev = make_semester_developer(semester=self.semester)
-        ProjectFactory(semester=self.semester, name="Lead Project", dev_lead=dev.user)
+        ProjectFactory(semester=self.semester, name="Lead Project", dev_lead=dev)
         ProjectFactory(semester=self.semester, name="Hidden Project")
         UserProjectAccessFactory(user=dev.user)
 
@@ -1303,29 +1303,28 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.assertEqual(Project.objects.count(), before)
 
     def test_creates_project_with_dev_lead(self):
-        user = UserFactory()
+        profile = DeveloperProfileFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "dev_lead": str(user.pk)})
+        self.client.post(self.url, {**self.post_data, "dev_lead": str(profile.pk)})
         project = Project.objects.latest("pk")
-        self.assertEqual(project.dev_lead, user)
+        self.assertEqual(project.dev_lead, profile)
 
     def test_creates_project_with_internal_science_lead(self):
-        user = UserFactory()
+        profile = DeveloperProfileFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "science_lead": str(user.pk)})
+        self.client.post(self.url, {**self.post_data, "science_lead": str(profile.pk)})
         project = Project.objects.latest("pk")
-        self.assertEqual(project.science_lead, user)
-        self.assertEqual(project.science_lead_name, "")
+        self.assertEqual(project.science_lead, profile)
 
-    def test_creates_project_with_external_science_lead(self):
+    def test_creates_project_with_unregistered_science_lead(self):
+        from apps.planning.models import DeveloperProfile
+
+        profile = DeveloperProfile.objects.create(name="Prof. External")
         self.client.force_login(self.pm)
-        self.client.post(
-            self.url,
-            {**self.post_data, "science_lead_name": "Prof. External"},
-        )
+        self.client.post(self.url, {**self.post_data, "science_lead": str(profile.pk)})
         project = Project.objects.latest("pk")
-        self.assertIsNone(project.science_lead)
-        self.assertEqual(project.science_lead_name, "Prof. External")
+        self.assertEqual(project.science_lead, profile)
+        self.assertFalse(profile.is_registered)
 
     def test_creates_project_with_continuation_of(self):
         source = ProjectFactory()
@@ -1471,30 +1470,27 @@ class ProjectUpdateViewTests(PlanningTestCase):
         )
 
     def test_updates_dev_lead(self):
-        user = UserFactory()
+        profile = DeveloperProfileFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "dev_lead": str(user.pk)})
+        self.client.post(self.url, {**self.post_data, "dev_lead": str(profile.pk)})
         self.project.refresh_from_db()
-        self.assertEqual(self.project.dev_lead, user)
+        self.assertEqual(self.project.dev_lead, profile)
 
-    def test_updates_science_lead_name(self):
+    def test_updates_science_lead(self):
+        profile = DeveloperProfileFactory()
         self.client.force_login(self.pm)
-        self.client.post(
-            self.url,
-            {**self.post_data, "science_lead_name": "External Lead"},
-        )
+        self.client.post(self.url, {**self.post_data, "science_lead": str(profile.pk)})
         self.project.refresh_from_db()
-        self.assertEqual(self.project.science_lead_name, "External Lead")
+        self.assertEqual(self.project.science_lead, profile)
 
-    def test_clears_science_lead_name_when_internal_lead_set(self):
-        self.project.science_lead_name = "Old External"
+    def test_clears_science_lead_when_none_selected(self):
+        profile = DeveloperProfileFactory()
+        self.project.science_lead = profile
         self.project.save()
-        user = UserFactory()
         self.client.force_login(self.pm)
-        self.client.post(self.url, {**self.post_data, "science_lead": str(user.pk)})
+        self.client.post(self.url, {**self.post_data, "science_lead": ""})
         self.project.refresh_from_db()
-        self.assertEqual(self.project.science_lead, user)
-        self.assertEqual(self.project.science_lead_name, "")
+        self.assertIsNone(self.project.science_lead)
 
     def test_updates_continuation_of(self):
         source = ProjectFactory()
@@ -1714,7 +1710,7 @@ class ProjectMigrateViewTests(PlanningTestCase):
         )
 
     def test_copies_dev_lead(self):
-        dev = UserFactory()
+        dev = DeveloperProfileFactory()
         self.source_project.dev_lead = dev
         self.source_project.save()
         self._migrate()
@@ -1722,19 +1718,22 @@ class ProjectMigrateViewTests(PlanningTestCase):
         self.assertEqual(new.dev_lead, dev)
 
     def test_copies_science_lead(self):
-        sci = UserFactory()
+        sci = DeveloperProfileFactory()
         self.source_project.science_lead = sci
         self.source_project.save()
         self._migrate()
         new = Project.objects.latest("pk")
         self.assertEqual(new.science_lead, sci)
 
-    def test_copies_external_science_lead_name(self):
-        self.source_project.science_lead_name = "Prof. External"
+    def test_copies_unregistered_science_lead(self):
+        from apps.planning.models import DeveloperProfile
+
+        profile = DeveloperProfile.objects.create(name="Prof. External")
+        self.source_project.science_lead = profile
         self.source_project.save()
         self._migrate()
         new = Project.objects.latest("pk")
-        self.assertEqual(new.science_lead_name, "Prof. External")
+        self.assertEqual(new.science_lead, profile)
 
     def test_invalid_source_semester_redirects(self):
         self.client.force_login(self.pm)
@@ -2011,16 +2010,17 @@ class ProjectDownloadViewTests(PlanningTestCase):
         self.assertIn(b"Download Me", response.content)
 
     def test_tsv_contains_dev_lead_name(self):
-        dev = UserFactory(name="Dev Lead Person")
+        dev = DeveloperProfileFactory(user=UserFactory(name="Dev Lead Person"))
         ProjectFactory(semester=self.semester, name="Led Project", dev_lead=dev)
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Dev Lead Person", response.content)
 
-    def test_tsv_contains_external_science_lead(self):
-        ProjectFactory(
-            semester=self.semester, name="Sci Project", science_lead_name="Prof. Smith"
-        )
+    def test_tsv_contains_unregistered_science_lead(self):
+        from apps.planning.models import DeveloperProfile
+
+        profile = DeveloperProfile.objects.create(name="Prof. Smith")
+        ProjectFactory(semester=self.semester, name="Sci Project", science_lead=profile)
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Prof. Smith", response.content)
@@ -2489,7 +2489,7 @@ class PersonUpdateViewTests(PlanningTestCase):
     def setUp(self):
         self.pm = PMUserFactory()
         self.dev = DeveloperProfileFactory()
-        self.url = reverse("planning:person_edit", args=[self.dev.user.pk])
+        self.url = reverse("planning:person_edit", args=[self.dev.pk])
 
     def test_pm_can_update_effort(self):
         self.client.force_login(self.pm)
@@ -2606,7 +2606,7 @@ class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
     def test_no_spurious_observer_created_for_developer(self):
         pm = PMUserFactory()
         dev = make_semester_developer()
-        url = reverse("planning:person_edit", args=[dev.user.pk])
+        url = reverse("planning:person_edit", args=[dev.pk])
         before = UserProjectAccess.objects.count()
         self.client.force_login(pm)
         self.client.post(url, {"base_effort_weeks": "20"})
@@ -2620,7 +2620,7 @@ class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
         pm = PMUserFactory()
         dev = make_semester_developer()
         project = ProjectFactory()
-        url = reverse("planning:person_edit", args=[dev.user.pk])
+        url = reverse("planning:person_edit", args=[dev.pk])
 
         self.client.force_login(pm)
         response = self.client.post(
@@ -2638,7 +2638,7 @@ class PersonUpdateNoSpuriousObserverTests(PlanningTestCase):
     def test_non_numeric_effort_leaves_base_effort_unchanged(self):
         pm = PMUserFactory()
         dev = DeveloperProfileFactory()
-        url = reverse("planning:person_edit", args=[dev.user.pk])
+        url = reverse("planning:person_edit", args=[dev.pk])
         original_effort = float(dev.base_effort_weeks)
         self.client.force_login(pm)
         response = self.client.post(url, {"base_effort_weeks": "not-a-number"})

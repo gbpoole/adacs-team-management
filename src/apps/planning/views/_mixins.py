@@ -50,7 +50,7 @@ def _is_semester_developer(user, semester):
         ).exists()
         or Project.objects.filter(
             semester=semester,
-            dev_lead=user,
+            dev_lead__user=user,
         ).exists()
     )
 
@@ -140,12 +140,12 @@ def _visible_project_ids_for_user(user, semester):
     lead_project_ids = set(
         Project.objects.filter(
             semester=semester,
-            dev_lead=user,
+            dev_lead__user=user,
         ).values_list("pk", flat=True),
     ) | set(
         Project.objects.filter(
             semester=semester,
-            science_lead=user,
+            science_lead__user=user,
         ).values_list("pk", flat=True),
     )
 

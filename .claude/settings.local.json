@@ -11,7 +11,12 @@
       "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run coverage run manage.py test apps.planning tests)",
       "Bash(poetry run:*)",
       "Bash(python3:*)",
-      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning.tests.test_views.ScheduleViewTests)"
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning.tests.test_views.ScheduleViewTests)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning.tests.test_views.ProjectsViewTests.test_user_as_dev_lead_sees_project_despite_empty_access_record)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python manage.py test apps.planning.tests.test_views.HomeViewTests.test_observer_project_count_in_context)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.test poetry run python src/manage.py test apps.planning tests)",
+      "Bash(docker exec adacs_team_management_static sh -c 'python3 -c \"import socket, threading, time *)",
+      "Bash(docker exec *)"
     ]
   }
 }
