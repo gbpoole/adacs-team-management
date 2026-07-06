@@ -97,7 +97,13 @@ class PersonUpdateView(RoleRequiredMixin, View):
             all_projects = "all_project_access" in request.POST
             all_streams = "all_stream_access" in request.POST
             access = UserProjectAccess.objects.filter(user_id=profile.user_id).first()
-            if access is not None or project_pks or streams or all_projects or all_streams:
+            if (
+                access is not None
+                or project_pks
+                or streams
+                or all_projects
+                or all_streams
+            ):
                 access, _ = UserProjectAccess.objects.get_or_create(
                     user_id=profile.user_id
                 )
