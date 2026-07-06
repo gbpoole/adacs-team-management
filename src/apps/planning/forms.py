@@ -44,7 +44,6 @@ class ProjectWriteForm(forms.Form):
     effort_resourced = EffortWeeksField()
     dev_lead = forms.IntegerField(required=False)
     science_lead = forms.IntegerField(required=False)
-    science_lead_name = forms.CharField(required=False, max_length=255)
     continuation_of = forms.IntegerField(required=False)
     streams = forms.CharField(required=False)
     tags = forms.CharField(required=False)

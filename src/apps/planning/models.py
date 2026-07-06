@@ -101,13 +101,17 @@ class Tag(models.Model):
 
 
 class DeveloperProfile(models.Model):
-    """Per-user developer metadata (colour, tags) linked via OneToOne to User."""
+    """Developer metadata; may exist before the person has a registered account."""
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
         related_name="developer_profile",
     )
+    name = models.CharField(_("name"), max_length=255, blank=True)
+    email = models.EmailField(_("email"), blank=True, null=True, unique=True)
     tags = models.ManyToManyField(Tag, blank=True, related_name="developers")
     colour = models.CharField(
         _("colour"),
@@ -126,10 +130,28 @@ class DeveloperProfile(models.Model):
         verbose_name = _("Developer Profile")
         verbose_name_plural = _("Developer Profiles")
 
+    @property
+    def display_name(self):
+        if self.user_id:
+            return self.user.name or self.user.email
+        return self.name or self.email or str(_("(unnamed)"))
+
+    @property
+    def display_email(self):
+        if self.user_id:
+            return self.user.email
+        return self.email or ""
+
+    @property
+    def is_registered(self):
+        return bool(self.user_id)
+
     def __str__(self):
-        return self.user.email
+        return self.display_name
 
     def save(self, *args, **kwargs):
+        if self.user_id and not self.email:
+            self.email = self.user.email
         _assign_colour_if_blank(self, DeveloperProfile)
         super().save(*args, **kwargs)
 
@@ -243,23 +265,18 @@ class Project(models.Model):
         related_name="continuations",
     )
     dev_lead = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        DeveloperProfile,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="dev_lead_projects",
     )
     science_lead = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        DeveloperProfile,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="science_lead_projects",
-    )
-    science_lead_name = models.CharField(
-        _("science lead name (external)"),
-        max_length=255,
-        blank=True,
     )
 
     class Meta:

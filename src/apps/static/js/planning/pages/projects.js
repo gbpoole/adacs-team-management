@@ -252,27 +252,6 @@
     input.focus();
   };
 
-  window.toggleSciLeadAdd = function (type) {
-    var people = document.getElementById("add-sci-lead-people");
-    var external = document.getElementById("add-sci-lead-external");
-    if (!people || !external) {
-      return;
-    }
-    people.classList.toggle("hidden", type !== "people");
-    external.classList.toggle("hidden", type !== "external");
-    if (type === "people") {
-      var extInput = document.querySelector("#add-sci-lead-external input");
-      if (extInput) {
-        extInput.value = "";
-      }
-    } else {
-      var peopleSelect = document.querySelector("#add-sci-lead-people select");
-      if (peopleSelect) {
-        peopleSelect.value = "";
-      }
-    }
-  };
-
   // PK of the continuation_of project currently set on the project being edited.
   // Used to keep the currently-linked project in the dropdown even if already_linked.
   var currentEditContOfPk = null;
@@ -331,27 +310,6 @@
     input.focus();
   };
 
-  window.toggleSciLeadEdit = function (type) {
-    var people = document.getElementById("edit-sci-lead-people");
-    var external = document.getElementById("edit-sci-lead-external");
-    if (!people || !external) {
-      return;
-    }
-    people.classList.toggle("hidden", type !== "people");
-    external.classList.toggle("hidden", type !== "external");
-    if (type === "people") {
-      var nameInput = document.getElementById("edit-science-lead-name");
-      if (nameInput) {
-        nameInput.value = "";
-      }
-    } else {
-      var leadSelect = document.getElementById("edit-science-lead");
-      if (leadSelect) {
-        leadSelect.value = "";
-      }
-    }
-  };
-
   window.updateEditContProjects = function () {
     updateContProjects("edit-cont-semester", "edit-cont-project");
     var hidden = document.getElementById("edit-cont-value");
@@ -374,7 +332,6 @@
     var tags = row.dataset.tags ? row.dataset.tags.split(",") : [];
     var devLeadPk = row.dataset.devLeadPk || "";
     var sciLeadPk = row.dataset.scienceLeadPk || "";
-    var sciLeadName = row.dataset.scienceLeadName || "";
     var contOfPk = row.dataset.continuationOfPk || "";
 
     document.getElementById("edit-project-id").value = pk;
@@ -396,19 +353,7 @@
       });
 
     document.getElementById("edit-dev-lead").value = devLeadPk;
-    if (sciLeadName && !sciLeadPk) {
-      document.querySelector(
-        'input[name="edit_sci_lead_type"][value="external"]',
-      ).checked = true;
-      window.toggleSciLeadEdit("external");
-      document.getElementById("edit-science-lead-name").value = sciLeadName;
-    } else {
-      document.querySelector(
-        'input[name="edit_sci_lead_type"][value="people"]',
-      ).checked = true;
-      window.toggleSciLeadEdit("people");
-      document.getElementById("edit-science-lead").value = sciLeadPk;
-    }
+    document.getElementById("edit-science-lead").value = sciLeadPk;
 
     var editContSem = document.getElementById("edit-cont-semester");
     var editContProj = document.getElementById("edit-cont-project");
@@ -727,10 +672,9 @@
         if (lbl) { lbl.classList.remove("btn-primary"); lbl.classList.add("btn-outline"); }
       });
     });
-    // Reset sci lead UI to "people"
-    window.toggleSciLeadAdd("people");
-    var peopleRadio = document.querySelector('input[name="add_sci_lead_type"][value="people"]');
-    if (peopleRadio) { peopleRadio.checked = true; }
+    // Reset science lead select
+    var sciLeadSel = document.querySelector('#add-project-form select[name="science_lead"]');
+    if (sciLeadSel) { sciLeadSel.value = ""; }
     // Reset continuation selects
     var contSem = document.getElementById("add-cont-semester");
     if (contSem) { contSem.value = ""; }
@@ -782,16 +726,6 @@
         window.projAddTag();
       });
     }
-
-    document.querySelectorAll('input[name="add_sci_lead_type"]').forEach(function (radio) {
-      if (radio.dataset.boundChange) {
-        return;
-      }
-      radio.dataset.boundChange = "true";
-      radio.addEventListener("change", function () {
-        window.toggleSciLeadAdd(radio.value);
-      });
-    });
 
     var addContSemester = document.getElementById("add-cont-semester");
     if (addContSemester && !addContSemester.dataset.boundChange) {
@@ -854,16 +788,6 @@
         window.editProjAddTag();
       });
     }
-
-    document.querySelectorAll('input[name="edit_sci_lead_type"]').forEach(function (radio) {
-      if (radio.dataset.boundChange) {
-        return;
-      }
-      radio.dataset.boundChange = "true";
-      radio.addEventListener("change", function () {
-        window.toggleSciLeadEdit(radio.value);
-      });
-    });
 
     var editContSemester = document.getElementById("edit-cont-semester");
     if (editContSemester && !editContSemester.dataset.boundChange) {

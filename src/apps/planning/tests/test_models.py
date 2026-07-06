@@ -429,7 +429,7 @@ class TestLeaveModel(TestCase):
             end_date=datetime.date(2026, 3, 7),
         )
         s = str(leave)
-        self.assertIn(self.dev.user.email, s)
+        self.assertIn(str(self.dev), s)
 
     def test_cascade_delete_with_developer(self):
         leave = LeaveFactory(developer=self.dev)

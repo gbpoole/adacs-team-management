@@ -87,19 +87,24 @@
         </thead>
         <tbody>
           {% for dev in developers %}
-            <tr {% if can_edit %} class="cursor-pointer hover:bg-base-200 js-edit-developer-row" data-pk="{{ dev.pk }}" data-name="{{ dev.user.name|default:'' }}" data-email="{{ dev.user.email }}" data-organisation="{{ dev.user.organisation|default:'' }}" data-effort="{{ dev.effort_available|default:'' }}" data-tags="{% for tag in dev.semester_tags %}{{ tag.name }}{% if not forloop.last %},{% endif %}
-                {% endfor %}
+            <tr {% if can_edit %} class="cursor-pointer hover:bg-base-200 js-edit-developer-row" data-pk="{{ dev.pk }}" data-name="{{ dev.display_name }}" data-email="{{ dev.display_email }}" data-organisation="{% if dev.user_id %}{{ dev.user.organisation|default:'' }}{% endif %}
                 "
+                data-effort="{{ dev.effort_available|default:'' }}"
+                data-tags="{% for tag in dev.semester_tags %}{{ tag.name }}{% if not forloop.last %},{% endif %} {% endfor %} "
                 data-base-tags="{% for tag in dev.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
                 {% endif %}
-                data-sort-name="{{ dev.user.name|default:dev.user.email|lower }}"
+                data-sort-name="{{ dev.display_name|lower }}"
                 data-sort-available="{{ dev.effort_available|default:'' }}"
                 data-sort-allocated="{{ dev.effort_allocated }}"
                 data-sort-unallocated="{{ dev.effort_unallocated|default:'' }}">
               <td>
                 <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
                       style="background-color: {{ dev.colour }}"></span>
-                {{ dev.user.name|default:dev.user.email }}
+                {{ dev.display_name }}
+                {% if not dev.is_registered %}
+                  <span class="badge badge-xs badge-outline ml-1"
+                        title="{% trans 'Not yet registered' %}">{% trans "unregistered" %}</span>
+                {% endif %}
               </td>
               <td>
                 {% for tag in dev.semester_tags %}
@@ -157,6 +162,33 @@
           </div>
           <div id="add-dev-list"
                class="max-h-64 overflow-y-auto border border-base-300 rounded p-2 space-y-0.5">
+            {% for profile in available_profiles %}
+              <label class="flex items-center gap-2 px-2 py-1 hover:bg-base-200 rounded cursor-pointer add-dev-item"
+                     data-search="{{ profile.display_name|lower }} {{ profile.display_email|lower }}">
+                <input type="checkbox"
+                       name="profile_pks"
+                       value="{{ profile.pk }}"
+                       class="checkbox checkbox-sm shrink-0" />
+                <span class="flex-1 min-w-0">
+                  <span class="font-medium">{{ profile.display_name }}</span>
+                  {% if profile.display_email and profile.display_email != profile.display_name %}
+                    <span class="text-xs text-neutral-500 ml-1">{{ profile.display_email }}</span>
+                  {% endif %}
+                  {% if not profile.is_registered %}
+                    <span class="badge badge-xs badge-outline ml-1">{% trans "unregistered" %}</span>
+                  {% endif %}
+                </span>
+                <input type="number"
+                       name="effort_{{ profile.pk }}"
+                       value="{{ profile.base_effort_weeks|floatformat:1 }}"
+                       data-base="{{ profile.base_effort_weeks|floatformat:1 }}"
+                       placeholder="wks"
+                       min="0"
+                       max="52"
+                       step="0.5"
+                       class="input input-bordered input-xs w-20 shrink-0 js-effort-input" />
+              </label>
+            {% endfor %}
             {% for u in available_users %}
               <label class="flex items-center gap-2 px-2 py-1 hover:bg-base-200 rounded cursor-pointer add-dev-item"
                      data-search="{{ u.name|lower|default:'' }} {{ u.email|lower }}">
@@ -170,20 +202,60 @@
                 </span>
                 <input type="number"
                        name="effort_{{ u.pk }}"
-                       value="{% if u.developer_profile %}{{ u.developer_profile.base_effort_weeks|floatformat:1 }}{% endif %}"
-                       data-base="{% if u.developer_profile %}{{ u.developer_profile.base_effort_weeks|floatformat:1 }}{% endif %}"
+                       value=""
+                       data-base=""
                        placeholder="wks"
                        min="0"
                        max="52"
                        step="0.5"
                        class="input input-bordered input-xs w-20 shrink-0 js-effort-input" />
               </label>
-            {% empty %}
+            {% endfor %}
+            {% if not available_profiles and not available_users %}
               <p class="text-neutral-500 text-sm text-center py-4">
                 {% trans "All people have already been added to this semester." %}
               </p>
-            {% endfor %}
+            {% endif %}
           </div>
+          <details class="mt-3">
+            <summary class="text-sm cursor-pointer text-neutral-500 hover:text-neutral-700">
+              + {% trans "Add new unregistered person" %}
+            </summary>
+            <div class="mt-2 border border-base-300 rounded p-3 space-y-2">
+              <div class="flex gap-2">
+                <div class="form-control flex-1">
+                  <label class="label label-text text-xs">{% trans "Name" %}</label>
+                  <input type="text"
+                         name="new_name"
+                         class="input input-bordered input-sm"
+                         autocomplete="off"
+                         data-lpignore="true"
+                         data-form-type="other"
+                         placeholder="{% trans 'Full name' %}" />
+                </div>
+                <div class="form-control flex-1">
+                  <label class="label label-text text-xs">{% trans "Email" %}</label>
+                  <input type="email"
+                         name="new_email"
+                         class="input input-bordered input-sm"
+                         autocomplete="off"
+                         data-lpignore="true"
+                         data-form-type="other"
+                         placeholder="{% trans 'email@example.com' %}" />
+                </div>
+                <div class="form-control" style="width: 80px">
+                  <label class="label label-text text-xs">{% trans "Effort" %}</label>
+                  <input type="number"
+                         name="new_effort"
+                         min="0"
+                         max="52"
+                         step="0.5"
+                         class="input input-bordered input-sm"
+                         placeholder="wks" />
+                </div>
+              </div>
+            </div>
+          </details>
           <div class="modal-action">
             <button type="button" id="close-add-developer-modal" class="btn btn-ghost">{% trans "Cancel" %}</button>
             <button type="button" id="submit-add-developers" class="btn btn-primary">{% trans "Add Selected" %}</button>

@@ -103,7 +103,8 @@
         {% for person in available_people %}
           <option value="{{ person.pk }}"
                   {% if project_edit_form.dev_lead.value == person.pk|stringformat:"s" %}selected{% endif %}>
-            {{ person.name|default:person.email }}
+            {{ person.display_name }}
+            {% if not person.is_registered %}(unregistered){% endif %}
           </option>
         {% endfor %}
       </select>
@@ -111,47 +112,18 @@
   </div>
   <div class="form-control mb-3">
     <label class="label label-text">{% trans "Science Lead" %}</label>
-    <div class="flex gap-2 items-center mb-1">
-      <label class="flex items-center gap-1 cursor-pointer text-sm">
-        <input type="radio"
-               name="edit_sci_lead_type"
-               value="people"
-               class="radio radio-sm"
-               checked />
-        {% trans "From People" %}
-      </label>
-      <label class="flex items-center gap-1 cursor-pointer text-sm">
-        <input type="radio"
-               name="edit_sci_lead_type"
-               value="external"
-               class="radio radio-sm" />
-        {% trans "External (not in system)" %}
-      </label>
-    </div>
-    <div id="edit-sci-lead-people">
-      <select id="edit-science-lead"
-              name="science_lead"
-              class="select select-bordered w-full">
-        <option value="">{% trans "— none —" %}</option>
-        {% for person in available_people %}
-          <option value="{{ person.pk }}"
-                  {% if project_edit_form.science_lead.value == person.pk|stringformat:"s" %}selected{% endif %}>
-            {{ person.name|default:person.email }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div id="edit-sci-lead-external" class="hidden">
-      <input id="edit-science-lead-name"
-             type="text"
-             name="science_lead_name"
-             placeholder="{% trans 'Enter name…' %}"
-             class="input input-bordered w-full"
-             autocomplete="off"
-             data-lpignore="true"
-             data-form-type="other"
-             value="{{ project_edit_form.science_lead_name.value|default:'' }}" />
-    </div>
+    <select id="edit-science-lead"
+            name="science_lead"
+            class="select select-bordered w-full">
+      <option value="">{% trans "— none —" %}</option>
+      {% for person in available_people %}
+        <option value="{{ person.pk }}"
+                {% if project_edit_form.science_lead.value == person.pk|stringformat:"s" %}selected{% endif %}>
+          {{ person.display_name }}
+          {% if not person.is_registered %}(unregistered){% endif %}
+        </option>
+      {% endfor %}
+    </select>
   </div>
   <div class="form-control mb-4">
     <label class="label label-text">{% trans "Continuation of" %}</label>

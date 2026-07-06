@@ -260,7 +260,7 @@
   window.submitAddDevelopers = function () {
     var form = document.getElementById("add-developer-form");
     var selected = Array.from(
-      form.querySelectorAll('input[name="user_pks"]:checked'),
+      form.querySelectorAll('input[name="profile_pks"]:checked, input[name="user_pks"]:checked'),
     );
 
     document.getElementById("add-dev-effort-error").classList.add("hidden");
