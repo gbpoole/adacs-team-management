@@ -1,4 +1,4 @@
-.PHONY: help bootstrap configure dns deploy update backup logs status shell
+.PHONY: help bootstrap configure dns deploy update backup logs status shell createsuperuser
 
 SCRIPTS := scripts
 
@@ -34,9 +34,11 @@ help:
 	@echo "     Wait a few minutes for DNS to propagate, then verify: host <DOMAIN_NAME>"
 	@echo "  8. make deploy        Build images, start services, configure Nginx & TLS (sudo)"
 	@echo "     Visit https://<DOMAIN_NAME> to confirm the app is live."
+	@echo "  9. make createsuperuser   Create the initial admin account (bypasses email verification)"
 	@echo ""
 	@echo "ONGOING OPERATIONS"
 	@echo "  make update           Pull latest code and rebuild/restart changed services"
+	@echo "  make createsuperuser  Create a new admin account (bypasses email verification)"
 	@echo "  make backup           Run a one-off database backup (sudo)"
 	@echo "  make logs             Follow all service logs"
 	@echo "  make status           Show service health/status"
@@ -76,3 +78,6 @@ status:
 
 shell:
 	docker compose exec django bash
+
+createsuperuser:
+	docker compose exec django poetry run python manage.py createsuperuser
