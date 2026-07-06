@@ -55,10 +55,10 @@ All services are configured with `restart: unless-stopped`, so they recover auto
 ### 3. Create a superuser
 
 ```bash
-docker compose exec django poetry run python manage.py createsuperuser
+make createsuperuser
 ```
 
-All superusers are automatically given the PM role, giving full access to all planning features.
+This bypasses email verification, so the account is usable immediately. All superusers are automatically given the PM role, giving full access to all planning features.
 
 ### 4. Access the app
 
