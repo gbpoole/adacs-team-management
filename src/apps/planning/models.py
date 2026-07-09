@@ -186,6 +186,11 @@ class Semester(models.Model):
         return str(self)
 
     @property
+    def sort_key(self):
+        """Chronological comparison key: (year, semester_type)."""
+        return (self.year, self.semester_type)
+
+    @property
     def start_date(self):
         if self.semester_type == SemesterType.A:
             return datetime.date(self.year, 1, 1)
@@ -323,23 +328,48 @@ class ProjectAllocation(models.Model):
         decimal_places=2,
         default=0,
     )
-    weeks_carryover = models.DecimalField(
-        _("weeks carried over"),
-        max_digits=6,
-        decimal_places=2,
-        default=0,
-    )
 
     class Meta:
         unique_together = [("project", "semester")]
         ordering = ["semester__year", "semester__semester_type"]
 
     def __str__(self):
-        return f"{self.project} - {self.semester} ({self.total_weeks} wks)"
+        return f"{self.project} - {self.semester} ({self.weeks_new} wks)"
 
-    @property
-    def total_weeks(self):
-        return self.weeks_new + self.weeks_carryover
+
+# ---------------------------------------------------------------------------
+# Project time entry — non-developer allocated time  (FR-07)
+# ---------------------------------------------------------------------------
+
+
+class ProjectTimeEntry(models.Model):
+    """Non-developer time allocated to a project; counts toward allocated effort.
+
+    Covers overheads, time waiting on the science team, or time that should
+    not carry over to a continuation project.
+    """
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="time_entries",
+    )
+    weeks = models.DecimalField(
+        _("weeks"),
+        max_digits=6,
+        decimal_places=2,
+        default=0,
+    )
+    comment = models.CharField(_("comment"), max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = _("Project time entry")
+        verbose_name_plural = _("Project time entries")
+
+    def __str__(self):
+        return f"{self.project} - {self.weeks} wks ({self.comment})"
 
 
 # ---------------------------------------------------------------------------

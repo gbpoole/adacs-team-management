@@ -22,6 +22,7 @@ from apps.planning.tests.factories import DeveloperProfileFactory
 from apps.planning.tests.factories import LeaveFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
+from apps.planning.tests.factories import ProjectTimeEntryFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import UserProjectAccessFactory
@@ -89,10 +90,17 @@ class TestSemesterGetCurrent(TestCase):
         self.assertEqual(s1.pk, s2.pk)
 
 
-class TestProjectAllocationTotalWeeks(TestCase):
-    def test_total_weeks_sums_new_and_carryover(self):
-        alloc = ProjectAllocationFactory(weeks_new=8, weeks_carryover=2)
-        self.assertEqual(alloc.total_weeks, 10)
+class TestProjectAllocation(TestCase):
+    def test_str_contains_weeks_new(self):
+        alloc = ProjectAllocationFactory(weeks_new=8)
+        self.assertIn("8", str(alloc))
+
+
+class TestProjectTimeEntry(TestCase):
+    def test_str_contains_weeks_and_comment(self):
+        entry = ProjectTimeEntryFactory(weeks=3, comment="Overheads")
+        self.assertIn("3", str(entry))
+        self.assertIn("Overheads", str(entry))
 
 
 class TestSemesterDeveloper(TestCase):

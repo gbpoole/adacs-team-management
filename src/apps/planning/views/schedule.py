@@ -4,10 +4,11 @@ from collections import defaultdict
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 
+from apps.planning.effort import ProjectEffort
+from apps.planning.effort import compute_project_effort
 from apps.planning.models import DeveloperProfile
 from apps.planning.models import Phase
 from apps.planning.models import Project
-from apps.planning.models import ProjectAllocation
 from apps.planning.models import Stream
 from apps.planning.models import Tag
 from apps.users.models import Role
@@ -89,21 +90,7 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
             project_qs = project_qs.filter(streams__name__in=stream_filter).distinct()
         projects = list(project_qs)
 
-        resourced_map = {
-            pk: float(new + carryover)
-            for pk, new, carryover in ProjectAllocation.objects.filter(
-                semester=semester,
-            ).values_list("project_id", "weeks_new", "weeks_carryover")
-        }
-        allocated_map: dict = {}
-        for phase in (
-            Phase.objects.filter(semester=semester)
-            .select_related("developer")
-            .prefetch_related("developer__leave_periods")
-        ):
-            allocated_map[phase.project_id] = (
-                allocated_map.get(phase.project_id, 0) + phase.effort_weeks()
-            )
+        effort_map = compute_project_effort([p.pk for p in projects])
 
         project_rows = []
         for project in projects:
@@ -177,9 +164,8 @@ class ScheduleView(LoginRequiredMixin, TemplateView):
                 if dev_cells:
                     layers.append({"developer": dev, "cells": dev_cells})
 
-            effort_resourced = resourced_map.get(project.pk, 0)
-            effort_allocated = round(allocated_map.get(project.pk, 0), 2)
-            unscheduled = round(effort_resourced - effort_allocated, 2)
+            effort = effort_map.get(project.pk, ProjectEffort())
+            unscheduled = effort.unallocated
 
             project_rows.append(
                 {

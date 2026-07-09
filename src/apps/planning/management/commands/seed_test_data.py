@@ -31,6 +31,7 @@ from apps.planning.models import Leave
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
+from apps.planning.models import ProjectTimeEntry
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterObserver
@@ -241,10 +242,7 @@ class Command(BaseCommand):
             ProjectAllocation.objects.get_or_create(
                 project=proj_a,
                 semester=sem_a,
-                defaults={
-                    "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
-                    "weeks_carryover": 0,
-                },
+                defaults={"weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS)},
             )
             projects_by_sem[sem_a].append(proj_a)
 
@@ -262,10 +260,7 @@ class Command(BaseCommand):
             ProjectAllocation.objects.get_or_create(
                 project=proj_b,
                 semester=sem_b,
-                defaults={
-                    "weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS),
-                    "weeks_carryover": 0,
-                },
+                defaults={"weeks_new": random.choice(ALLOCATION_WEEK_OPTIONS)},
             )
             projects_by_sem[sem_b].append(proj_b)
 
@@ -273,6 +268,15 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  {len(projects_by_sem[sem_a])} projects loaded (x2 semesters)."
         )
+
+        # A couple of non-developer time entries so carryover effects show
+        for proj in projects_by_sem[sem_a][:2]:
+            if not proj.time_entries.exists():
+                ProjectTimeEntry.objects.create(
+                    project=proj,
+                    weeks=2,
+                    comment="Project overheads (seeded)",
+                )
 
         # Give the fixed observer account access to the first few sem_a projects
         if projects_by_sem[sem_a]:

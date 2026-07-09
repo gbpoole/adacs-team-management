@@ -1,6 +1,7 @@
 """Integration tests for planning views."""
 
 import datetime
+import json
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -14,6 +15,7 @@ from apps.planning.models import Leave
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
+from apps.planning.models import ProjectTimeEntry
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import Stream
@@ -24,6 +26,7 @@ from apps.planning.tests.factories import LeaveFactory
 from apps.planning.tests.factories import PMUserFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
+from apps.planning.tests.factories import ProjectTimeEntryFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import SemesterType
 from apps.planning.tests.factories import StreamFactory
@@ -338,6 +341,80 @@ class ProjectsViewTests(PlanningTestCase):
         self.client.force_login(user)
         response = self.client.get(self.url)
         self.assertContains(response, "My Project Name")
+
+    def test_project_effort_attrs_include_live_carryover(self):
+        prev_sem = SemesterFactory(year=2020, semester_type=SemesterType.A)
+        parent = ProjectFactory(semester=prev_sem)
+        ProjectAllocationFactory(project=parent, semester=prev_sem, weeks_new=10)
+        child = ProjectFactory(
+            semester=self.semester,
+            name="Child Project",
+            continuation_of=parent,
+        )
+        ProjectAllocationFactory(project=child, semester=self.semester, weeks_new=4)
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        project = next(p for p in response.context["projects"] if p.pk == child.pk)
+        self.assertEqual(project.effort_new, 4.0)
+        self.assertEqual(project.effort_carryover, 10.0)
+        self.assertEqual(project.effort_resourced, 14.0)
+        self.assertContains(response, "Carried over (wks)")
+
+    def test_table_shows_expected_numeric_columns(self):
+        ProjectFactory(semester=self.semester, name="Column Check")
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertContains(response, "Semester resourcing (wks)")
+        self.assertContains(response, "Total (wks)")
+        self.assertContains(response, "Unallocated (wks)")
+        self.assertNotContains(response, "Allocated (wks)")
+
+    def test_continuation_json_includes_current_semester(self):
+        ProjectFactory(semester=self.semester, name="Current Sem Project")
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        data = json.loads(response.context["continuation_data_json"])
+        self.assertIn(str(self.semester.pk), data)
+        names = [p["name"] for p in data[str(self.semester.pk)]]
+        self.assertIn("Current Sem Project", names)
+
+    def test_continuation_json_unallocated_can_be_negative(self):
+        prev_sem = SemesterFactory(year=2020, semester_type=SemesterType.A)
+        parent = ProjectFactory(semester=prev_sem, name="Overallocated")
+        ProjectAllocationFactory(project=parent, semester=prev_sem, weeks_new=2)
+        ProjectTimeEntryFactory(project=parent, weeks=5)
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        data = json.loads(response.context["continuation_data_json"])
+        entry = next(p for p in data[str(prev_sem.pk)] if p["name"] == "Overallocated")
+        self.assertEqual(entry["weeks_unallocated"], -3.0)
+
+    def test_time_entries_json_pm_only(self):
+        project = ProjectFactory(semester=self.semester)
+        ProjectTimeEntryFactory(project=project, weeks=2, comment="Secret overhead")
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        data = json.loads(response.context["time_entries_json"])
+        self.assertIn(str(project.pk), data)
+        self.assertEqual(data[str(project.pk)][0]["comment"], "Secret overhead")
+
+        dev = make_semester_developer(semester=self.semester)
+        self.client.force_login(dev.user)
+        response = self.client.get(self.url)
+        self.assertEqual(json.loads(response.context["time_entries_json"]), {})
+        self.assertNotContains(response, "Secret overhead")
+
+    def test_time_entries_count_toward_allocated(self):
+        project = ProjectFactory(semester=self.semester, name="Entry Project")
+        ProjectAllocationFactory(project=project, semester=self.semester, weeks_new=10)
+        ProjectTimeEntryFactory(project=project, weeks=3)
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        ctx_project = next(
+            p for p in response.context["projects"] if p.pk == project.pk
+        )
+        self.assertEqual(ctx_project.effort_allocated, 3.0)
+        self.assertEqual(ctx_project.effort_discrepancy, 7.0)
 
 
 # ---------------------------------------------------------------------------
@@ -1336,6 +1413,16 @@ class ProjectCreateViewTests(PlanningTestCase):
         project = Project.objects.latest("pk")
         self.assertEqual(project.continuation_of, source)
 
+    def test_creates_project_with_current_semester_continuation(self):
+        source = ProjectFactory(semester=Semester.get_current())
+        self.client.force_login(self.pm)
+        self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(source.pk)},
+        )
+        project = Project.objects.latest("pk")
+        self.assertEqual(project.continuation_of, source)
+
     def test_hx_valid_create_returns_hx_redirect_header(self):
         self.client.force_login(self.pm)
         response = self.client.post(
@@ -1435,7 +1522,6 @@ class ProjectUpdateViewTests(PlanningTestCase):
             project=self.project,
             semester=self.semester,
             weeks_new=3,
-            weeks_carryover=0,
         )
         self.url = reverse("planning:project_edit", args=[self.project.pk])
         self.post_data = {
@@ -1501,6 +1587,80 @@ class ProjectUpdateViewTests(PlanningTestCase):
         )
         self.project.refresh_from_db()
         self.assertEqual(self.project.continuation_of, source)
+
+    def test_accepts_same_semester_continuation(self):
+        source = ProjectFactory(semester=self.semester)
+        self.client.force_login(self.pm)
+        self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(source.pk)},
+        )
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.continuation_of, source)
+
+    def test_rejects_self_continuation(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(self.project.pk)},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.project.refresh_from_db()
+        self.assertIsNone(self.project.continuation_of)
+        self.assertEqual(self.project.name, "Old Name")
+
+    def test_rejects_continuation_cycle(self):
+        other = ProjectFactory(semester=self.semester, continuation_of=self.project)
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(other.pk)},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.project.refresh_from_db()
+        self.assertIsNone(self.project.continuation_of)
+
+    def test_rejects_future_semester_continuation(self):
+        future_sem = SemesterFactory(year=2030, semester_type=SemesterType.A)
+        source = ProjectFactory(semester=future_sem)
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(source.pk)},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.project.refresh_from_db()
+        self.assertIsNone(self.project.continuation_of)
+
+    def test_rejects_already_linked_continuation(self):
+        source = ProjectFactory(semester=self.semester)
+        ProjectFactory(semester=self.semester, continuation_of=source)
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(source.pk)},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.project.refresh_from_db()
+        self.assertIsNone(self.project.continuation_of)
+
+    def test_keeping_own_continuation_target_is_not_already_linked(self):
+        source = ProjectFactory(semester=self.semester)
+        self.project.continuation_of = source
+        self.project.save()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "continuation_of": str(source.pk)},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.continuation_of, source)
+        self.assertEqual(self.project.name, "New Name")
 
     def test_hx_valid_update_returns_hx_redirect_header(self):
         self.client.force_login(self.pm)
@@ -1609,7 +1769,31 @@ class ProjectDeleteViewTests(PlanningTestCase):
             reverse("planning:project_delete", args=[project.pk]),
             {},
         )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Project.objects.filter(pk=project.pk).exists())
+
+    def test_plain_delete_redirects_to_projects(self):
+        # A plain (non-HTMX) form submit must redirect so the browser reloads
+        # the table and the deleted row disappears.
+        project = ProjectFactory()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            reverse("planning:project_delete", args=[project.pk]),
+            {},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("planning:projects"))
+
+    def test_hx_delete_returns_hx_redirect_header(self):
+        project = ProjectFactory()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            reverse("planning:project_delete", args=[project.pk]),
+            {},
+            HTTP_HX_REQUEST="true",
+        )
         self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
     def test_developer_denied(self):
@@ -1630,7 +1814,7 @@ class ProjectDeleteViewTests(PlanningTestCase):
             reverse("planning:project_delete", args=[project.pk]),
             {},
         )
-        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.status_code, 302)
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
 
@@ -1651,8 +1835,7 @@ class ProjectMigrateViewTests(PlanningTestCase):
         ProjectAllocationFactory(
             project=self.source_project,
             semester=self.source_sem,
-            weeks_new=8,
-            weeks_carryover=2,
+            weeks_new=10,
         )
 
     def _migrate(self, effort=None, extra=None, *, hx=False):
@@ -1768,12 +1951,119 @@ class ProjectMigrateViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 204)
         self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
 
+    def test_migrated_project_resourced_includes_live_carryover(self):
+        from apps.planning.effort import compute_project_effort
+
+        # Source has 10 resourced, nothing allocated → 10 carries over live.
+        self._migrate(effort=5)
+        new = Project.objects.latest("pk")
+        effort = compute_project_effort([new.pk])[new.pk]
+        self.assertEqual(effort.weeks_new, 5.0)
+        self.assertEqual(effort.carryover, 10.0)
+        self.assertEqual(effort.resourced, 15.0)
+
+    def test_migrate_from_current_semester_rejected(self):
+        current_project = ProjectFactory(semester=self.target_sem)
+        before = Project.objects.count()
+        self.client.force_login(self.pm)
+        session = self.client.session
+        session["selected_semester"] = "2026A"
+        session.save()
+        response = self.client.post(
+            self.url,
+            {
+                "source_semester": str(self.target_sem.pk),
+                "project_pks": [str(current_project.pk)],
+                f"effort_{current_project.pk}": "5",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Project.objects.count(), before)
+
     def test_hx_invalid_migrate_returns_hx_redirect_header(self):
         before = Project.objects.count()
         response = self._migrate(effort="bad", hx=True)
         self.assertEqual(response.status_code, 204)
         self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
         self.assertEqual(Project.objects.count(), before)
+
+
+# ---------------------------------------------------------------------------
+# Project time entry views
+# ---------------------------------------------------------------------------
+
+
+class ProjectTimeEntryViewTests(PlanningTestCase):
+    def setUp(self):
+        self.pm = PMUserFactory()
+        self.semester = Semester.get_current()
+        self.project = ProjectFactory(semester=self.semester)
+        self.add_url = reverse(
+            "planning:project_time_entry_add",
+            args=[self.project.pk],
+        )
+
+    def test_role_access_add(self):
+        self.assertRoleAccess(
+            self.add_url,
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
+            data={"weeks": "1", "comment": "x"},
+        )
+
+    def test_pm_can_add_entry(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.add_url,
+            {"weeks": "2.5", "comment": "Overheads"},
+        )
+        self.assertEqual(response.status_code, 302)
+        entry = ProjectTimeEntry.objects.get(project=self.project)
+        self.assertEqual(float(entry.weeks), 2.5)
+        self.assertEqual(entry.comment, "Overheads")
+
+    def test_hx_add_returns_hx_redirect(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.add_url,
+            {"weeks": "1", "comment": ""},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], reverse("planning:projects"))
+
+    def test_invalid_weeks_does_not_create_entry(self):
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.add_url,
+            {"weeks": "not-a-number", "comment": "bad"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProjectTimeEntry.objects.exists())
+
+    def test_negative_weeks_does_not_create_entry(self):
+        self.client.force_login(self.pm)
+        self.client.post(self.add_url, {"weeks": "-1", "comment": "bad"})
+        self.assertFalse(ProjectTimeEntry.objects.exists())
+
+    def test_pm_can_delete_entry(self):
+        entry = ProjectTimeEntryFactory(project=self.project, weeks=2)
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            reverse("planning:project_time_entry_delete", args=[entry.pk]),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProjectTimeEntry.objects.filter(pk=entry.pk).exists())
+
+    def test_role_access_delete(self):
+        entry = ProjectTimeEntryFactory(project=self.project, weeks=2)
+        self.assertRoleAccess(
+            reverse("planning:project_time_entry_delete", args=[entry.pk]),
+            method="post",
+            allowed=["pm"],
+            denied=["developer", "observer"],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2024,6 +2314,31 @@ class ProjectDownloadViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         response = self.client.get(self.url)
         self.assertIn(b"Prof. Smith", response.content)
+
+    def test_tsv_has_carryover_columns(self):
+        prev_sem = SemesterFactory(year=2020, semester_type=SemesterType.A)
+        parent = ProjectFactory(semester=prev_sem)
+        ProjectAllocationFactory(project=parent, semester=prev_sem, weeks_new=6)
+        child = ProjectFactory(
+            semester=self.semester,
+            name="Carry Project",
+            continuation_of=parent,
+        )
+        ProjectAllocationFactory(project=child, semester=self.semester, weeks_new=4)
+        self.client.force_login(self.pm)
+        response = self.client.get(self.url)
+        content = response.content.decode()
+        header = content.splitlines()[0].split("\t")
+        self.assertIn("effort_new", header)
+        self.assertIn("effort_carryover", header)
+        self.assertIn("effort_resourced", header)
+        row = next(
+            line for line in content.splitlines() if line.startswith("Carry Project")
+        )
+        fields = dict(zip(header, row.split("\t"), strict=True))
+        self.assertEqual(float(fields["effort_new"]), 4.0)
+        self.assertEqual(float(fields["effort_carryover"]), 6.0)
+        self.assertEqual(float(fields["effort_resourced"]), 10.0)
 
 
 # ---------------------------------------------------------------------------

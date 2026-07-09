@@ -27,6 +27,8 @@ from .projects import ProjectDeleteView
 from .projects import ProjectDownloadView
 from .projects import ProjectMigrateView
 from .projects import ProjectsView
+from .projects import ProjectTimeEntryCreateView
+from .projects import ProjectTimeEntryDeleteView
 from .projects import ProjectUpdateView
 from .schedule import ScheduleView
 from .streams import StreamCreateView
@@ -65,6 +67,8 @@ __all__ = [
     "ProjectDeleteView",
     "ProjectDownloadView",
     "ProjectMigrateView",
+    "ProjectTimeEntryCreateView",
+    "ProjectTimeEntryDeleteView",
     "ProjectUpdateView",
     "ProjectsView",
     "ScheduleView",

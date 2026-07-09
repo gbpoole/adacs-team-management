@@ -9,6 +9,7 @@ from apps.planning.models import Leave
 from apps.planning.models import Phase
 from apps.planning.models import Project
 from apps.planning.models import ProjectAllocation
+from apps.planning.models import ProjectTimeEntry
 from apps.planning.models import Semester
 from apps.planning.models import SemesterDeveloper
 from apps.planning.models import SemesterObserver
@@ -82,7 +83,15 @@ class ProjectAllocationFactory(DjangoModelFactory):
     project = factory.SubFactory(ProjectFactory)
     semester = factory.SubFactory(SemesterFactory)
     weeks_new = 10
-    weeks_carryover = 0
+
+
+class ProjectTimeEntryFactory(DjangoModelFactory):
+    class Meta:
+        model = ProjectTimeEntry
+
+    project = factory.SubFactory(ProjectFactory)
+    weeks = 1
+    comment = ""
 
 
 class SemesterObserverFactory(DjangoModelFactory):

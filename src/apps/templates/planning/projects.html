@@ -16,7 +16,7 @@
         {% if can_edit %}
           <div class="flex gap-2">
             <button id="open-add-project-modal" class="btn btn-primary btn-sm">+ {% trans "Add Project" %}</button>
-            {% if continuation_semesters %}
+            {% if migrate_semesters %}
               <button id="open-migrate-projects" class="btn btn-outline btn-sm">{% trans "Migrate from Semester" %}</button>
             {% endif %}
             <button id="download-projects-tsv" class="btn btn-outline btn-sm">{% trans "Download TSV" %}</button>
@@ -94,7 +94,7 @@
         </form>
       </div>
     {% endif %}
-    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6" data-scroll-preserve>
       <table id="proj-table" class="table table-zebra w-full">
         <thead>
           <tr class="bg-base-100 sticky top-0 z-10">
@@ -108,14 +108,19 @@
             <th>{% trans "Sci. Lead" %}</th>
             <th>{% trans "Dev Lead" %}</th>
             <th class="text-right cursor-pointer select-none"
-                data-sort-col="resourced"
-                data-col="resourced">
-              {% trans "Resourced (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+                data-sort-col="resourcing"
+                data-col="resourcing">
+              {% trans "Semester resourcing (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
             </th>
             <th class="text-right cursor-pointer select-none"
-                data-sort-col="allocated"
-                data-col="allocated">
-              {% trans "Allocated (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+                data-sort-col="carryover"
+                data-col="carryover">
+              {% trans "Carried over (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
+            </th>
+            <th class="text-right cursor-pointer select-none"
+                data-sort-col="resourced"
+                data-col="resourced">
+              {% trans "Total (wks)" %} <span class="sort-icon text-neutral-400">⇅</span>
             </th>
             <th class="text-right cursor-pointer select-none"
                 data-sort-col="unallocated"
@@ -130,14 +135,17 @@
                 data-pk="{{ project.pk }}"
                 data-name="{{ project.display_name }}"
                 data-streams="{% for s in project.streams.all %}{{ s.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
-                data-effort="{{ project.effort_resourced|default:'' }}"
+                data-effort-new="{{ project.effort_new|default:'' }}"
+                data-carryover="{{ project.effort_carryover }}"
+                data-time-entry-count="{{ project.time_entry_count }}"
                 data-tags="{% for tag in project.tags.all %}{{ tag.name }}{% if not forloop.last %},{% endif %}{% endfor %}"
                 data-dev-lead-pk="{{ project.dev_lead.pk|default:'' }}"
                 data-science-lead-pk="{{ project.science_lead.pk|default:'' }}"
                 data-continuation-of-pk="{{ project.continuation_of.pk|default:'' }}"
                 data-sort-name="{{ project.display_name|lower }}"
+                data-sort-resourcing="{{ project.effort_new }}"
+                data-sort-carryover="{{ project.effort_carryover }}"
                 data-sort-resourced="{{ project.effort_resourced }}"
-                data-sort-allocated="{{ project.effort_allocated }}"
                 data-sort-unallocated="{{ project.effort_discrepancy }}">
               <td>
                 <span class="inline-block w-3 h-3 rounded-full mr-2 align-middle"
@@ -187,8 +195,11 @@
                   —
                 {% endif %}
               </td>
+              <td class="text-right">{{ project.effort_new|wks }}</td>
+              <td class="text-right{% if project.effort_carryover < 0 %} text-error{% endif %}">
+                {{ project.effort_carryover|wks }}
+              </td>
               <td class="text-right">{{ project.effort_resourced|wks }}</td>
-              <td class="text-right">{{ project.effort_allocated|wks }}</td>
               <td class="text-right{% if project.effort_discrepancy < 0 %} text-error font-bold{% endif %}">
                 {{ project.effort_discrepancy|wks }}
                 {% if project.effort_discrepancy < 0 %}
@@ -198,7 +209,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="8" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
+              <td colspan="9" class="text-center text-neutral-500">{% trans "No projects found." %}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -230,7 +241,54 @@
       </form>
     </dialog>
   {% endif %}
-  {% if can_edit and continuation_semesters %}
+  {% if can_edit %}
+    {# Non-developer time entries modal (stacks on the edit modal) #}
+    <dialog id="time-entries-modal" class="modal">
+      <div class="modal-box max-w-lg">
+        <h3 id="time-entries-heading" class="font-bold text-lg mb-1">{% trans "Non-developer time" %}</h3>
+        <p class="text-sm text-neutral-500 mb-4">
+          {% trans "Time treated as allocated but not executed by a developer (overheads, waiting on science team, etc.)." %}
+        </p>
+        <div id="time-entries-list"
+             class="border border-base-300 rounded-lg divide-y divide-base-200 mb-3 max-h-64 overflow-y-auto"></div>
+        <form id="time-entry-add-form" method="post" action="" hx-boost="false">
+          {% csrf_token %}
+          <div class="flex gap-2 items-end">
+            <div class="form-control" style="width: 110px">
+              <label class="label label-text">{% trans "Weeks" %}</label>
+              <input type="number"
+                     name="weeks"
+                     min="0"
+                     step="0.5"
+                     required
+                     class="input input-bordered input-sm" />
+            </div>
+            <div class="form-control flex-1">
+              <label class="label label-text">{% trans "Comment" %}</label>
+              <input type="text"
+                     name="comment"
+                     maxlength="255"
+                     class="input input-bordered input-sm"
+                     autocomplete="off"
+                     data-lpignore="true"
+                     data-form-type="other" />
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">+ {% trans "Add" %}</button>
+          </div>
+        </form>
+        <div class="modal-action">
+          <button type="button" id="close-time-entries-modal" class="btn btn-ghost">{% trans "Close" %}</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>{% trans "Close" %}</button>
+      </form>
+    </dialog>
+    <form id="time-entry-delete-form" method="post" action="" class="hidden">
+      {% csrf_token %}
+    </form>
+  {% endif %}
+  {% if can_edit and migrate_semesters %}
     {# Migrate Projects modal #}
     <dialog id="migrate-project-modal" class="modal">
       <div class="modal-box max-w-2xl">
@@ -245,7 +303,7 @@
             <select id="migrate-proj-semester"
                     name="source_semester"
                     class="select select-bordered">
-              {% for sem in continuation_semesters %}<option value="{{ sem.pk }}">{{ sem }}</option>{% endfor %}
+              {% for sem in migrate_semesters %}<option value="{{ sem.pk }}">{{ sem }}</option>{% endfor %}
             </select>
           </div>
           <div id="migrate-stream-filters"
@@ -261,7 +319,6 @@
             <select id="migrate-set-all" class="select select-bordered select-sm">
               <option value="">{% trans "Set all…" %}</option>
               <option value="resourced">{% trans "All: Resourced" %}</option>
-              <option value="unallocated">{% trans "All: Unallocated" %}</option>
               <option value="custom">{% trans "All: Custom" %}</option>
             </select>
             <button type="button"
@@ -290,21 +347,29 @@
 <script>
   window.projectPageConfig = {
     continuationData: {{ continuation_data_json|safe }},
-    hasContinuationSemesters: {% if continuation_semesters %}true{% else %}false{% endif %},
+    timeEntriesData: {{ time_entries_json|safe }},
+    hasMigrateSemesters: {% if migrate_semesters %}true{% else %}false{% endif %},
     canEdit: {% if can_edit %}true{% else %}false{% endif %},
     semester: "{{ semester|escapejs }}",
     urls: {
       download: "{% url 'planning:project_download' %}",
+      timeEntryAdd: "{% url 'planning:project_time_entry_add' 0 %}",
+      timeEntryDelete: "{% url 'planning:project_time_entry_delete' 0 %}",
     },
     labels: {
       selectProject: "{% trans '— None —' %}",
       noProjectsToMigrate: "{% trans 'No projects to migrate from this semester.' %}",
       removeConfirm: "{% trans 'Remove this project from the current semester? This cannot be undone.' %}",
       resourced: "{% trans 'Resourced' %}",
-      unallocated: "{% trans 'Unallocated' %}",
       custom: "{% trans 'Custom' %}",
       weeks: "{% trans 'wks' %}",
       streams: "{% trans 'Streams:' %}",
+      carryover: "{% trans 'carryover' %}",
+      carriedOver: "{% trans 'Carried over:' %}",
+      nonDevTime: "{% trans 'Non-dev time' %}",
+      noTimeEntries: "{% trans 'No entries yet.' %}",
+      timeEntryDeleteConfirm: "{% trans 'Delete this time entry?' %}",
+      deleteLabel: "{% trans 'Delete' %}",
     },
   };
 </script>
