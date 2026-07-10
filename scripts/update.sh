@@ -36,39 +36,33 @@ git pull
 # ---------------------------------------------------------------------------
 CHANGED=$(git diff HEAD@{1} HEAD --name-only 2>/dev/null || true)
 
-if [[ -z "$CHANGED" ]]; then
+if [[ -z "$CHANGED" && "$FULL_REBUILD" == "false" ]]; then
     info "No changes detected. Services already up to date."
+    info "Use --full to force a rebuild anyway (e.g. to recover a broken deploy)."
     docker compose ps
     exit 0
 fi
 
-info "Changed files:"
-echo "$CHANGED" | sed 's/^/  /'
-
-# Determine whether static assets (CSS/JS) or Nginx config changed — if so,
-# the nginx image must be rebuilt too (static files are baked in at build time).
-NEEDS_NGINX=false
-if [[ "$FULL_REBUILD" == "true" ]]; then
-    NEEDS_NGINX=true
-elif echo "$CHANGED" | grep -qE '(^styles\.css$|^package(-lock)?\.json$|^\.nvmrc$|^nginx/)'; then
-    NEEDS_NGINX=true
-    info "CSS/JS or Nginx config changed — will rebuild nginx image."
+if [[ -n "$CHANGED" ]]; then
+    info "Changed files:"
+    echo "$CHANGED" | sed 's/^/  /'
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Rebuild and restart affected services
+# 3. Rebuild and restart services
 # ---------------------------------------------------------------------------
-if [[ "$NEEDS_NGINX" == "true" ]]; then
-    info "Rebuilding django, nginx, and cron images..."
-    docker compose build django nginx cron
-    info "Restarting django, nginx, and cron..."
-    docker compose up -d django nginx cron
-else
-    info "Rebuilding django and cron images..."
-    docker compose build django cron
-    info "Restarting django and cron..."
-    docker compose up -d django cron
-fi
+# django and nginx must ALWAYS be rebuilt together. Static files use
+# content-hashed filenames (ManifestStaticFilesStorage), and Tailwind's compiled
+# CSS depends on the templates/JS it scans — so a template or JS change alters the
+# hashes. The hash manifest is baked into the django image while the hashed files
+# are baked into the nginx image; rebuilding one without the other leaves nginx
+# serving filenames the manifest no longer references (404 → CSS/JS vanish).
+# Rebuilding nginx is nearly free when nothing static changed: the shared builder
+# stage (npm build + collectstatic) is reused from cache.
+info "Rebuilding django, nginx, and cron images..."
+docker compose build django nginx cron
+info "Restarting django, nginx, and cron..."
+docker compose up -d django nginx cron
 
 # ---------------------------------------------------------------------------
 # 4. Wait for health
