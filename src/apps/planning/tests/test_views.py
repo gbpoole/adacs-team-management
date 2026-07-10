@@ -486,6 +486,9 @@ class PlanningViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 200)
         leave = dev.leave_periods.first()
         self.assertContains(response, f'data-leave-id="{leave.pk}"')
+        # A clean phantom add-row must exist so phases can still be added even
+        # when leave covers the timeline.
+        self.assertContains(response, f'data-developer-pk="{dev.pk}"')
 
     def test_non_developer_excluded_from_planning(self):
         # A person with no semester allocation (e.g. a science lead) is not a
