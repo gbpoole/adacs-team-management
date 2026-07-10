@@ -376,6 +376,14 @@
 
     document.getElementById("edit-dev-lead").value = devLeadPk;
     document.getElementById("edit-science-lead").value = sciLeadPk;
+    // Clear and collapse the inline "add new person" fields so stale values
+    // don't carry across opens.
+    ["new_science_lead_name", "new_science_lead_email"].forEach(function (n) {
+      var el = document.querySelector('#project-edit-form [name="' + n + '"]');
+      if (el) { el.value = ""; }
+    });
+    var editSciDetails = document.getElementById("edit-new-science-lead");
+    if (editSciDetails) { editSciDetails.open = false; }
 
     var editContSem = document.getElementById("edit-cont-semester");
     var editContProj = document.getElementById("edit-cont-project");
@@ -752,9 +760,15 @@
         if (lbl) { lbl.classList.remove("btn-primary"); lbl.classList.add("btn-outline"); }
       });
     });
-    // Reset science lead select
+    // Reset science lead select and the inline "add new person" fields
     var sciLeadSel = document.querySelector('#add-project-form select[name="science_lead"]');
     if (sciLeadSel) { sciLeadSel.value = ""; }
+    ["new_science_lead_name", "new_science_lead_email"].forEach(function (n) {
+      var el = document.querySelector('#add-project-form [name="' + n + '"]');
+      if (el) { el.value = ""; }
+    });
+    var addSciDetails = document.querySelector("#add-project-form details");
+    if (addSciDetails) { addSciDetails.open = false; }
     // Reset continuation selects
     var contSem = document.getElementById("add-cont-semester");
     if (contSem) { contSem.value = ""; }

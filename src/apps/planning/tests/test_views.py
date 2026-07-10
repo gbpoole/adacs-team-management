@@ -1403,6 +1403,79 @@ class ProjectCreateViewTests(PlanningTestCase):
         self.assertEqual(project.science_lead, profile)
         self.assertFalse(profile.is_registered)
 
+    def test_inline_science_lead_creates_profile_and_prereg_access(self):
+        self.client.force_login(self.pm)
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "new_science_lead_name": "Prof. Inline",
+                "new_science_lead_email": "inline@sci.org",
+            },
+        )
+        project = Project.objects.latest("pk")
+        profile = DeveloperProfile.objects.get(email="inline@sci.org")
+        self.assertEqual(profile.name, "Prof. Inline")
+        self.assertFalse(profile.is_registered)
+        self.assertEqual(project.science_lead, profile)
+        access = UserProjectAccess.objects.get(developer_profile=profile)
+        self.assertEqual(set(access.project_access.all()), {project})
+        self.assertFalse(access.all_project_access)
+
+    def test_inline_science_lead_overrides_select(self):
+        selected = DeveloperProfileFactory()
+        self.client.force_login(self.pm)
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "science_lead": str(selected.pk),
+                "new_science_lead_name": "Prof. Wins",
+                "new_science_lead_email": "wins@sci.org",
+            },
+        )
+        project = Project.objects.latest("pk")
+        self.assertEqual(project.science_lead.email, "wins@sci.org")
+
+    def test_inline_science_lead_reuses_existing_email_without_clobbering(self):
+        existing = DeveloperProfile.objects.create(
+            name="Prof. Existing", email="dup@sci.org"
+        )
+        other_project = ProjectFactory()
+        policy = UserProjectAccess.objects.create(developer_profile=existing)
+        policy.project_access.add(other_project)
+        self.client.force_login(self.pm)
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "new_science_lead_name": "Ignored",
+                "new_science_lead_email": "dup@sci.org",
+            },
+        )
+        project = Project.objects.latest("pk")
+        self.assertEqual(project.science_lead, existing)
+        # Existing person's policy is untouched (not clobbered, no new row).
+        self.assertEqual(
+            UserProjectAccess.objects.filter(developer_profile=existing).count(), 1
+        )
+        policy.refresh_from_db()
+        self.assertEqual(set(policy.project_access.all()), {other_project})
+
+    def test_inline_science_lead_requires_name_and_email(self):
+        before = Project.objects.count()
+        self.client.force_login(self.pm)
+        response = self.client.post(
+            self.url,
+            {**self.post_data, "new_science_lead_email": "noname@sci.org"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(Project.objects.count(), before)
+        self.assertFalse(
+            DeveloperProfile.objects.filter(email="noname@sci.org").exists()
+        )
+
     def test_creates_project_with_continuation_of(self):
         source = ProjectFactory()
         self.client.force_login(self.pm)
@@ -1533,6 +1606,22 @@ class ProjectUpdateViewTests(PlanningTestCase):
         self.client.force_login(self.pm)
         response = self.client.post(self.url, self.post_data)
         self.assertEqual(response.status_code, 302)
+
+    def test_inline_science_lead_creates_profile_and_prereg_access(self):
+        self.client.force_login(self.pm)
+        self.client.post(
+            self.url,
+            {
+                **self.post_data,
+                "new_science_lead_name": "Prof. Edit",
+                "new_science_lead_email": "edit@sci.org",
+            },
+        )
+        self.project.refresh_from_db()
+        profile = DeveloperProfile.objects.get(email="edit@sci.org")
+        self.assertEqual(self.project.science_lead, profile)
+        access = UserProjectAccess.objects.get(developer_profile=profile)
+        self.assertEqual(set(access.project_access.all()), {self.project})
 
     def test_developer_denied(self):
         self.client.force_login(UserFactory())
@@ -2839,6 +2928,24 @@ class PersonUpdateViewTests(PlanningTestCase):
             fetch_redirect_response=False,
         )
 
+    def test_edits_unregistered_person_project_access(self):
+        unreg = DeveloperProfileFactory(user=None)
+        project = ProjectFactory()
+        url = reverse("planning:person_edit", args=[unreg.pk])
+        self.client.force_login(self.pm)
+        self.client.post(url, {"project_access": [str(project.pk)]})
+        access = UserProjectAccess.objects.get(developer_profile=unreg)
+        self.assertIsNone(access.user)
+        self.assertEqual(set(access.project_access.all()), {project})
+
+    def test_edits_registered_person_stays_user_keyed(self):
+        project = ProjectFactory()
+        self.client.force_login(self.pm)
+        self.client.post(self.url, {"project_access": [str(project.pk)]})
+        access = UserProjectAccess.objects.get(user=self.dev.user)
+        self.assertIsNone(access.developer_profile)
+        self.assertEqual(set(access.project_access.all()), {project})
+
 
 # ---------------------------------------------------------------------------
 # ObserversView — semester filtering
@@ -2855,6 +2962,18 @@ class ObserversViewSemesterFilterTests(PlanningTestCase):
         pks = [o.pk for o in response.context["observers"]]
         self.assertIn(obs_a.pk, pks)
         self.assertIn(obs_b.pk, pks)
+
+    def test_excludes_pre_registration_only_rows(self):
+        SemesterFactory(year=2026, semester_type=SemesterType.A)
+        obs = UserProjectAccessFactory()
+        prereg = UserProjectAccess.objects.create(
+            developer_profile=DeveloperProfileFactory(user=None),
+        )
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(reverse("planning:observers"))
+        pks = [o.pk for o in response.context["observers"]]
+        self.assertIn(obs.pk, pks)
+        self.assertNotIn(prereg.pk, pks)
 
     def test_uses_selected_semester_to_filter_out_developers(self):
         sem_current = SemesterFactory(year=2026, semester_type=SemesterType.A)

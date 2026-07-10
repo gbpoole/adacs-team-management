@@ -25,6 +25,7 @@ from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectTimeEntryFactory
 from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
+from apps.planning.tests.factories import UserFactory
 from apps.planning.tests.factories import UserProjectAccessFactory
 
 
@@ -354,6 +355,27 @@ class TestUserProjectAccessProjectAccess(TestCase):
         project_pk = self.project.pk
         self.obs.delete()
         self.assertTrue(Project.objects.filter(pk=project_pk).exists())
+
+
+class TestUserProjectAccessOwnerConstraint(TestCase):
+    def test_rejects_both_owners(self):
+        user = UserFactory()
+        profile = DeveloperProfileFactory(user=None)
+        with self.assertRaises(IntegrityError):
+            UserProjectAccess.objects.create(user=user, developer_profile=profile)
+
+    def test_rejects_no_owner(self):
+        with self.assertRaises(IntegrityError):
+            UserProjectAccess.objects.create()
+
+    def test_str_user_owner(self):
+        access = UserProjectAccessFactory()
+        self.assertIn(str(access.user), str(access))
+
+    def test_str_developer_profile_owner(self):
+        profile = DeveloperProfileFactory(user=None, name="Prof. Pre-reg")
+        access = UserProjectAccess.objects.create(developer_profile=profile)
+        self.assertIn("Prof. Pre-reg", str(access))
 
 
 # ---------------------------------------------------------------------------

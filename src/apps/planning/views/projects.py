@@ -25,6 +25,7 @@ from apps.planning.models import ProjectTimeEntry
 from apps.planning.models import Semester
 from apps.planning.models import Stream
 from apps.planning.models import Tag
+from apps.planning.models import UserProjectAccess
 from apps.users.models import Role
 
 from ._csv_import import _get_or_create_streams
@@ -179,12 +180,21 @@ class ProjectCreateView(RoleRequiredMixin, View):
             )
             if cont_error:
                 form.add_error("continuation_of", cont_error)
+        sci_error = _validate_inline_science_lead(request)
+        if sci_error:
+            form.add_error(None, sci_error)
         if form.errors:
             if request.headers.get("HX-Request") == "true":
                 context = _project_modal_options_context(semester)
                 context["project_add_form"] = form
                 context["selected_add_streams"] = request.POST.getlist("streams")
                 context["selected_add_tags"] = request.POST.getlist("tags")
+                context["new_science_lead_name"] = request.POST.get(
+                    "new_science_lead_name", ""
+                )
+                context["new_science_lead_email"] = request.POST.get(
+                    "new_science_lead_email", ""
+                )
                 return render(
                     request,
                     "planning/partials/project_add_form.html",
@@ -210,6 +220,7 @@ class ProjectCreateView(RoleRequiredMixin, View):
                 semester=semester,
                 weeks_new=cleaned["effort_resourced"],
             )
+            _apply_inline_science_lead(request, project)
         return _redirect_or_hx_redirect(request, target_url)
 
 
@@ -295,6 +306,9 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             )
             if cont_error:
                 form.add_error("continuation_of", cont_error)
+        sci_error = _validate_inline_science_lead(request)
+        if sci_error:
+            form.add_error(None, sci_error)
         if form.errors:
             if request.headers.get("HX-Request") == "true":
                 context = _project_modal_options_context(semester)
@@ -302,6 +316,12 @@ class ProjectUpdateView(RoleRequiredMixin, View):
                 context["selected_edit_streams"] = request.POST.getlist("streams")
                 context["selected_edit_tags"] = request.POST.getlist("tags")
                 context["edit_project"] = project
+                context["new_science_lead_name"] = request.POST.get(
+                    "new_science_lead_name", ""
+                )
+                context["new_science_lead_email"] = request.POST.get(
+                    "new_science_lead_email", ""
+                )
                 return render(
                     request,
                     "planning/partials/project_edit_form.html",
@@ -328,6 +348,7 @@ class ProjectUpdateView(RoleRequiredMixin, View):
             if not created:
                 alloc.weeks_new = cleaned["effort_resourced"]
                 alloc.save(update_fields=["weeks_new"])
+            _apply_inline_science_lead(request, project)
         return _redirect_or_hx_redirect(request, target_url)
 
 
@@ -461,6 +482,43 @@ def _apply_lead_fields(project, cleaned_data):
             project.science_lead = None
     else:
         project.science_lead = None
+
+
+def _validate_inline_science_lead(request):
+    """Validate the inline new-science-lead fields.
+
+    Returns an error string when exactly one of name/email is filled, else None.
+    """
+    name = request.POST.get("new_science_lead_name", "").strip()
+    email = request.POST.get("new_science_lead_email", "").strip()
+    if name and email:
+        return None
+    if name or email:
+        return "Provide both a name and an email for the new Science Lead."
+    return None
+
+
+def _apply_inline_science_lead(request, project):
+    """Create/reuse a person from the inline new-science-lead fields, set them as
+    the project's science lead, and grant them pre-registration access to this
+    project only. New-person fields override the science-lead dropdown; no-op when
+    the fields are empty. Assumes fields were already validated.
+    """
+    name = request.POST.get("new_science_lead_name", "").strip()
+    email = request.POST.get("new_science_lead_email", "").strip()
+    if not name or not email:
+        return
+    profile = DeveloperProfile.objects.filter(email__iexact=email).first()
+    created = profile is None
+    if created:
+        profile = DeveloperProfile.objects.create(name=name, email=email)
+    project.science_lead = profile
+    project.save(update_fields=["science_lead"])
+    # Only provision access for a newly created, still-unregistered person;
+    # never clobber an existing person's policy.
+    if created and not profile.is_registered:
+        access, _ = UserProjectAccess.objects.get_or_create(developer_profile=profile)
+        access.project_access.add(project)
 
 
 def _resolve_continuation(cont_pk, semester, project=None):

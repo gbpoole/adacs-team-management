@@ -125,6 +125,40 @@
         </option>
       {% endfor %}
     </select>
+    <details id="edit-new-science-lead" class="mt-2">
+      <summary class="text-sm cursor-pointer text-neutral-500 hover:text-neutral-700">
+        + {% trans "Add new person as Science Lead" %}
+      </summary>
+      <div class="mt-2 border border-base-300 rounded p-3 space-y-2">
+        <div class="flex gap-2">
+          <div class="form-control flex-1">
+            <label class="label label-text text-xs">{% trans "Name" %}</label>
+            <input type="text"
+                   name="new_science_lead_name"
+                   class="input input-bordered input-sm"
+                   autocomplete="off"
+                   data-lpignore="true"
+                   data-form-type="other"
+                   placeholder="{% trans 'Full name' %}"
+                   value="{{ new_science_lead_name|default:'' }}" />
+          </div>
+          <div class="form-control flex-1">
+            <label class="label label-text text-xs">{% trans "Email" %}</label>
+            <input type="email"
+                   name="new_science_lead_email"
+                   class="input input-bordered input-sm"
+                   autocomplete="off"
+                   data-lpignore="true"
+                   data-form-type="other"
+                   placeholder="{% trans 'email@example.com' %}"
+                   value="{{ new_science_lead_email|default:'' }}" />
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400">
+          {% trans "Creates an unregistered person with access limited to this project. Overrides the dropdown above." %}
+        </p>
+      </div>
+    </details>
   </div>
   <div class="form-control mb-4">
     <label class="label label-text">{% trans "Continuation of" %}</label>

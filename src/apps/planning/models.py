@@ -449,7 +449,11 @@ SemesterObserver.add_to_class(
 
 
 class UserProjectAccess(models.Model):
-    """Global per-user project/stream visibility restrictions.
+    """Global project/stream visibility restrictions for one person.
+
+    Owned by exactly one of ``user`` (registered) or ``developer_profile``
+    (pre-registration). A profile-keyed policy is transferred to the user when
+    that person registers (see ``signals.link_developer_profile_on_registration``).
 
     Absence of a row means unrestricted access.
     A row with both access sets empty and neither all_* flag set means no access.
@@ -458,6 +462,15 @@ class UserProjectAccess(models.Model):
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="project_access_policy",
+    )
+    developer_profile = models.OneToOneField(
+        "DeveloperProfile",
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name="project_access_policy",
     )
@@ -487,9 +500,18 @@ class UserProjectAccess(models.Model):
     class Meta:
         verbose_name = _("User Project Access")
         verbose_name_plural = _("User Project Access")
+        constraints = [
+            models.CheckConstraint(
+                name="userprojectaccess_exactly_one_owner",
+                condition=(
+                    models.Q(user__isnull=False, developer_profile__isnull=True)
+                    | models.Q(user__isnull=True, developer_profile__isnull=False)
+                ),
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.user} project access"
+        return f"{self.user or self.developer_profile} project access"
 
 
 SemesterObserver.add_to_class(

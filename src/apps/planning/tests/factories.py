@@ -109,6 +109,16 @@ class UserProjectAccessFactory(DjangoModelFactory):
     user = factory.SubFactory(UserFactory)
 
 
+class PreRegAccessFactory(DjangoModelFactory):
+    """Pre-registration access policy keyed to an unregistered DeveloperProfile."""
+
+    class Meta:
+        model = UserProjectAccess
+
+    user = None
+    developer_profile = factory.SubFactory(DeveloperProfileFactory, user=None)
+
+
 class SemesterDeveloperFactory(DjangoModelFactory):
     class Meta:
         model = SemesterDeveloper
