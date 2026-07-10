@@ -140,7 +140,7 @@
                   <td class="sticky left-48 bg-base-100 z-10 border-r border-base-300 px-3 py-1 text-sm whitespace-nowrap">
                     <span class="inline-block w-2 h-2 rounded-full mr-1 align-middle"
                           style="background-color: {{ layer.developer.colour }}"></span>
-                    {{ layer.developer.user.name|default:layer.developer.user.email }}
+                    {{ layer.developer.display_name }}
                   </td>
                   {% for cell in layer.cells %}
                     {% if cell.type == "phase" %}

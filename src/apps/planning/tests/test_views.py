@@ -27,6 +27,7 @@ from apps.planning.tests.factories import PMUserFactory
 from apps.planning.tests.factories import ProjectAllocationFactory
 from apps.planning.tests.factories import ProjectFactory
 from apps.planning.tests.factories import ProjectTimeEntryFactory
+from apps.planning.tests.factories import SemesterDeveloperFactory
 from apps.planning.tests.factories import SemesterFactory
 from apps.planning.tests.factories import SemesterType
 from apps.planning.tests.factories import StreamFactory
@@ -439,6 +440,7 @@ class PlanningViewTests(PlanningTestCase):
     def test_context_contains_developer_rows(self):
         sem = Semester.get_current()
         dev = DeveloperProfileFactory()
+        SemesterDeveloperFactory(developer=dev, semester=sem)
         project = ProjectFactory()
         Phase.objects.create(
             developer=dev,
@@ -458,6 +460,29 @@ class PlanningViewTests(PlanningTestCase):
         self.assertIn("lanes", row)
         self.assertIn("overallocated_cols", row)
 
+    def test_unregistered_developer_with_allocation_renders(self):
+        # An unregistered developer (user=None) with a semester allocation must
+        # render without crashing (display_name handles the null user).
+        sem = Semester.get_current()
+        dev = DeveloperProfileFactory(user=None, name="Unreg Dev")
+        SemesterDeveloperFactory(developer=dev, semester=sem)
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Unreg Dev")
+
+    def test_non_developer_excluded_from_planning(self):
+        # A person with no semester allocation (e.g. a science lead) is not a
+        # developer and must not appear on the planning board.
+        Semester.get_current()
+        DeveloperProfileFactory(user=None, name="Sci Lead Only")
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        pks = [row["developer"].pk for row in response.context["developer_rows"]]
+        self.assertEqual(pks, [])
+        self.assertNotContains(response, "Sci Lead Only")
+
     def test_tag_filter_excludes_untagged_developers(self):
         sem = Semester.get_current()
         tag, _ = Tag.objects.get_or_create(name="python")
@@ -465,6 +490,7 @@ class PlanningViewTests(PlanningTestCase):
         dev_with.tags.set([tag])
         dev_without = DeveloperProfileFactory()
         for dev in (dev_with, dev_without):
+            SemesterDeveloperFactory(developer=dev, semester=sem)
             Phase.objects.create(
                 developer=dev,
                 project=ProjectFactory(),
@@ -561,6 +587,7 @@ class PlanningViewTests(PlanningTestCase):
     def test_overlapping_phases_render_in_separate_lanes(self):
         sem = Semester.get_current()
         dev = DeveloperProfileFactory()
+        SemesterDeveloperFactory(developer=dev, semester=sem)
         p1 = ProjectFactory(semester=sem)
         p2 = ProjectFactory(semester=sem)
         Phase.objects.create(
@@ -587,6 +614,7 @@ class PlanningViewTests(PlanningTestCase):
     def test_non_overlapping_phases_share_single_lane(self):
         sem = Semester.get_current()
         dev = DeveloperProfileFactory()
+        SemesterDeveloperFactory(developer=dev, semester=sem)
         p1 = ProjectFactory(semester=sem)
         p2 = ProjectFactory(semester=sem)
         Phase.objects.create(
