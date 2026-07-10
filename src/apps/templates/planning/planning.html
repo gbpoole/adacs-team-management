@@ -302,13 +302,13 @@
                   </td>
                 </tr>
               {% empty %}
-                {# Developer has no real lanes — phantom row carries the developer name cell #}
+                {# No phase lanes: a name + leave display row, plus a clean
+                   phantom lane row (edit mode) so phases can still be added even
+                   when leave covers the whole timeline. #}
                 <tr class="border-b-2 border-base-300"
-                    data-lane-pk="new"
-                    data-developer-pk="{{ row.developer.pk }}"
                     {% if my_developer_pk == row.developer.pk %}data-my-row="true"{% endif %}>
                   <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
-                      rowspan="1"
+                      rowspan="{% if can_edit %}2{% else %}1{% endif %}"
                       style="width: 160px">
                     <div class="flex items-center gap-1">
                       <span class="inline-block w-3 h-3 rounded-full shrink-0"
@@ -365,19 +365,6 @@
                         </div>
                       </div>
                     {% endfor %}
-                    {% if can_edit %}
-                      <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
-                           style="position: absolute;
-                                  top: 0;
-                                  height: 32px;
-                                  left: 0;
-                                  width: {{ weeks|length|multiply:64 }}px;
-                                  z-index: 2"
-                           data-developer="{{ row.developer.pk }}"
-                           data-lane-pk=""
-                           data-col-start="0"
-                           data-col-end="{{ weeks|length|add:-1 }}"></div>
-                    {% endif %}
                     {% if today_col >= 0 %}
                       <div style="position:absolute;
                                   top:0;
@@ -390,6 +377,42 @@
                     {% endif %}
                   </td>
                 </tr>
+                {% if can_edit %}
+                  <tr class="border-b-2 border-base-300"
+                      data-lane-pk="new"
+                      data-developer-pk="{{ row.developer.pk }}"
+                      {% if my_developer_pk == row.developer.pk %}data-my-row="true"{% endif %}>
+                    <td colspan="{{ weeks|length }}"
+                        class="lane-canvas p-0"
+                        style="position: relative;
+                               height: 32px;
+                               overflow: visible;
+                               background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
+                               background-size: 64px 100%">
+                      <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
+                           style="position: absolute;
+                                  top: 0;
+                                  height: 32px;
+                                  left: 0;
+                                  width: {{ weeks|length|multiply:64 }}px;
+                                  z-index: 2"
+                           data-developer="{{ row.developer.pk }}"
+                           data-lane-pk=""
+                           data-col-start="0"
+                           data-col-end="{{ weeks|length|add:-1 }}"></div>
+                      {% if today_col >= 0 %}
+                        <div style="position:absolute;
+                                    top:0;
+                                    bottom:0;
+                                    width:2px;
+                                    left:{{ today_left_px }}px;
+                                    background:rgba(239,68,68,0.5);
+                                    pointer-events:none;
+                                    z-index:20"></div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endif %}
               {% endfor %}
               {# ── Phantom lane row (always shown after real lanes when there are any) ── #}
               {% if row.lane_count > 0 %}
