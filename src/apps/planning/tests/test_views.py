@@ -471,6 +471,22 @@ class PlanningViewTests(PlanningTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Unreg Dev")
 
+    def test_leave_renders_for_developer_without_phases(self):
+        # A developer with leave but no phases is rendered via the phantom row,
+        # which must still show their leave bar.
+        sem = Semester.get_current()
+        dev = make_semester_developer(semester=sem)
+        LeaveFactory(
+            developer=dev,
+            start_date=sem.start_date,
+            end_date=sem.start_date + datetime.timedelta(days=4),
+        )
+        self.client.force_login(PMUserFactory())
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        leave = dev.leave_periods.first()
+        self.assertContains(response, f'data-leave-id="{leave.pk}"')
+
     def test_non_developer_excluded_from_planning(self):
         # A person with no semester allocation (e.g. a science lead) is not a
         # developer and must not appear on the planning board.

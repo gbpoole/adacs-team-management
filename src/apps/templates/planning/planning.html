@@ -323,6 +323,48 @@
                              overflow: visible;
                              background-image: repeating-linear-gradient(to right, transparent, transparent 63px, rgba(128,128,128,0.08) 63px, rgba(128,128,128,0.08) 64px);
                              background-size: 64px 100%">
+                    {# Leave overlay for developers with no phase lanes #}
+                    {% for leave in row.leave_cells %}
+                      <div class="leave-bar{% if can_edit %} cursor-grab{% endif %}"
+                           style="position: absolute;
+                                  top: 1px;
+                                  height: 30px;
+                                  left: {{ leave.col_start|multiply:64 }}px;
+                                  width: {{ leave.colspan|multiply:64 }}px;
+                                  z-index: 15;
+                                  {% if not can_edit %}pointer-events: none;{% endif %}"
+                           data-leave-id="{{ leave.pk }}"
+                           data-col-start="{{ leave.col_start }}"
+                           data-col-end="{{ leave.col_end }}"
+                           data-start-date="{{ leave.start_date|date:'Y-m-d' }}"
+                           data-end-date="{{ leave.end_date|date:'Y-m-d' }}">
+                        <div class="tooltip tooltip-top w-full h-full"
+                             data-tip="{{ row.developer.display_name }} — {% trans 'Leave' %}: {{ leave.start_date|date:'d M Y' }} – {{ leave.end_date|date:'d M Y' }} ({{ leave.colspan }} wk{{ leave.colspan|pluralize }})">
+                          <div class="bg-base-300 h-full w-full"
+                               style="position: relative;
+                                      opacity: 0.85">
+                            {% if can_edit %}
+                              <div class="leave-resize-handle leave-resize-left"
+                                   style="position:absolute;
+                                          left:0;
+                                          top:0;
+                                          bottom:0;
+                                          width:8px;
+                                          cursor:ew-resize;
+                                          z-index:20"></div>
+                              <div class="leave-resize-handle leave-resize-right"
+                                   style="position:absolute;
+                                          right:0;
+                                          top:0;
+                                          bottom:0;
+                                          width:8px;
+                                          cursor:ew-resize;
+                                          z-index:20"></div>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
                     {% if can_edit %}
                       <div class="timeline-cell hover:bg-primary/10 cursor-pointer"
                            style="position: absolute;
