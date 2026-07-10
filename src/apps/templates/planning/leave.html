@@ -33,9 +33,7 @@
               <div class="form-control">
                 <label class="label label-text text-xs">{% trans "Developer" %}</label>
                 <select name="developer" class="select select-bordered select-sm" required>
-                  {% for dev in developers %}
-                    <option value="{{ dev.pk }}">{{ dev.user.name|default:dev.user.email }}</option>
-                  {% endfor %}
+                  {% for dev in developers %}<option value="{{ dev.pk }}">{{ dev.display_name }}</option>{% endfor %}
                 </select>
               </div>
             {% else %}
@@ -60,7 +58,7 @@
         </div>
       {% endif %}
     </div>
-    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6">
+    <div class="flex-1 min-h-0 overflow-auto mx-6 mb-6" data-scroll-preserve>
       <table id="leave-table" class="table table-zebra w-full">
         <colgroup>
           {% if can_edit %}
@@ -107,11 +105,11 @@
           {% for leave in leave_periods %}
             <tr data-start="{{ leave.start_date|date:'Y-m-d' }}"
                 data-end="{{ leave.end_date|date:'Y-m-d' }}"
-                data-sort-name="{{ leave.developer.user.name|default:leave.developer.user.email|lower }}"
+                data-sort-name="{{ leave.developer.display_name|lower }}"
                 data-sort-duration="{{ leave.duration_weeks }}"
                 class="js-leave-row{% if can_edit or is_developer %} cursor-pointer hover:bg-base-200{% endif %}"
-                {% if can_edit or is_developer %} data-pk="{{ leave.pk }}" data-developer="{{ leave.developer.user.name|default:leave.developer.user.email }}" {% endif %}>
-              {% if can_edit %}<td>{{ leave.developer.user.name|default:leave.developer.user.email }}</td>{% endif %}
+                {% if can_edit or is_developer %} data-pk="{{ leave.pk }}" data-developer="{{ leave.developer.display_name }}" {% endif %}>
+              {% if can_edit %}<td>{{ leave.developer.display_name }}</td>{% endif %}
               <td>{{ leave.start_date }}</td>
               <td>{{ leave.end_date }}</td>
               <td class="text-right">{{ leave.duration_weeks }}</td>

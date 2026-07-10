@@ -186,6 +186,11 @@ class Semester(models.Model):
         return str(self)
 
     @property
+    def sort_key(self):
+        """Chronological comparison key: (year, semester_type)."""
+        return (self.year, self.semester_type)
+
+    @property
     def start_date(self):
         if self.semester_type == SemesterType.A:
             return datetime.date(self.year, 1, 1)
@@ -323,23 +328,48 @@ class ProjectAllocation(models.Model):
         decimal_places=2,
         default=0,
     )
-    weeks_carryover = models.DecimalField(
-        _("weeks carried over"),
-        max_digits=6,
-        decimal_places=2,
-        default=0,
-    )
 
     class Meta:
         unique_together = [("project", "semester")]
         ordering = ["semester__year", "semester__semester_type"]
 
     def __str__(self):
-        return f"{self.project} - {self.semester} ({self.total_weeks} wks)"
+        return f"{self.project} - {self.semester} ({self.weeks_new} wks)"
 
-    @property
-    def total_weeks(self):
-        return self.weeks_new + self.weeks_carryover
+
+# ---------------------------------------------------------------------------
+# Project time entry — non-developer allocated time  (FR-07)
+# ---------------------------------------------------------------------------
+
+
+class ProjectTimeEntry(models.Model):
+    """Non-developer time allocated to a project; counts toward allocated effort.
+
+    Covers overheads, time waiting on the science team, or time that should
+    not carry over to a continuation project.
+    """
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="time_entries",
+    )
+    weeks = models.DecimalField(
+        _("weeks"),
+        max_digits=6,
+        decimal_places=2,
+        default=0,
+    )
+    comment = models.CharField(_("comment"), max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = _("Project time entry")
+        verbose_name_plural = _("Project time entries")
+
+    def __str__(self):
+        return f"{self.project} - {self.weeks} wks ({self.comment})"
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +449,11 @@ SemesterObserver.add_to_class(
 
 
 class UserProjectAccess(models.Model):
-    """Global per-user project/stream visibility restrictions.
+    """Global project/stream visibility restrictions for one person.
+
+    Owned by exactly one of ``user`` (registered) or ``developer_profile``
+    (pre-registration). A profile-keyed policy is transferred to the user when
+    that person registers (see ``signals.link_developer_profile_on_registration``).
 
     Absence of a row means unrestricted access.
     A row with both access sets empty and neither all_* flag set means no access.
@@ -428,6 +462,15 @@ class UserProjectAccess(models.Model):
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="project_access_policy",
+    )
+    developer_profile = models.OneToOneField(
+        "DeveloperProfile",
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name="project_access_policy",
     )
@@ -457,9 +500,18 @@ class UserProjectAccess(models.Model):
     class Meta:
         verbose_name = _("User Project Access")
         verbose_name_plural = _("User Project Access")
+        constraints = [
+            models.CheckConstraint(
+                name="userprojectaccess_exactly_one_owner",
+                condition=(
+                    models.Q(user__isnull=False, developer_profile__isnull=True)
+                    | models.Q(user__isnull=True, developer_profile__isnull=False)
+                ),
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.user} project access"
+        return f"{self.user or self.developer_profile} project access"
 
 
 SemesterObserver.add_to_class(

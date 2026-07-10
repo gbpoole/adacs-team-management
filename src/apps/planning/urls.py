@@ -26,6 +26,8 @@ from .views import ProjectDeleteView
 from .views import ProjectDownloadView
 from .views import ProjectMigrateView
 from .views import ProjectsView
+from .views import ProjectTimeEntryCreateView
+from .views import ProjectTimeEntryDeleteView
 from .views import ProjectUpdateView
 from .views import ScheduleView
 from .views import SemesterCreateView
@@ -79,6 +81,16 @@ urlpatterns = [
     path("projects/<int:pk>/edit/", ProjectUpdateView.as_view(), name="project_edit"),
     path(
         "projects/<int:pk>/delete/", ProjectDeleteView.as_view(), name="project_delete"
+    ),
+    path(
+        "projects/<int:pk>/time-entries/add/",
+        ProjectTimeEntryCreateView.as_view(),
+        name="project_time_entry_add",
+    ),
+    path(
+        "projects/time-entries/<int:pk>/delete/",
+        ProjectTimeEntryDeleteView.as_view(),
+        name="project_time_entry_delete",
     ),
     path("leave/", LeaveView.as_view(), name="leave"),
     path("leave/add/", LeaveCreateView.as_view(), name="leave_add"),

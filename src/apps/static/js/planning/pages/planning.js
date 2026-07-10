@@ -97,24 +97,9 @@
   var weekWidth = 64;
   var developerNames = cfg.developerNames || {};
 
-  function restoreScrollPosition() {
-    var container = document.getElementById("planning-scroll-container");
-    var top = sessionStorage.getItem("planningScrollTop");
-    var left = sessionStorage.getItem("planningScrollLeft");
-    if (container && top !== null) {
-      container.scrollTop = parseInt(top, 10);
-      container.scrollLeft = parseInt(left, 10) || 0;
-      sessionStorage.removeItem("planningScrollTop");
-      sessionStorage.removeItem("planningScrollLeft");
-    }
-  }
-
   function reloadPreservingScroll() {
-    var container = document.getElementById("planning-scroll-container");
-    if (container) {
-      sessionStorage.setItem("planningScrollTop", container.scrollTop);
-      sessionStorage.setItem("planningScrollLeft", container.scrollLeft);
-    }
+    // Scroll position is saved on pagehide and restored on load by the shared
+    // scroll_persistence.js (the scroll container has data-scroll-preserve).
     window.location.reload();
   }
 
@@ -806,7 +791,6 @@
 
   function init() {
     initFilterPersistence();
-    restoreScrollPosition();
     initMyRowsFocus();
 
     var closeCreateBtn = document.getElementById("close-phase-create-modal");

@@ -5,6 +5,7 @@ from .models import Leave
 from .models import Phase
 from .models import Project
 from .models import ProjectAllocation
+from .models import ProjectTimeEntry
 from .models import Semester
 from .models import SemesterDeveloper
 from .models import Stream
@@ -41,12 +42,17 @@ class ProjectAllocationInline(admin.TabularInline):
     extra = 1
 
 
+class ProjectTimeEntryInline(admin.TabularInline):
+    model = ProjectTimeEntry
+    extra = 0
+
+
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ["name", "semester", "colour"]
     list_filter = ["semester", "streams", "tags"]
     filter_horizontal = ["streams", "tags"]
-    inlines = [ProjectAllocationInline]
+    inlines = [ProjectAllocationInline, ProjectTimeEntryInline]
     search_fields = ["name"]
 
 

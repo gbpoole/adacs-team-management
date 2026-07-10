@@ -2,6 +2,8 @@ import datetime
 import json
 from collections import defaultdict
 
+from django.db.models import Value
+from django.db.models.functions import Coalesce
 from django.views.generic import TemplateView
 
 from apps.planning.models import DeveloperLane
@@ -34,10 +36,18 @@ class PlanningView(PMOrDeveloperMixin, TemplateView):
         tag_filter = self.request.GET.getlist("tags")
         stream_filter = self.request.GET.getlist("streams")
 
+        # Only people allocated as developers for this semester belong on the
+        # planning board — matches the Developers page roster. Science leads and
+        # other non-developers are excluded unless they also have an allocation.
         dev_qs = (
-            DeveloperProfile.objects.select_related("user")
+            DeveloperProfile.objects.filter(semester_records__semester=semester)
+            .select_related("user")
             .prefetch_related("tags", "leave_periods")
-            .order_by("user__name", "user__email")
+            .annotate(
+                sort_name=Coalesce("user__name", "name", Value("")),
+                sort_email=Coalesce("user__email", "email", Value("")),
+            )
+            .order_by("sort_name", "sort_email")
         )
         if tag_filter:
             dev_qs = dev_qs.filter(tags__name__in=tag_filter).distinct()

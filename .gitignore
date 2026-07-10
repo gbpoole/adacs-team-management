@@ -223,7 +223,7 @@ media/
 /db/
 
 # Test reports:
-src/junit-reports/
+**/junit-reports/
 
 # Compiled CSS (build artifact):
 src/apps/static/css/dist/

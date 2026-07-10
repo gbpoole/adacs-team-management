@@ -48,11 +48,16 @@ class PeopleView(RoleRequiredMixin, ListView):
         for policy in access_records:
             for proj in policy.project_access.all():
                 proj.display_name = proj.name
-        access_map = {policy.user_id: policy for policy in access_records}
+        by_user = {p.user_id: p for p in access_records if p.user_id}
+        by_profile = {
+            p.developer_profile_id: p for p in access_records if p.developer_profile_id
+        }
 
         for profile in ctx["people"]:
             profile.access_policy_record = (
-                access_map.get(profile.user_id) if profile.user_id else None
+                by_user.get(profile.user_id)
+                if profile.user_id
+                else by_profile.get(profile.pk)
             )
 
         all_projects = list(Project.objects.all())
@@ -86,31 +91,30 @@ class PersonUpdateView(RoleRequiredMixin, View):
         ]
         profile.tags.set(_get_or_create_tags(tag_names))
 
-        if profile.user_id:
-            project_pks = request.POST.getlist("project_access")
-            stream_names = [
-                n
-                for n in request.POST.getlist("stream_access")
-                if "||" not in n and "\t" not in n
-            ]
-            streams = _get_or_create_streams(stream_names)
-            all_projects = "all_project_access" in request.POST
-            all_streams = "all_stream_access" in request.POST
-            access = UserProjectAccess.objects.filter(user_id=profile.user_id).first()
-            if (
-                access is not None
-                or project_pks
-                or streams
-                or all_projects
-                or all_streams
-            ):
-                access, _ = UserProjectAccess.objects.get_or_create(
-                    user_id=profile.user_id
-                )
-                access.project_access.set(project_pks)
-                access.stream_access.set(streams)
-                access.all_project_access = all_projects
-                access.all_stream_access = all_streams
-                access.save(update_fields=["all_project_access", "all_stream_access"])
+        # Access can be set for registered (user-keyed) and unregistered
+        # (developer_profile-keyed) people alike; the latter transfers to the
+        # user's account when they register.
+        owner = (
+            {"user_id": profile.user_id}
+            if profile.user_id
+            else {"developer_profile_id": profile.pk}
+        )
+        project_pks = request.POST.getlist("project_access")
+        stream_names = [
+            n
+            for n in request.POST.getlist("stream_access")
+            if "||" not in n and "\t" not in n
+        ]
+        streams = _get_or_create_streams(stream_names)
+        all_projects = "all_project_access" in request.POST
+        all_streams = "all_stream_access" in request.POST
+        access = UserProjectAccess.objects.filter(**owner).first()
+        if access is not None or project_pks or streams or all_projects or all_streams:
+            access, _ = UserProjectAccess.objects.get_or_create(**owner)
+            access.project_access.set(project_pks)
+            access.stream_access.set(streams)
+            access.all_project_access = all_projects
+            access.all_stream_access = all_streams
+            access.save(update_fields=["all_project_access", "all_stream_access"])
 
         return redirect("planning:people")

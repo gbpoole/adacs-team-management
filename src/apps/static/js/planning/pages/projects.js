@@ -2,8 +2,9 @@
   var cfg = window.projectPageConfig || {};
   var labels = cfg.labels || {};
   var continuationData = cfg.continuationData || {};
+  var timeEntriesData = cfg.timeEntriesData || {};
   var canEdit = Boolean(cfg.canEdit);
-  var hasContinuationSemesters = Boolean(cfg.hasContinuationSemesters);
+  var hasMigrateSemesters = Boolean(cfg.hasMigrateSemesters);
 
   function label(key, fallback) {
     return labels[key] || fallback;
@@ -255,6 +256,9 @@
   // PK of the continuation_of project currently set on the project being edited.
   // Used to keep the currently-linked project in the dropdown even if already_linked.
   var currentEditContOfPk = null;
+  // PK of the project currently open in the edit modal (self-filtered from the
+  // continuation dropdown and used by the time-entries modal).
+  var currentEditProjectPk = null;
 
   function updateContProjects(semSelectId, projSelectId) {
     var semSel = document.getElementById(semSelectId);
@@ -268,6 +272,10 @@
     projSel.innerHTML = '<option value="">' + placeholder + "</option>";
     if (semPk && continuationData[semPk]) {
       continuationData[semPk].forEach(function (project) {
+        // A project cannot continue itself.
+        if (isEditModal && String(project.pk) === String(currentEditProjectPk)) {
+          return;
+        }
         // Filter out projects already linked to another continuation,
         // unless this is the edit modal and it's the currently-set target.
         if (project.already_linked) {
@@ -333,11 +341,25 @@
     var devLeadPk = row.dataset.devLeadPk || "";
     var sciLeadPk = row.dataset.scienceLeadPk || "";
     var contOfPk = row.dataset.continuationOfPk || "";
+    currentEditProjectPk = pk;
 
     document.getElementById("edit-project-id").value = pk;
     document.getElementById("edit-project-name-heading").textContent = row.dataset.name;
     document.getElementById("edit-project-name").value = row.dataset.name;
-    document.getElementById("edit-project-effort").value = row.dataset.effort;
+    document.getElementById("edit-project-effort").value = row.dataset.effortNew;
+
+    var carryoverNote = document.getElementById("edit-carryover-note");
+    if (carryoverNote) {
+      var carry = parseFloat(row.dataset.carryover || "0") || 0;
+      carryoverNote.textContent = carry === 0
+        ? ""
+        : label("carriedOver", "Carried over:") + " " + carry + " " + label("weeks", "wks");
+    }
+    var timeEntriesBtn = document.getElementById("open-time-entries");
+    if (timeEntriesBtn) {
+      var entryCount = row.dataset.timeEntryCount || "0";
+      timeEntriesBtn.textContent = label("nonDevTime", "Non-dev time") + " (" + entryCount + ")";
+    }
 
     document
       .querySelectorAll('#edit-proj-stream-buttons input[type="checkbox"]')
@@ -354,6 +376,14 @@
 
     document.getElementById("edit-dev-lead").value = devLeadPk;
     document.getElementById("edit-science-lead").value = sciLeadPk;
+    // Clear and collapse the inline "add new person" fields so stale values
+    // don't carry across opens.
+    ["new_science_lead_name", "new_science_lead_email"].forEach(function (n) {
+      var el = document.querySelector('#project-edit-form [name="' + n + '"]');
+      if (el) { el.value = ""; }
+    });
+    var editSciDetails = document.getElementById("edit-new-science-lead");
+    if (editSciDetails) { editSciDetails.open = false; }
 
     var editContSem = document.getElementById("edit-cont-semester");
     var editContProj = document.getElementById("edit-cont-project");
@@ -406,6 +436,68 @@
       return;
     }
     document.getElementById("project-edit-modal").close();
+    deleteForm.submit();
+  };
+
+  function renderTimeEntriesList(pk) {
+    var container = document.getElementById("time-entries-list");
+    if (!container) {
+      return;
+    }
+    var entries = timeEntriesData[String(pk)] || [];
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="p-3 text-sm text-neutral-400">'
+        + label("noTimeEntries", "No entries yet.")
+        + "</div>";
+      return;
+    }
+    container.innerHTML = entries
+      .map(function (entry) {
+        return '<div class="flex items-center gap-2 px-3 py-2">'
+          + '<span class="text-sm font-medium w-16 text-right shrink-0">' + entry.weeks + " " + label("weeks", "wks") + "</span>"
+          + '<span class="flex-1 text-sm text-neutral-600">' + escapeHtml(entry.comment) + "</span>"
+          + '<button type="button" class="btn btn-ghost btn-xs text-error js-delete-time-entry" data-entry-pk="' + entry.pk + '">'
+          + escapeHtml(label("deleteLabel", "Delete"))
+          + "</button>"
+          + "</div>";
+      })
+      .join("");
+    container.querySelectorAll(".js-delete-time-entry").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        window.deleteTimeEntry(btn.dataset.entryPk);
+      });
+    });
+  }
+
+  window.openTimeEntriesModal = function () {
+    var pk = currentEditProjectPk;
+    var modal = document.getElementById("time-entries-modal");
+    if (!pk || !modal) {
+      return;
+    }
+    var heading = document.getElementById("time-entries-heading");
+    var nameInput = document.getElementById("edit-project-name");
+    if (heading && nameInput) {
+      heading.textContent = label("nonDevTime", "Non-dev time") + " — " + nameInput.value;
+    }
+    var addForm = document.getElementById("time-entry-add-form");
+    if (addForm) {
+      addForm.action = (cfg.urls.timeEntryAdd || "").replace("/0/", "/" + pk + "/");
+      addForm.reset();
+    }
+    renderTimeEntriesList(pk);
+    modal.showModal();
+  };
+
+  window.deleteTimeEntry = function (entryPk) {
+    if (!entryPk || !confirm(label("timeEntryDeleteConfirm", "Delete this time entry?"))) {
+      return;
+    }
+    var deleteForm = document.getElementById("time-entry-delete-form");
+    if (!deleteForm) {
+      return;
+    }
+    deleteForm.action = (cfg.urls.timeEntryDelete || "").replace("/0/", "/" + entryPk + "/");
     deleteForm.submit();
   };
 
@@ -470,23 +562,22 @@
           ? (state.customValue !== undefined
             ? state.customValue
             : project.weeks_resourced)
-          : (type === "unallocated"
-            ? project.weeks_unallocated
-            : project.weeks_resourced);
+          : project.weeks_resourced;
         var checkedAttr = checked ? " checked" : "";
         var readonlyAttr = isCustom ? "" : " readonly";
         var opacityClass = isCustom ? "" : " opacity-50 cursor-not-allowed";
+        var carry = project.weeks_unallocated || 0;
+        var carryHint = (carry >= 0 ? "+" : "") + carry + " " + label("weeks", "wks")
+          + " " + label("carryover", "carryover");
         return '<label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-base-200 migrate-proj-row"'
           + ' data-pk="' + project.pk + '"'
-          + ' data-resourced="' + project.weeks_resourced + '"'
-          + ' data-unallocated="' + project.weeks_unallocated + '">'
+          + ' data-resourced="' + project.weeks_resourced + '">'
           + '<input type="checkbox" name="project_pks" value="' + project.pk + '" class="checkbox checkbox-sm migrate-proj-cb"' + checkedAttr + ">"
-          + '<span class="flex-1 text-sm">' + escapeHtml(project.name) + "</span>"
+          + '<span class="flex-1 text-sm">' + escapeHtml(project.name)
+          + ' <span class="text-xs ' + (carry < 0 ? "text-error" : "text-neutral-400") + '">' + carryHint + "</span></span>"
           + '<select class="select select-bordered select-xs migrate-type-sel" onchange="applyProjEffortType(this)" onclick="event.stopPropagation()">'
           + '<option value="resourced"' + (type === "resourced" ? " selected" : "") + ">"
           + label("resourced", "Resourced") + " (" + project.weeks_resourced + ")</option>"
-          + '<option value="unallocated"' + (type === "unallocated" ? " selected" : "") + ">"
-          + label("unallocated", "Unallocated") + " (" + project.weeks_unallocated + ")</option>"
           + '<option value="custom"' + (type === "custom" ? " selected" : "") + ">"
           + label("custom", "Custom") + "</option>"
           + "</select>"
@@ -585,10 +676,7 @@
     }
     var input = row.querySelector(".migrate-effort-input");
     var isCustom = selectEl.value === "custom";
-    var value = selectEl.value === "unallocated"
-      ? row.dataset.unallocated
-      : row.dataset.resourced;
-    setEffortInput(input, value, isCustom);
+    setEffortInput(input, row.dataset.resourced, isCustom);
   };
 
   window.setAllMigrateType = function () {
@@ -629,7 +717,7 @@
   };
 
   window.openMigrateProjects = function () {
-    if (!hasContinuationSemesters) {
+    if (!hasMigrateSemesters) {
       return;
     }
     window.updateMigrateProjList();
@@ -672,9 +760,15 @@
         if (lbl) { lbl.classList.remove("btn-primary"); lbl.classList.add("btn-outline"); }
       });
     });
-    // Reset science lead select
+    // Reset science lead select and the inline "add new person" fields
     var sciLeadSel = document.querySelector('#add-project-form select[name="science_lead"]');
     if (sciLeadSel) { sciLeadSel.value = ""; }
+    ["new_science_lead_name", "new_science_lead_email"].forEach(function (n) {
+      var el = document.querySelector('#add-project-form [name="' + n + '"]');
+      if (el) { el.value = ""; }
+    });
+    var addSciDetails = document.querySelector("#add-project-form details");
+    if (addSciDetails) { addSciDetails.open = false; }
     // Reset continuation selects
     var contSem = document.getElementById("add-cont-semester");
     if (contSem) { contSem.value = ""; }
@@ -818,6 +912,25 @@
       closeEditModalBtn.dataset.boundClick = "true";
       closeEditModalBtn.addEventListener("click", function () {
         var modal = document.getElementById("project-edit-modal");
+        if (modal) {
+          modal.close();
+        }
+      });
+    }
+
+    var openTimeEntriesBtn = document.getElementById("open-time-entries");
+    if (openTimeEntriesBtn && !openTimeEntriesBtn.dataset.boundClick) {
+      openTimeEntriesBtn.dataset.boundClick = "true";
+      openTimeEntriesBtn.addEventListener("click", function () {
+        window.openTimeEntriesModal();
+      });
+    }
+
+    var closeTimeEntriesBtn = document.getElementById("close-time-entries-modal");
+    if (closeTimeEntriesBtn && !closeTimeEntriesBtn.dataset.boundClick) {
+      closeTimeEntriesBtn.dataset.boundClick = "true";
+      closeTimeEntriesBtn.addEventListener("click", function () {
+        var modal = document.getElementById("time-entries-modal");
         if (modal) {
           modal.close();
         }

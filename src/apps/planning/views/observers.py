@@ -27,8 +27,10 @@ class ObserversView(RoleRequiredMixin, ListView):
             semester=semester,
             effort_available__gt=0,
         ).values_list("developer__user_id", flat=True)
+        # Only user-keyed policies are observers; profile-keyed (pre-registration)
+        # access is managed on the People page.
         return (
-            UserProjectAccess.objects.all()
+            UserProjectAccess.objects.filter(user__isnull=False)
             .exclude(user_id__in=developer_user_ids)
             .select_related("user")
             .prefetch_related("project_access", "stream_access")
@@ -44,7 +46,11 @@ class ObserversView(RoleRequiredMixin, ListView):
             p.display_name = p.name
         ctx["all_projects"] = all_projects
         ctx["all_streams"] = list(Stream.objects.order_by("name"))
-        observer_pks = set(UserProjectAccess.objects.values_list("user_id", flat=True))
+        observer_pks = set(
+            UserProjectAccess.objects.filter(user__isnull=False).values_list(
+                "user_id", flat=True
+            ),
+        )
         developer_pks = set(
             SemesterDeveloper.objects.filter(
                 semester=semester,
