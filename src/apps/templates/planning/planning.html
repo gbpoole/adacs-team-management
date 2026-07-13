@@ -302,9 +302,11 @@
                   </td>
                 </tr>
               {% empty %}
-                {# No phase lanes: a name + leave display row, plus a clean
-                   phantom lane row (edit mode) so phases can still be added even
-                   when leave covers the whole timeline. #}
+                {% comment %}
+                No phase lanes: a name + leave display row, plus a clean phantom
+                lane row (edit mode) so phases can still be added even when leave
+                covers the whole timeline.
+                {% endcomment %}
                 <tr class="border-b-2 border-base-300"
                     {% if my_developer_pk == row.developer.pk %}data-my-row="true"{% endif %}>
                   <td class="sticky left-0 bg-base-100 z-10 border-r border-b-2 border-base-300 px-2 py-1 font-medium text-sm whitespace-nowrap align-top"
