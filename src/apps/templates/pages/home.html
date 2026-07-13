@@ -78,7 +78,7 @@
                           data-end="{{ leave.end_date|date:'Y-m-d' }}"
                           onmouseenter="showLeaveCalendar(this, event)"
                           onmouseleave="hideLeaveCalendar()">
-                        <td class="font-medium">{{ leave.developer.user.name|default:leave.developer.user.email }}</td>
+                        <td class="font-medium">{{ leave.developer.display_name }}</td>
                         <td>{{ leave.start_date }}</td>
                         <td>{{ leave.end_date }}</td>
                       </tr>

@@ -6,7 +6,11 @@
   ADACS - Sign up
 {% endblock title %}
 {% block body %}
-  <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+  {# hx-boost="false": auth forms must submit as normal POSTs. A boosted
+     submit sends a stale CSRF token and Django rejects it (matches the
+     hx-boost="false" convention used on every other form in the app). #}
+  <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8"
+       hx-boost="false">
     <div class="sm:mx-auto sm:w-full sm:max-w-sm">
       <img class="mx-auto h-10 w-auto"
            src="{% static 'images/adacs_logo.svg' %}"
