@@ -69,6 +69,21 @@ class PlanningTestCase(TestCase):
             )
 
 
+class AuthFormBoostTests(TestCase):
+    """The login/signup forms must opt out of hx-boost. A boosted submit sends a
+    stale CSRF token and Django rejects it (403), which HTMX swallows silently."""
+
+    def test_login_page_disables_hx_boost(self):
+        response = self.client.get(reverse("account_login"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'hx-boost="false"')
+
+    def test_signup_page_disables_hx_boost(self):
+        response = self.client.get(reverse("account_signup"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'hx-boost="false"')
+
+
 class HomeViewTests(TestCase):
     def test_redirects_anonymous(self):
         response = self.client.get(reverse("home"))
