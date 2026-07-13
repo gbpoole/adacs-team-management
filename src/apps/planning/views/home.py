@@ -73,8 +73,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 )
                 for ph in my_phases:
                     ph.display_name = ph.project.name
-                    ph.is_dev_lead = ph.project.dev_lead_id == user.pk
-                    ph.is_science_lead = ph.project.science_lead_id == user.pk
+                    ph.is_dev_lead = ph.project.dev_lead_id == profile.pk
+                    ph.is_science_lead = ph.project.science_lead_id == profile.pk
                 ctx["my_effort_allocated"] = round(
                     sum(ph.effort_weeks() for ph in my_phases),
                     1,
