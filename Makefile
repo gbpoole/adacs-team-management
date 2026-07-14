@@ -1,4 +1,4 @@
-.PHONY: help bootstrap configure dns deploy update backup logs status shell createsuperuser check-users set-role
+.PHONY: help bootstrap configure dns deploy update backup logs status shell createsuperuser check-users set-role verify-user check-mail-queue
 
 SCRIPTS := scripts
 
@@ -7,8 +7,10 @@ SCRIPTS := scripts
 ZONE ?=
 IP   ?=
 
-# check-users target takes an optional EMAIL to inspect a single account:
+# check-users takes an optional EMAIL to inspect a single account; verify-user
+# requires EMAIL to mark that account's email verified:
 #   make check-users EMAIL=someone@example.com
+#   make verify-user EMAIL=someone@example.com
 EMAIL ?=
 
 # set-role target requires EMAIL and ROLE:
@@ -49,6 +51,8 @@ help:
 	@echo "  make createsuperuser  Create a new admin account (bypasses email verification)"
 	@echo "  make check-users      List users + email-verification status (EMAIL=<addr> for one)"
 	@echo "  make set-role         Set a user's role: EMAIL=<addr> ROLE=<pm|user>"
+	@echo "  make verify-user      Manually verify a user's email (bypass link): EMAIL=<addr>"
+	@echo "  make check-mail-queue Show outbound mail queue depth + recent send failures"
 	@echo "  make backup           Run a one-off database backup (sudo)"
 	@echo "  make logs             Follow all service logs"
 	@echo "  make status           Show service health/status"
@@ -101,3 +105,13 @@ set-role:
 		exit 2; \
 	fi
 	bash $(SCRIPTS)/set_role.sh $(EMAIL) $(ROLE)
+
+verify-user:
+	@if [ -z "$(EMAIL)" ]; then \
+		echo "Usage: make verify-user EMAIL=<addr>"; \
+		exit 2; \
+	fi
+	bash $(SCRIPTS)/verify_user.sh $(EMAIL)
+
+check-mail-queue:
+	bash $(SCRIPTS)/check_mail_queue.sh

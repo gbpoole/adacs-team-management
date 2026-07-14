@@ -76,8 +76,11 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -x cron > /dev/null"]
+      # Unhealthy if the worker has not completed a successful send_queued_mail run
+      # recently (heartbeat missing or older than 3 minutes = 3 missed cycles). This
+      # surfaces a stuck mail queue in `docker compose ps` instead of failing silently.
+      test: ["CMD-SHELL", "test -f /tmp/mail-worker.heartbeat && [ $(( $(date +%s) - $(cat /tmp/mail-worker.heartbeat) )) -lt 180 ]"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 90s
