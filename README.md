@@ -55,7 +55,7 @@ All services are configured with `restart: unless-stopped`, so they recover auto
 ### 3. Create a superuser
 
 ```bash
-make createsuperuser
+make create-superuser
 ```
 
 This bypasses email verification, so the account is usable immediately. All superusers are automatically given the PM role, giving full access to all planning features.

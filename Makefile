@@ -1,4 +1,4 @@
-.PHONY: help bootstrap configure dns deploy update backup logs status shell createsuperuser check-users set-role verify-user check-mail-queue
+.PHONY: help bootstrap configure dns deploy update backup logs status shell create-superuser check-users set-role verify-user check-mail-queue
 
 SCRIPTS := scripts
 
@@ -44,19 +44,27 @@ help:
 	@echo "     Wait a few minutes for DNS to propagate, then verify: host <DOMAIN_NAME>"
 	@echo "  8. make deploy        Build images, start services, configure Nginx & TLS (sudo)"
 	@echo "     Visit https://<DOMAIN_NAME> to confirm the app is live."
-	@echo "  9. make createsuperuser   Create the initial admin account (bypasses email verification)"
+	@echo "  9. make create-superuser  Create the initial admin account (bypasses email verification)"
 	@echo ""
 	@echo "ONGOING OPERATIONS"
-	@echo "  make update           Pull latest code and rebuild/restart changed services"
-	@echo "  make createsuperuser  Create a new admin account (bypasses email verification)"
-	@echo "  make check-users      List users + email-verification status (EMAIL=<addr> for one)"
-	@echo "  make set-role         Set a user's role: EMAIL=<addr> ROLE=<pm|user>"
-	@echo "  make verify-user      Manually verify a user's email (bypass link): EMAIL=<addr>"
-	@echo "  make check-mail-queue Show outbound mail queue depth + recent send failures"
-	@echo "  make backup           Run a one-off database backup (sudo)"
-	@echo "  make logs             Follow all service logs"
-	@echo "  make status           Show service health/status"
-	@echo "  make shell            Open a bash shell inside the Django container"
+	@echo ""
+	@echo "  Deployment & backups"
+	@echo "    make update            Pull latest code and rebuild/restart changed services"
+	@echo "    make backup            Run a one-off database backup (sudo)"
+	@echo ""
+	@echo "  User & access management"
+	@echo "    make create-superuser  Create a new admin account (bypasses email verification)"
+	@echo "    make check-users       List users + email-verification status (EMAIL=<addr> for one)"
+	@echo "    make verify-user       Manually verify a user's email (bypass link): EMAIL=<addr>"
+	@echo "    make set-role          Set a user's role: EMAIL=<addr> ROLE=<pm|user>"
+	@echo ""
+	@echo "  Email delivery"
+	@echo "    make check-mail-queue  Show outbound mail queue depth + recent send failures"
+	@echo ""
+	@echo "  Diagnostics & service access"
+	@echo "    make status            Show service health/status"
+	@echo "    make logs              Follow all service logs"
+	@echo "    make shell             Open a bash shell inside the Django container"
 	@echo ""
 	@echo "See ~/DEPLOYMENT.md for full documentation including restore procedures,"
 	@echo "offsite backups, and optional GitHub Actions CD."
@@ -93,7 +101,7 @@ status:
 shell:
 	docker compose exec django bash
 
-createsuperuser:
+create-superuser:
 	docker compose exec django poetry run python manage.py createsuperuser
 
 check-users:
