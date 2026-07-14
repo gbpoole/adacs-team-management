@@ -1,4 +1,4 @@
-.PHONY: help bootstrap configure dns deploy update backup logs status shell createsuperuser
+.PHONY: help bootstrap configure dns deploy update backup logs status shell createsuperuser check-users set-role
 
 SCRIPTS := scripts
 
@@ -6,6 +6,14 @@ SCRIPTS := scripts
 #   make dns ZONE=adacs-gpoole.cloud.edu.au. IP=203.0.113.42
 ZONE ?=
 IP   ?=
+
+# check-users target takes an optional EMAIL to inspect a single account:
+#   make check-users EMAIL=someone@example.com
+EMAIL ?=
+
+# set-role target requires EMAIL and ROLE:
+#   make set-role EMAIL=someone@example.com ROLE=pm
+ROLE ?=
 
 help:
 	@echo ""
@@ -39,6 +47,8 @@ help:
 	@echo "ONGOING OPERATIONS"
 	@echo "  make update           Pull latest code and rebuild/restart changed services"
 	@echo "  make createsuperuser  Create a new admin account (bypasses email verification)"
+	@echo "  make check-users      List users + email-verification status (EMAIL=<addr> for one)"
+	@echo "  make set-role         Set a user's role: EMAIL=<addr> ROLE=<pm|user>"
 	@echo "  make backup           Run a one-off database backup (sudo)"
 	@echo "  make logs             Follow all service logs"
 	@echo "  make status           Show service health/status"
@@ -81,3 +91,13 @@ shell:
 
 createsuperuser:
 	docker compose exec django poetry run python manage.py createsuperuser
+
+check-users:
+	bash $(SCRIPTS)/check_users.sh $(EMAIL)
+
+set-role:
+	@if [ -z "$(EMAIL)" ] || [ -z "$(ROLE)" ]; then \
+		echo "Usage: make set-role EMAIL=<addr> ROLE=<pm|user>"; \
+		exit 2; \
+	fi
+	bash $(SCRIPTS)/set_role.sh $(EMAIL) $(ROLE)
