@@ -58,6 +58,7 @@ if [[ "$EMAIL_HOST" == "mailpit" ]]; then
     EMAIL_HOST_USER=""
     EMAIL_HOST_PASSWORD=""
     EMAIL_USE_TLS="False"
+    EMAIL_USE_SSL="False"
     warn "Using Mailpit — emails will be captured locally, not delivered to recipients."
 else
     prompt "SMTP port (commonly 587 for STARTTLS, 465 for SSL):"
@@ -75,7 +76,15 @@ else
         EMAIL_HOST_PASSWORD=""
     fi
 
-    EMAIL_USE_TLS="True"
+    # Port 465 uses implicit TLS (SSL); everything else (e.g. 587) uses STARTTLS.
+    # These are mutually exclusive — Django rejects both being enabled at once.
+    if [[ "$EMAIL_PORT" == "465" ]]; then
+        EMAIL_USE_TLS="False"
+        EMAIL_USE_SSL="True"
+    else
+        EMAIL_USE_TLS="True"
+        EMAIL_USE_SSL="False"
+    fi
 fi
 
 echo
@@ -154,6 +163,7 @@ if [[ "$EMAIL_HOST" != "mailpit" ]]; then
 EMAIL_HOST_USER=${EMAIL_HOST_USER}
 EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
 EMAIL_USE_TLS=${EMAIL_USE_TLS}
+EMAIL_USE_SSL=${EMAIL_USE_SSL}
 EOF
 fi
 

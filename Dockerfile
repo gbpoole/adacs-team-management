@@ -67,21 +67,16 @@ CMD /app/src/docker-entrypoint.sh
 
 FROM runner AS cron
 
-# Install cron in the container
-RUN apt-get update && apt-get install --no-install-recommends -y cron procps
-
 WORKDIR /app/src
 
-# Set the cron environment
-RUN echo "PYTHONBUFFERED=1" >> /etc/cron.d/crontab
-RUN echo "DJANGO_SETTINGS_MODULE=config.settings.prod" >> /etc/cron.d/crontab
-RUN echo "PATH=${POETRY_HOME}/bin:\${PATH}" >> /etc/cron.d/crontab
-RUN echo "* * * * * cd /app/src; poetry run python manage.py send_queued_mail > /proc/1/fd/1 2>/proc/1/fd/2" >> /etc/cron.d/crontab
-RUN echo "0 1 * * * cd /app/src; poetry run python manage.py cleanup_mail --days=30 --delete-attachments > /proc/1/fd/1 2>/proc/1/fd/2" >> /etc/cron.d/crontab
+# Run the mail worker as PID 1 (not system cron): cron scrubs the environment, so
+# a cron job cannot see the secrets injected via docker-compose env_file and Django's
+# prod settings fail to load — the historical cause of verification emails piling up
+# unsent in the queue. Running as a child of PID 1 inherits the full environment.
+COPY scripts/mail-worker.sh /usr/local/bin/mail-worker.sh
+RUN chmod +x /usr/local/bin/mail-worker.sh
 
-RUN chmod 0644 /etc/cron.d/crontab && /usr/bin/crontab /etc/cron.d/crontab
-
-CMD ["cron", "-f"]
+CMD ["/usr/local/bin/mail-worker.sh"]
 
 
 

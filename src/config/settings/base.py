@@ -217,6 +217,15 @@ POST_OFFICE = {
 EMAIL_HOST = config("EMAIL_HOST", default="localhost")
 EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
 
+# SMTP authentication and transport security. These are written to .env by
+# scripts/configure.sh when a real SMTP server is configured; without wiring them
+# here, post_office's SMTP backend would send unauthenticated/plaintext and a real
+# provider would reject the mail (leaving it queued and undelivered).
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
 
